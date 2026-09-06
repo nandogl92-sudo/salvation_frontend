@@ -86,3 +86,20 @@ export type MatchRecord = {
 
 /** Estado de la búsqueda desde el punto de vista de la pestaña que busca. */
 export type QueueStatus = 'idle' | 'searching' | 'matched' | 'timeout' | 'cancelled';
+
+// ==========================================
+// Historial de partidas (mock) — ver src/history/historyStorage.ts
+// ==========================================
+
+/** Registro de una partida terminada. Se persiste en localStorage por usuario. */
+export type MatchHistoryRecord = {
+  id: string;
+  userId: string;
+  gameId: string;
+  gameName: string;
+  betAmount: number;
+  result: 'win' | 'loss' | 'refund';
+  /** Ganancia neta (positivo) o pérdida neta (negativo) en USD. 0 si es reembolso. */
+  profit: number;
+  playedAt: number;
+};

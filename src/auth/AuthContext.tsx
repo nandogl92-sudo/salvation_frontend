@@ -7,7 +7,7 @@
 // no cambia — solo cambia authService.
 // ==========================================
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import * as authService from './authService';
+import * as authService from '../api/authApi';
 import type { AuthResult, LoginInput, RegisterInput, UserProfile } from '../types';
 
 type AuthContextValue = {
