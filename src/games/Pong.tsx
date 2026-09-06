@@ -1,6 +1,15 @@
 import { useEffect, useRef } from 'react';
 
-export default function Pong({ onGameEnd }: { onGameEnd: (winner: 'p1' | 'p2') => void }) {
+/** Velocidad máxima del bot (píxeles por frame). Ajustar para cambiar dificultad. */
+const BOT_SPEED = 4;
+
+export default function Pong({
+  onGameEnd,
+  botEnabled = false,
+}: {
+  onGameEnd: (winner: 'p1' | 'p2') => void;
+  botEnabled?: boolean;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -10,12 +19,12 @@ export default function Pong({ onGameEnd }: { onGameEnd: (winner: 'p1' | 'p2') =
     if (!ctx) return;
 
     let animationFrameId: number;
-    
+
     const state = {
       p1: { y: 150, score: 0 },
       p2: { y: 150, score: 0 },
       ball: { x: 400, y: 200, vx: 5, vy: 5 },
-      keys: {} as Record<string, boolean>
+      keys: {} as Record<string, boolean>,
     };
 
     const handleKeyDown = (e: KeyboardEvent) => { state.keys[e.key] = true; };
@@ -24,34 +33,55 @@ export default function Pong({ onGameEnd }: { onGameEnd: (winner: 'p1' | 'p2') =
     window.addEventListener('keyup', handleKeyUp);
 
     const resetBall = () => {
-      state.ball = { x: 400, y: 200, vx: (Math.random() > 0.5 ? 5 : -5), vy: (Math.random() > 0.5 ? 5 : -5) };
+      state.ball = {
+        x: 400,
+        y: 200,
+        vx: Math.random() > 0.5 ? 5 : -5,
+        vy: Math.random() > 0.5 ? 5 : -5,
+      };
     };
 
     const update = () => {
-      // Move P1
+      // — P1 (jugador humano: WASD) —
       if (state.keys['w'] || state.keys['W']) state.p1.y = Math.max(0, state.p1.y - 7);
       if (state.keys['s'] || state.keys['S']) state.p1.y = Math.min(300, state.p1.y + 7);
-      // Move P2
-      if (state.keys['ArrowUp']) state.p2.y = Math.max(0, state.p2.y - 7);
-      if (state.keys['ArrowDown']) state.p2.y = Math.min(300, state.p2.y + 7);
 
-      // Ball physics
+      // — P2 (bot o segundo jugador) —
+      if (botEnabled) {
+        // El bot mueve la pala hacia el centro de la pelota con velocidad limitada.
+        const paddleCenter = state.p2.y + 50;
+        if (state.ball.y > paddleCenter) state.p2.y = Math.min(300, state.p2.y + BOT_SPEED);
+        else if (state.ball.y < paddleCenter) state.p2.y = Math.max(0, state.p2.y - BOT_SPEED);
+      } else {
+        if (state.keys['ArrowUp']) state.p2.y = Math.max(0, state.p2.y - 7);
+        if (state.keys['ArrowDown']) state.p2.y = Math.min(300, state.p2.y + 7);
+      }
+
+      // — Física de la pelota —
       state.ball.x += state.ball.vx;
       state.ball.y += state.ball.vy;
 
       if (state.ball.y <= 0 || state.ball.y >= 390) state.ball.vy *= -1;
 
-      // Paddle collision
-      if (state.ball.x <= 30 && state.ball.y >= state.p1.y && state.ball.y <= state.p1.y + 100) {
+      // Colisión con paletas
+      if (
+        state.ball.x <= 30 &&
+        state.ball.y >= state.p1.y &&
+        state.ball.y <= state.p1.y + 100
+      ) {
         state.ball.vx *= -1.1;
         state.ball.x = 30;
       }
-      if (state.ball.x >= 760 && state.ball.y >= state.p2.y && state.ball.y <= state.p2.y + 100) {
+      if (
+        state.ball.x >= 760 &&
+        state.ball.y >= state.p2.y &&
+        state.ball.y <= state.p2.y + 100
+      ) {
         state.ball.vx *= -1.1;
         state.ball.x = 760;
       }
 
-      // Scoring
+      // Puntuación
       if (state.ball.x < 0) { state.p2.score++; resetBall(); }
       if (state.ball.x > 800) { state.p1.score++; resetBall(); }
 
@@ -65,28 +95,37 @@ export default function Pong({ onGameEnd }: { onGameEnd: (winner: 'p1' | 'p2') =
     const draw = () => {
       ctx.fillStyle = '#1e1e1e';
       ctx.fillRect(0, 0, 800, 400);
-      
-      ctx.fillStyle = '#FF5A5F'; // P1 (Local)
+
+      ctx.fillStyle = '#FF5A5F';
       ctx.fillRect(10, state.p1.y, 20, 100);
-      
-      ctx.fillStyle = '#00A699'; // P2 (Rival)
+
+      ctx.fillStyle = '#00A699';
       ctx.fillRect(770, state.p2.y, 20, 100);
-      
+
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(state.ball.x, state.ball.y, 10, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.font = '30px sans-serif';
+      ctx.fillStyle = '#ffffff';
       ctx.fillText(state.p1.score.toString(), 200, 50);
       ctx.fillText(state.p2.score.toString(), 600, 50);
-      
+
       ctx.setLineDash([5, 15]);
       ctx.beginPath();
       ctx.moveTo(400, 0);
       ctx.lineTo(400, 400);
       ctx.strokeStyle = '#ffffff55';
       ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Etiqueta bot
+      if (botEnabled) {
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#ffffff66';
+        ctx.fillText('BOT', 774, 395);
+      }
     };
 
     animationFrameId = requestAnimationFrame(update);
@@ -96,7 +135,7 @@ export default function Pong({ onGameEnd }: { onGameEnd: (winner: 'p1' | 'p2') =
       window.removeEventListener('keyup', handleKeyUp);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [onGameEnd]);
+  }, [onGameEnd, botEnabled]);
 
   return <canvas ref={canvasRef} width={800} height={400} className="w-full max-w-full rounded-xl" />;
 }

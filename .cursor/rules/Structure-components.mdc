@@ -1,0 +1,48 @@
+---
+description: Limita refactor/to-do a 5 pasos y prohíbe npm run dev/build
+alwaysApply: true
+---
+
+# Structure-components
+
+## Refactorizaciones y to-do lists
+
+Cuando se pida una refactorización o una lista de pasos:
+
+- Entrega **solo los primeros 5 pasos**.
+- No adelantes el resto del plan, fases posteriores, ni un "paso 6+".
+- Si el trabajo requiere más de 5 pasos, detente en el 5 y espera confirmación.
+
+```markdown
+<!-- ❌ BAD -->
+1. Extraer el hook
+2. Mover tipos
+3. Dividir el componente
+4. Actualizar imports
+5. Añadir tests
+6. Documentar
+7. Revisar rutas
+
+<!-- ✅ GOOD -->
+1. Extraer el hook
+2. Mover tipos
+3. Dividir el componente
+4. Actualizar imports
+5. Añadir tests
+```
+
+## Comandos npm prohibidos
+
+Nunca ejecutes estos comandos (ni equivalentes: `npm run start`, scripts de preview, flags, ni vía `npx`):
+
+- `npm run dev`
+- `npm run build`
+
+```bash
+# ❌ BAD
+npm run dev
+npm run build
+
+# ✅ GOOD
+# No arrancar el servidor ni compilar. Pedir al usuario que lo haga si hace falta.
+```
