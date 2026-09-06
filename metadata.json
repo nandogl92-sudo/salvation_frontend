@@ -1,0 +1,6 @@
+{
+  "name": "BetPlay",
+  "description": "Plataforma de juegos 1v1 con apuestas en tiempo real",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
