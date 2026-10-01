@@ -10,6 +10,8 @@ export type UserProfile = {
   username: string;
   email: string;
   balance: number;
+  /** Mes ya cobrado, con la forma 2026-10. Ausente o null si este mes no está pagado. */
+  subscriptionMonth?: string | null;
 };
 
 /** Catálogo de juegos disponibles en el home. */
@@ -99,7 +101,7 @@ export type MatchHistoryRecord = {
   gameName: string;
   betAmount: number;
   result: 'win' | 'loss' | 'refund';
-  /** Ganancia neta (positivo) o pérdida neta (negativo) en USD. 0 si es reembolso. */
+  /** Ganancia neta (positivo) o pérdida neta (negativo) en puntos. 0 si es reembolso. */
   profit: number;
   playedAt: number;
 };

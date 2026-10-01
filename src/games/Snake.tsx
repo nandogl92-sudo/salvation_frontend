@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { drawFood, drawScene, drawSnake } from './look';
 
 const GRID_W = 40;
 const GRID_H = 20;
@@ -133,17 +134,11 @@ export default function Snake({
     };
 
     const draw = () => {
-      ctx.fillStyle = '#1e1e1e';
-      ctx.fillRect(0, 0, 800, 400);
-
-      ctx.fillStyle = '#f5b041';
-      ctx.fillRect(state.food.x * gridSize, state.food.y * gridSize, gridSize, gridSize);
+      drawScene(ctx, 'garden');
+      drawFood(ctx, state.food.x, state.food.y, gridSize);
 
       [state.p1, state.p2].forEach((p) => {
-        ctx.fillStyle = p.color;
-        p.body.forEach((segment) => {
-          ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 1, gridSize - 1);
-        });
+        drawSnake(ctx, p.body, p.dx, p.dy, p.color, gridSize);
       });
 
       if (botEnabled) {

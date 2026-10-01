@@ -1,0 +1,8 @@
+{
+  "pageUrl": "http://localhost:4000",
+  "note": "La app es una SPA de Vite. No hay rutas Next ni enlaces internos a[href^='/' ]. Las vistas cambian en la misma página.",
+  "links": [],
+  "views": ["home", "lobby", "playing", "profile", "/restablecer"],
+  "sitemap": { "path": "/sitemap.xml", "status": 200, "contentType": "text/html" },
+  "robots": { "path": "/robots.txt", "status": 200, "contentType": "text/html" }
+}

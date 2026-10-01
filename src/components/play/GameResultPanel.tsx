@@ -1,4 +1,5 @@
 import { AlertCircle, Home, RefreshCcw, Trophy } from 'lucide-react'
+import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
 
 export type GameResult = {
@@ -35,8 +36,24 @@ const GameResultPanel = ({
           </div>
           <h2 className="text-2xl font-bold text-text-100">Partida cancelada</h2>
           <p className="text-text-200 text-center max-w-sm">
-            Se produjo un error de plataforma. Tu apuesta de{' '}
-            <span className="font-bold text-text-100">${betAmount.toFixed(2)}</span> ha sido reembolsada.
+            Se produjo un error de plataforma. Tus{' '}
+            <span className="font-bold text-text-100">{formatPoints(betAmount)} puntos</span> han sido devueltos.
+          </p>
+        </>
+      ) : result.profit === 0 ? (
+        <>
+          <div className="bg-bg-300 text-text-200 p-5 rounded-full">
+            <Trophy className="w-12 h-12" aria-hidden="true" />
+          </div>
+          <h2 className="text-3xl font-bold text-text-100">
+            {result.won ? 'Ganaste' : 'Perdiste'}
+          </h2>
+          <p className="text-text-200 text-center max-w-sm">
+            Tus puntos no cambian.
+          </p>
+          <p className="text-text-200 text-sm">
+            Puntos:{' '}
+            <span className="font-bold text-text-100">{formatPoints(balance)}</span>
           </p>
         </>
       ) : result.won ? (
@@ -46,12 +63,12 @@ const GameResultPanel = ({
           </div>
           <h2 className="text-3xl font-bold text-text-100">¡Ganaste!</h2>
           <div className="text-center space-y-1">
-            <p className="text-text-200 text-sm">Ganancia neta (comisión {feePercent}% incluida)</p>
-            <p className="text-4xl font-bold text-accent-100">+${result.profit.toFixed(2)}</p>
+            <p className="text-text-200 text-sm">Puntos ganados (comisión {feePercent}% incluida)</p>
+            <p className="text-4xl font-bold text-accent-100">+{formatPoints(result.profit)}</p>
           </div>
           <p className="text-text-200 text-sm">
-            Nuevo saldo:{' '}
-            <span className="font-bold text-text-100">${balance.toFixed(2)}</span>
+            Puntos:{' '}
+            <span className="font-bold text-text-100">{formatPoints(balance)}</span>
           </p>
         </>
       ) : (
@@ -61,12 +78,12 @@ const GameResultPanel = ({
           </div>
           <h2 className="text-3xl font-bold text-text-100">Perdiste</h2>
           <div className="text-center space-y-1">
-            <p className="text-text-200 text-sm">Apuesta perdida</p>
-            <p className="text-4xl font-bold text-primary-100">-${betAmount.toFixed(2)}</p>
+            <p className="text-text-200 text-sm">Puntos perdidos</p>
+            <p className="text-4xl font-bold text-primary-100">-{formatPoints(betAmount)}</p>
           </div>
           <p className="text-text-200 text-sm">
-            Nuevo saldo:{' '}
-            <span className="font-bold text-text-100">${balance.toFixed(2)}</span>
+            Puntos:{' '}
+            <span className="font-bold text-text-100">{formatPoints(balance)}</span>
           </p>
         </>
       )}

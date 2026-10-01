@@ -7,29 +7,36 @@ import Tetris from './games/Tetris';
 import Combat from './games/Combat';
 import Shooter from './games/Shooter';
 import { useAuth } from './auth/AuthContext';
-import { cancelQueue, createBotMatch, joinQueue, tryMatch } from './api/matchmakingApi';
-import type { Game, MatchHistoryRecord, MatchPlayer, MatchTicket, QueueStatus } from './types';
-import { appendRecord } from './api/historyApi';
+import ResetPasswordScreen from './auth/ResetPasswordScreen';
+import { cancelQueue, createBotMatch, joinQueue, startDirectMatch, tryMatch } from './api/matchmakingApi';
+import { cancelMatch, submitMatchResult } from './api/matchesApi';
+import { getCurrentSession } from './api/authApi';
+import type { Game, MatchPlayer, MatchTicket, QueueStatus, UserProfile } from './types';
 import ProfilePanel from './profile/ProfilePanel';
 import Navbar from './components/layout/Navbar';
 import HomeLanding from './components/home/HomeLanding';
+import SubscriptionPayDialog from './components/home/SubscriptionPayDialog';
+import { isCurrentSubscriptionMonth } from './api/subscriptionsApi';
 import LobbyPanel from './components/lobby/LobbyPanel';
 import GameResultPanel, { type GameResult } from './components/play/GameResultPanel';
 import PlayingArena from './components/play/PlayingArena';
 
-/** Tras este tiempo sin encontrar rival, se muestra el estado de timeout (SRC-04). */
-const QUEUE_TIMEOUT_MS = 60_000;
-/** Frecuencia de polling de la cola mock (ver src/matchmaking/README.md). */
+/** Frecuencia de consulta de la cola. El servidor marca el ticket como expired a los 60 s. */
 const QUEUE_POLL_INTERVAL_MS = 1000;
 /** Comisión de la plataforma sobre el pozo total (en porcentaje). */
 const PLATFORM_FEE_PERCENT = 5;
+
+const readResetToken = (): string | null => {
+  if (window.location.pathname !== '/restablecer') return null;
+  return new URLSearchParams(window.location.search).get('token')?.trim() ?? '';
+};
 
 // Datos estáticos
 const GAMES: Game[] = [
   { id: 'pong', name: 'Paddle Duel', description: 'Reflejos rápidos. El primero en llegar a 10 puntos gana.', icon: <Activity className="w-8 h-8" /> },
   { id: 'snake', name: 'Worm Clash', description: 'Sobrevive más tiempo que tu oponente o haz que choque.', icon: <Gamepad2 className="w-8 h-8" /> },
   { id: 'tetris', name: 'Block Battle', description: 'Limpia líneas para enviar basura a tu rival.', icon: <Grid className="w-8 h-8" /> },
-  { id: 'combat', name: 'Arena Clash', description: 'Lucha cuerpo a cuerpo. Reduce la vida del rival a cero.', icon: <Swords className="w-8 h-8" /> },
+  { id: 'combat', name: 'Arena Clash', description: 'Espada y arco de cinco flechas. Reduce la vida del rival a cero.', icon: <Swords className="w-8 h-8" /> },
   { id: 'shooter', name: 'Laser Duel', description: 'Disparos en arena cerrada. Precisión y velocidad.', icon: <Crosshair className="w-8 h-8" /> },
 ];
 
@@ -43,6 +50,7 @@ export default function App() {
   // ESTADOS PRINCIPALES
   // ==========================================
   const [view, setView] = useState<'home' | 'lobby' | 'playing' | 'profile'>('home');
+  const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   
   // Estados para el Lobby
@@ -53,9 +61,12 @@ export default function App() {
   // Cola real vía localStorage compartida entre pestañas del navegador.
   // ==========================================
   const [queueStatus, setQueueStatus] = useState<QueueStatus>('idle');
+  const [queueError, setQueueError] = useState<string | null>(null);
   const [ticket, setTicket] = useState<MatchTicket | null>(null);
-  const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
+  const [lastRivalId, setLastRivalId] = useState<string | null>(null);
   const [opponent, setOpponent] = useState<MatchPlayer | null>(null);
+  const [activeMatch, setActiveMatch] = useState<{ id: string; isBot: boolean } | null>(null);
+  const [matchError, setMatchError] = useState<string | null>(null);
 
   // ==========================================
   // AUTH-04 — Gate de juego: si intentan jugar sin sesión, se guarda el
@@ -63,6 +74,38 @@ export default function App() {
   // hay sesión, se entra directo al lobby de ese juego (ver useEffect abajo).
   // ==========================================
   const [pendingGame, setPendingGame] = useState<Game | null>(null);
+  const [subscriptionOpen, setSubscriptionOpen] = useState(false);
+  const [resetToken, setResetToken] = useState<string | null>(readResetToken);
+  const isChoosingPassword = resetToken !== null;
+  const userId = currentUser?.id ?? null;
+
+  const leavePasswordReset = () => {
+    window.history.replaceState({}, '', '/');
+    setResetToken(null);
+    setView('home');
+  };
+
+  useEffect(() => {
+    if (isChoosingPassword || userId === null) {
+      setSubscriptionOpen(false);
+      return;
+    }
+    setSubscriptionOpen(!isCurrentSubscriptionMonth(currentUser?.subscriptionMonth));
+  }, [userId, isChoosingPassword, currentUser?.subscriptionMonth]);
+
+  useEffect(() => {
+    if (view !== 'home' || !scrollTarget) return;
+    const section = scrollTarget;
+    const frame = window.requestAnimationFrame(() => {
+      if (section === 'inicio') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      setScrollTarget(null);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [view, scrollTarget]);
 
   // ==========================================
   // RESULTADO DE PARTIDA — Milestone 3.
@@ -70,38 +113,33 @@ export default function App() {
   // Null mientras no hay resultado pendiente de mostrar.
   // ==========================================
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
-
-  // Ref que guarda el saldo justo antes de reservar la apuesta (Paso 5 — Milestone 3).
-  // Se usa para restaurar el saldo en cancelación, timeout y error de plataforma.
-  // Es un ref (no estado) para evitar capturas obsoletas en closures de useEffect.
-  const balanceBeforeReservationRef = useRef<number>(0);
+  const settlingRef = useRef(false);
+  const botStartRef = useRef(false);
 
   /** Vuelve a home y limpia el estado de resultado de partida. */
   const goHome = () => {
     setGameResult(null);
+    setMatchError(null);
     setOpponent(null);
+    setActiveMatch(null);
     setView('home');
     setSelectedGame(null);
   };
 
+  const syncBalanceFromServer = async () => {
+    const session = await getCurrentSession();
+    if (!session) return;
+    await setBalance(session.user.balance);
+  };
+
   const handleLogout = () => {
-    // Se limpia la búsqueda ANTES de disparar logout(): logout() es async y
-    // React aplica este setView('home') de forma síncrona, así que si no se
-    // cancela aquí, el guard de sesión (más abajo) llega tarde — cuando
-    // currentUser pasa a null, `view` ya es 'home' y su condición no dispara,
-    // dejando el ticket huérfano en la cola.
-    if (ticket) {
-      cancelQueue(ticket.id);
-      // Restaurar la reserva de saldo si había una búsqueda activa al cerrar sesión.
-      if (balanceBeforeReservationRef.current > 0) {
-        setBalance(balanceBeforeReservationRef.current);
-        balanceBeforeReservationRef.current = 0;
-      }
-    }
+    if (ticket) void cancelQueue(ticket.id);
     setTicket(null);
-    setSearchStartedAt(null);
     setQueueStatus('idle');
+    setQueueError(null);
     setOpponent(null);
+    setActiveMatch(null);
+    setMatchError(null);
     setSelectedGame(null);
     setGameResult(null);
     setView('home');
@@ -133,7 +171,7 @@ export default function App() {
   // Guard: si se pierde la sesión (logout, sesión expirada) estando en lobby o playing, volver a home.
   useEffect(() => {
     if (!currentUser && (view === 'lobby' || view === 'playing')) {
-      if (ticket) cancelQueue(ticket.id);
+      if (ticket) void cancelQueue(ticket.id);
       setTicket(null);
       setQueueStatus('idle');
       setView('home');
@@ -142,39 +180,33 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe reaccionar a cambios de sesión/vista.
   }, [currentUser, view]);
 
-  // SRC-01 — Entrar a la cola real (compartida entre pestañas vía localStorage).
-  const startMatchmaking = () => {
+  // El backend descuenta la apuesta al crear el ticket y la devuelve al cancelar o al expirar.
+  const startMatchmaking = async () => {
     if (!currentUser || !selectedGame || betAmount > currentUser.balance || betAmount <= 0) return;
 
-    // Paso 5 — Reservar el saldo al entrar a la cola para evitar double-spend.
-    // Si la búsqueda se cancela, hay timeout o hay error de plataforma, se restaura.
-    balanceBeforeReservationRef.current = currentUser.balance;
-    setBalance(currentUser.balance - betAmount);
+    setQueueError(null);
+    botStartRef.current = false;
+    const result = await joinQueue({ gameId: selectedGame.id, betAmount });
+    if (!result.ok) {
+      setQueueError(result.message);
+      return;
+    }
 
-    const newTicket = joinQueue({
-      userId: currentUser.id,
-      username: currentUser.username,
-      gameId: selectedGame.id,
-      betAmount,
-    });
-    setTicket(newTicket);
-    setSearchStartedAt(Date.now());
+    setTicket(result.ticket);
     setQueueStatus('searching');
+    await syncBalanceFromServer();
   };
 
-  // SRC-02 — Cancelar búsqueda: saca el ticket de la cola de verdad, no solo cambia de vista.
-  const cancelSearch = () => {
-    if (ticket) cancelQueue(ticket.id);
-    // Devolver la reserva de saldo al cancelar la búsqueda.
-    if (balanceBeforeReservationRef.current > 0) {
-      setBalance(balanceBeforeReservationRef.current);
-      balanceBeforeReservationRef.current = 0;
+  const cancelSearch = async () => {
+    if (ticket) {
+      const result = await cancelQueue(ticket.id);
+      if (!result.ok && result.message) setQueueError(result.message);
     }
     setTicket(null);
-    setSearchStartedAt(null);
     setQueueStatus('idle');
     setView('home');
     setSelectedGame(null);
+    await syncBalanceFromServer();
   };
 
   // SRC-04 — Tras un timeout, permite reintentar con la misma apuesta.
@@ -186,133 +218,167 @@ export default function App() {
   // SRC-04 — Tras un timeout, permite volver a elegir la apuesta.
   const changeBet = () => {
     setTicket(null);
-    setSearchStartedAt(null);
     setQueueStatus('idle');
   };
 
-  // Paso 5 — Restaurar la reserva de saldo cuando la búsqueda llega a timeout.
-  // Se usa un useEffect para no depender de closures obsoletos en el intervalo de polling.
-  useEffect(() => {
-    if (queueStatus === 'timeout' && balanceBeforeReservationRef.current > 0) {
-      setBalance(balanceBeforeReservationRef.current);
-      balanceBeforeReservationRef.current = 0;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- solo reacciona al cambio de estado de la cola.
-  }, [queueStatus]);
-
-  // Modo prueba explícito (respuesta del PO brief): si no hay rival real, se puede
-  // jugar contra un bot etiquetado como tal — nunca se presenta como jugador real.
-  const playAgainstBot = () => {
-    if (!ticket) return;
-    const match = createBotMatch(ticket);
-    const bot = match.players.find((p) => p.ticketId !== ticket.id) ?? match.players[1];
-    setOpponent(bot);
-    setTicket(null);
-    setSearchStartedAt(null);
-    setQueueStatus('idle');
-    setView('playing');
-  };
-
-  /**
-   * Acceso directo al modo bot desde el lobby — sin pasar por la cola de matchmaking.
-   * Reserva el saldo, crea un ticket temporal, genera el match de bot y entra a jugar.
-   */
-  const startVsBot = () => {
+  const startAgainstRival = async (rival: UserProfile) => {
     if (!currentUser || !selectedGame || betAmount > currentUser.balance || betAmount <= 0) return;
-
-    // Reservar saldo (mismo mecanismo que startMatchmaking)
-    balanceBeforeReservationRef.current = currentUser.balance;
-    setBalance(currentUser.balance - betAmount);
-
-    // Crear ticket temporal y emparejar con bot directamente (sin cola)
-    const newTicket = joinQueue({
-      userId: currentUser.id,
-      username: currentUser.username,
+    if (queueStatus === 'searching') return;
+    setQueueStatus('searching');
+    setQueueError(null);
+    const result = await startDirectMatch({
       gameId: selectedGame.id,
       betAmount,
+      rivalUserId: rival.id,
     });
-    const match = createBotMatch(newTicket); // cancela el ticket de la cola internamente
-    const bot = match.players.find((p) => p.ticketId !== newTicket.id) ?? match.players[1];
-
-    setOpponent(bot);
+    if (!result.ok) {
+      setQueueError(result.message);
+      setQueueStatus('idle');
+      return;
+    }
+    setLastRivalId(rival.id);
+    setOpponent({ ...result.opponent, isBot: true });
+    setActiveMatch({ id: result.match.id, isBot: false });
+    setQueueStatus('idle');
     setView('playing');
+    await syncBalanceFromServer();
   };
 
-  // SRC-03 — Polling de la cola mientras se busca. Si aparece un match real
-  // (creado por esta pestaña o por la del rival), pasa a "playing". Si se
-  // agota el tiempo, pasa a "timeout" (SRC-04).
-  useEffect(() => {
-    if (queueStatus !== 'searching' || !ticket || searchStartedAt === null) return;
+  const playAgainstBot = async () => {
+    if (!ticket) return;
+    const result = await createBotMatch(ticket);
+    if (!result.ok) {
+      setQueueError(result.message);
+      return;
+    }
+    setOpponent(result.opponent);
+    setActiveMatch({ id: result.match.id, isBot: true });
+    setTicket(null);
+    setQueueStatus('idle');
+    setQueueError(null);
+    setView('playing');
+    await syncBalanceFromServer();
+  };
 
-    const intervalId = window.setInterval(() => {
-      const match = tryMatch(ticket);
-      if (match) {
-        const opponentPlayer = match.players.find((p) => p.ticketId !== ticket.id) ?? match.players[0];
-        setOpponent(opponentPlayer);
+  // El servidor empareja al consultar el ticket y lo marca expired a los 60 s.
+  useEffect(() => {
+    if (queueStatus !== 'searching' || !ticket) return;
+
+    let stopped = false;
+    let inFlight = false;
+
+    const poll = async () => {
+      if (stopped || inFlight) return;
+      inFlight = true;
+      const result = await tryMatch(ticket);
+      inFlight = false;
+      if (stopped) return;
+
+      if (result.status === 'matched') {
+        setOpponent(result.opponent);
+        setActiveMatch({ id: result.match.id, isBot: Boolean(result.opponent.isBot) });
         setTicket(null);
-        setSearchStartedAt(null);
         setQueueStatus('idle');
         setView('playing');
         return;
       }
 
-      if (Date.now() - searchStartedAt >= QUEUE_TIMEOUT_MS) {
-        cancelQueue(ticket.id);
-        setQueueStatus('timeout');
+      if (result.status === 'expired') {
+        if (botStartRef.current) return;
+        botStartRef.current = true;
+        const bot = await createBotMatch(ticket);
+        if (stopped) return;
+        if (!bot.ok) {
+          botStartRef.current = false;
+          setQueueError(bot.message);
+          setQueueStatus('timeout');
+          await syncBalanceFromServer();
+          return;
+        }
+        setOpponent(bot.opponent);
+        setActiveMatch({ id: bot.match.id, isBot: true });
+        setTicket(null);
+        setQueueStatus('idle');
+        setQueueError(null);
+        setView('playing');
+        await syncBalanceFromServer();
+        return;
       }
+
+      if (result.status === 'cancelled') {
+        setTicket(null);
+        setQueueStatus('idle');
+        setView('home');
+        await syncBalanceFromServer();
+        return;
+      }
+
+      if (result.status === 'error') setQueueError(result.message);
+    };
+
+    void poll();
+    const intervalId = window.setInterval(() => {
+      void poll();
     }, QUEUE_POLL_INTERVAL_MS);
 
-    return () => window.clearInterval(intervalId);
-  }, [queueStatus, ticket, searchStartedAt]);
+    return () => {
+      stopped = true;
+      window.clearInterval(intervalId);
+    };
+  }, [queueStatus, ticket]);
 
-  const handleGameEnd = (won: boolean, reason?: string) => {
-    // TODO: Validar resultados con el backend (Autoridad del Servidor) para evitar trampas.
-
-    if (reason === 'platform_error') {
-      // Error de plataforma: reembolsar la reserva de saldo a ambos jugadores.
-      // En el mock solo gestionamos el jugador local; el rival recupera su saldo en su pestaña.
-      // FUTURE: Escuchar evento 'refund' del servidor cuando haya backend real.
-      if (balanceBeforeReservationRef.current > 0) {
-        setBalance(balanceBeforeReservationRef.current);
-        balanceBeforeReservationRef.current = 0;
-      }
-      setGameResult({ won: false, profit: 0, isRefund: true });
-      setOpponent(null);
+  const handleGameEnd = async (won: boolean, reason?: string) => {
+    if (settlingRef.current) return;
+    if (!currentUser || !activeMatch) {
+      setMatchError('No hay una partida activa para resolver.');
       return;
     }
 
-    // La reserva ya fue descontada al entrar a la cola (startMatchmaking).
-    // El ganador recibe el pozo completo (apuesta × 2) menos la comisión de la plataforma.
-    const fee = (betAmount * 2 * PLATFORM_FEE_PERCENT) / 100;
-    const pot = betAmount * 2 - fee;
-    const netProfit = won ? pot - betAmount : -betAmount;
+    settlingRef.current = true;
+    setMatchError(null);
 
-    if (won) {
-      // currentUser.balance ya tiene la reserva descontada: sumar el pozo neto.
-      setBalance((currentUser?.balance ?? 0) + pot);
-      setGameResult({ won: true, profit: netProfit, isRefund: false });
-    } else {
-      // La reserva ya fue descontada: el saldo no cambia más.
-      setGameResult({ won: false, profit: netProfit, isRefund: false });
+    if (activeMatch.isBot) {
+      setGameResult({ won, profit: 0, isRefund: false });
+      setOpponent(null);
+      setActiveMatch(null);
+      settlingRef.current = false;
+      return;
     }
 
-    // Guardar en el historial solo partidas contra jugadores reales (no bots).
-    if (currentUser && selectedGame && !opponent?.isBot) {
-      const record: MatchHistoryRecord = {
-        id: crypto.randomUUID(),
-        userId: currentUser.id,
-        gameId: selectedGame.id,
-        gameName: selectedGame.name,
-        betAmount,
-        result: won ? 'win' : 'loss',
-        profit: netProfit,
-        playedAt: Date.now(),
-      };
-      appendRecord(record);
+    const winnerUserId = won ? currentUser.id : opponent?.userId;
+    if (!winnerUserId && reason !== 'platform_error') {
+      setMatchError('No se pudo identificar al ganador.');
+      settlingRef.current = false;
+      return;
     }
 
-    balanceBeforeReservationRef.current = 0;
+    const settlement = reason === 'platform_error'
+      ? await cancelMatch(activeMatch.id)
+      : await submitMatchResult(activeMatch.id, winnerUserId ?? '');
+
+    if (!settlement.ok) {
+      setMatchError(settlement.message);
+      settlingRef.current = false;
+      return;
+    }
+
+    const me = settlement.players.find((player) => player.id === currentUser.id);
+    if (!me) {
+      setMatchError('La respuesta no incluye tus puntos.');
+      settlingRef.current = false;
+      return;
+    }
+
+    const profit = reason === 'platform_error' ? 0 : me.balance - (currentUser.balance + betAmount);
+    await setBalance(me.balance);
+    setGameResult({
+      won: reason === 'platform_error' ? false : won,
+      profit,
+      isRefund: reason === 'platform_error',
+    });
     setOpponent(null);
+    setActiveMatch(null);
+    settlingRef.current = false;
   };
 
   const renderGame = () => {
@@ -337,23 +403,47 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-bg-200 text-text-100 font-sans">
+      {subscriptionOpen && currentUser && (
+        <SubscriptionPayDialog
+          onClose={() => setSubscriptionOpen(false)}
+          onPaid={() => setSubscriptionOpen(false)}
+        />
+      )}
+
       <Navbar
         user={currentUser}
-        onGoHome={() => setView('home')}
+        onGoHome={() => {
+          if (isChoosingPassword) leavePasswordReset();
+          else setView('home');
+        }}
         onOpenProfile={() => setView('profile')}
         onLogout={handleLogout}
+        isAuthReady={isAuthReady}
+        pendingGame={pendingGame}
+        onNavigate={(section) => {
+          if (isChoosingPassword) leavePasswordReset();
+          setView('home');
+          setScrollTarget(section);
+        }}
       />
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {view === 'home' && (
+      <main>
+        {isChoosingPassword ? (
+          <ResetPasswordScreen
+            token={resetToken}
+            onDone={leavePasswordReset}
+            onLeave={leavePasswordReset}
+          />
+        ) : view === 'home' && (
           <HomeLanding
             games={GAMES}
             currentUser={currentUser}
-            isAuthReady={isAuthReady}
-            pendingGame={pendingGame}
             onSelectGame={requestJoinGame}
           />
         )}
+
+        {!isChoosingPassword && view !== 'home' && (
+        <div className="max-w-6xl mx-auto px-4 py-8">
 
         {view === 'lobby' && selectedGame && currentUser && (
           <LobbyPanel
@@ -362,12 +452,14 @@ export default function App() {
             betAmount={betAmount}
             queueStatus={queueStatus}
             onBetChange={setBetAmount}
-            onSearch={startMatchmaking}
             onCancel={cancelSearch}
             onRetry={retrySearch}
             onChangeBet={changeBet}
             onPlayBot={playAgainstBot}
-            onStartVsBot={startVsBot}
+            queueError={queueError}
+            currentUser={currentUser}
+            lastRivalId={lastRivalId}
+            onPlayRival={startAgainstRival}
           />
         )}
 
@@ -381,11 +473,26 @@ export default function App() {
                 feePercent={PLATFORM_FEE_PERCENT}
                 onGoHome={goHome}
               />
+            ) : matchError ? (
+              <div className="bg-bg-100 rounded-2xl border border-bg-300 p-8 text-center space-y-4" role="alert">
+                <h2 className="text-xl font-bold text-text-100">No se pudo resolver la partida</h2>
+                <p className="text-sm text-text-200">{matchError}</p>
+                <button
+                  type="button"
+                  onClick={goHome}
+                  className="bg-primary-100 hover:bg-primary-200 text-white px-6 py-3 rounded-xl font-bold"
+                >
+                  Volver al inicio
+                </button>
+              </div>
             ) : (
               <PlayingArena
                 username={currentUser.username}
                 opponent={opponent}
                 betAmount={betAmount}
+                controlsHint={selectedGame.id === 'combat'
+                  ? 'Controles — P1: WASD, Espacio (espada), F (arco, 5 flechas) | P2: Flechas, Enter, K (arco)'
+                  : undefined}
               >
                 {renderGame()}
               </PlayingArena>
@@ -395,6 +502,8 @@ export default function App() {
 
         {view === 'profile' && currentUser && (
           <ProfilePanel user={currentUser} onBack={() => setView('home')} />
+        )}
+        </div>
         )}
       </main>
     </div>

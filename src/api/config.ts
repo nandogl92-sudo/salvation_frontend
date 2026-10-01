@@ -5,7 +5,7 @@
 // reales al backend. Hoy no se usa (todo es mock), pero el punto de
 // entrada ya está definido.
 //
-// Para desarrollo local: añadir VITE_API_URL=http://localhost:4000 en .env
+// En local déjala vacía: Vite (puerto 4000) reenvía la API a http://localhost:4444.
 // Para producción:       configurar VITE_API_URL en el servicio de hosting
 // ==========================================
 

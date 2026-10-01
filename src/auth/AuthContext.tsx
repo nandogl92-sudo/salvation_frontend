@@ -2,12 +2,12 @@
 // Contexto de autenticación. Envuelve la app (ver src/main.tsx) y expone el
 // hook useAuth() para leer al usuario actual y disparar register/login/logout.
 //
-// No conoce localStorage ni hashes de contraseña: todo eso vive detrás de
-// src/auth/authService.ts (mock). El día que haya backend real, este archivo
-// no cambia — solo cambia authService.
+// No conoce localStorage ni el token: eso vive en src/api/authApi.ts.
+// Este archivo no cambia cuando el transporte pasa de mock a REST.
 // ==========================================
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as authService from '../api/authApi';
+import type { PasswordChangeInput } from '../api/authApi';
 import type { AuthResult, LoginInput, RegisterInput, UserProfile } from '../types';
 
 type AuthContextValue = {
@@ -22,6 +22,8 @@ type AuthContextValue = {
   register: (input: RegisterInput) => Promise<boolean>;
   login: (input: LoginInput) => Promise<boolean>;
   logout: () => Promise<void>;
+  /** Guarda la contraseña nueva del enlace del correo y abre sesión si sale bien. */
+  completePasswordReset: (input: PasswordChangeInput) => Promise<AuthResult>;
   /** Actualiza el saldo del usuario actual (en memoria + persistido en el mock). */
   setBalance: (balance: number) => Promise<void>;
   clearError: () => void;
@@ -85,6 +87,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
   }, []);
 
+  const completePasswordReset = useCallback(async (input: PasswordChangeInput) => {
+    setIsSubmitting(true);
+    setError(null);
+    const result: AuthResult = await authService.completePasswordReset(input);
+    setIsSubmitting(false);
+    if (result.ok === true) {
+      setUser(result.session.user);
+    }
+    return result;
+  }, []);
+
   const setBalance = useCallback(async (balance: number) => {
     if (!user) return;
     const updated = await authService.updateUserBalance(user.id, balance);
@@ -92,8 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isReady, isSubmitting, error, register, login, logout, setBalance, clearError }),
-    [user, isReady, isSubmitting, error, register, login, logout, setBalance, clearError],
+    () => ({ user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, clearError }),
+    [user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, clearError],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

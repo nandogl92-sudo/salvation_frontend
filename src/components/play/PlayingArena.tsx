@@ -1,16 +1,20 @@
 import type { ReactNode } from 'react'
 import type { MatchPlayer } from '../../types'
+import { formatPoints } from '../utils/formatPoints'
 
 type PlayingArenaProps = {
   username: string
   opponent: MatchPlayer | null
   betAmount: number
   children: ReactNode
+  controlsHint?: string
 }
 
-const PlayingArena = ({ username, opponent, betAmount, children }: PlayingArenaProps) => {
+const PlayingArena = ({ username, opponent, betAmount, children, controlsHint }: PlayingArenaProps) => {
   const opponentName = opponent?.username ?? 'Rival'
-  const opponentLabel = opponent?.isBot ? 'Bot de prueba (modo prueba)' : 'Rival (emparejado)'
+  const opponentLabel = opponent?.username === 'Bot de prueba (modo prueba)'
+    ? 'Bot de prueba (modo prueba)'
+    : 'Rival'
 
   return (
     <>
@@ -29,8 +33,12 @@ const PlayingArena = ({ username, opponent, betAmount, children }: PlayingArenaP
         </div>
 
         <div className="flex flex-col items-center">
-          <span className="text-xs font-bold text-text-200 uppercase tracking-widest">Pozo Total</span>
-          <span className="text-xl font-bold text-accent-100">${(betAmount * 2).toFixed(2)}</span>
+          <span className="text-xs font-bold text-text-200 uppercase tracking-widest">Puntos en juego</span>
+          <span className="text-xl font-bold text-accent-100">{formatPoints(betAmount * 2)} pts</span>
+          <span className="mt-1 text-xs text-text-200 flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-accent-100" aria-hidden="true" />
+            Ping: 24ms
+          </span>
         </div>
 
         <div className="flex items-center gap-3 text-right">
@@ -49,17 +57,14 @@ const PlayingArena = ({ username, opponent, betAmount, children }: PlayingArenaP
 
       <div className="w-full relative overflow-hidden flex flex-col items-center justify-center border-4 border-bg-100 rounded-xl bg-black">
         {children}
-        <div className="absolute top-4 left-4 flex gap-2 pointer-events-none">
-          <span className="bg-black/50 text-white text-xs px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-accent-100" aria-hidden="true" /> Ping: 24ms
-          </span>
-        </div>
-        <div className="absolute bottom-4 left-0 w-full text-center pointer-events-none">
-          <span className="bg-black/50 text-white/70 text-xs px-4 py-2 rounded-lg backdrop-blur-sm shadow-sm inline-block mb-4">
-            Controles — <b>P1</b>: WASD / Espacio | <b>P2</b>: Flechas / Enter
-          </span>
-        </div>
       </div>
+      <p className="text-center text-xs text-text-200">
+        {controlsHint ?? (
+          <>
+            Controles — <b>P1</b>: WASD / Espacio | <b>P2</b>: Flechas / Enter
+          </>
+        )}
+      </p>
     </>
   )
 }

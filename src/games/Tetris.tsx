@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { drawFighter, drawGem, drawScene } from './look';
 
 export default function Tetris({
   onGameEnd,
@@ -114,23 +115,25 @@ export default function Tetris({
       activeX: number,
       activeY: number,
     ) => {
-      ctx.strokeStyle = '#333';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           if (grid[r][c]) {
-            ctx.fillStyle = '#888';
-            ctx.fillRect(offsetX + c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            drawGem(ctx, offsetX + c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE, '#94a3b8');
           }
           ctx.strokeRect(offsetX + c * BLOCK_SIZE, r * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
         }
       }
-      ctx.fillStyle = color;
-      ctx.fillRect(offsetX + activeX * BLOCK_SIZE, activeY * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+      drawGem(ctx, offsetX + activeX * BLOCK_SIZE, activeY * BLOCK_SIZE, BLOCK_SIZE, color);
     };
 
     const draw = () => {
-      ctx.fillStyle = '#1e1e1e';
-      ctx.fillRect(0, 0, 800, 400);
+      drawScene(ctx, 'night');
+      ctx.fillStyle = 'rgba(8, 12, 28, 0.55)';
+      ctx.fillRect(200, 0, 200, 400);
+      ctx.fillRect(400, 0, 200, 400);
+      drawFighter(ctx, 30, 300, 1, state.p1.color, false, 0.9);
+      drawFighter(ctx, 690, 300, -1, state.p2.color, false, 0.9);
 
       drawGrid(state.p1.grid, 200, state.p1.color, state.p1.x, state.p1.y);
       drawGrid(state.p2.grid, 400, state.p2.color, state.p2.x, state.p2.y);

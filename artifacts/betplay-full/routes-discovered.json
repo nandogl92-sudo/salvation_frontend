@@ -1,0 +1,24 @@
+{
+  "pageUrl": "http://localhost:4000/",
+  "discoveredAt": "2026-09-30T12:18:00Z",
+  "note": "La app es una SPA de Vite. No hay rutas Next ni enlaces internos. Las vistas cambian en memoria: home, lobby, playing, profile.",
+  "internalLinks": [],
+  "sitemap": {
+    "url": "/sitemap.xml",
+    "status": 200,
+    "isSitemap": false,
+    "note": "Vite devuelve index.html. No hay sitemap real."
+  },
+  "robots": {
+    "url": "/robots.txt",
+    "status": 200,
+    "isRobots": false,
+    "note": "Vite devuelve index.html. No hay robots.txt real."
+  },
+  "views": [
+    { "id": "home", "requiresAuth": false },
+    { "id": "lobby", "requiresAuth": true },
+    { "id": "playing", "requiresAuth": true },
+    { "id": "profile", "requiresAuth": true }
+  ]
+}

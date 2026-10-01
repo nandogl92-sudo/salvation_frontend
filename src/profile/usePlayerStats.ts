@@ -1,44 +1,45 @@
 // ==========================================
 // Hook: usePlayerStats
 //
-// Lee el historial del jugador actual desde localStorage y devuelve
-// estadísticas derivadas listas para mostrar en el perfil.
-// La lógica de cálculo vive aquí, no en el componente.
+// Pide GET /users/:id/history y expone carga, error y reintento.
+// Las cifras vienen del servidor. No se recalculan en el cliente.
 // ==========================================
 
-import { useMemo } from 'react';
-import { loadHistory } from '../api/historyApi';
-import type { MatchHistoryRecord } from '../types';
+import { useEffect, useState } from 'react'
+import { EMPTY_HISTORY, fetchPlayerHistory, type PlayerHistory } from '../api/historyApi'
 
-export type PlayerStats = {
-  totalGames: number;
-  wins: number;
-  losses: number;
-  /** Profit total acumulado en USD (puede ser negativo). */
-  totalProfit: number;
-  /** Las últimas 10 partidas, ya filtradas para este usuario. */
-  history: MatchHistoryRecord[];
-};
+type HistoryStatus = 'loading' | 'success' | 'error'
 
-/**
- * Calcula estadísticas del jugador a partir del historial en localStorage.
- * @param userId - ID del jugador cuyas estadísticas se calculan.
- */
-export function usePlayerStats(userId: string): PlayerStats {
-  return useMemo(() => {
-    const all = loadHistory().filter((r) => r.userId === userId);
-    const recent = all.slice(0, 10);
+export const usePlayerStats = (userId: string) => {
+  const [status, setStatus] = useState<HistoryStatus>('loading')
+  const [stats, setStats] = useState<PlayerHistory>(EMPTY_HISTORY)
+  const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
-    const wins = all.filter((r) => r.result === 'win').length;
-    const losses = all.filter((r) => r.result === 'loss').length;
-    const totalProfit = all.reduce((sum, r) => sum + r.profit, 0);
+  useEffect(() => {
+    let cancelled = false
+    setStatus('loading')
+    setError(null)
 
-    return {
-      totalGames: wins + losses,
-      wins,
-      losses,
-      totalProfit,
-      history: recent,
-    };
-  }, [userId]);
+    void fetchPlayerHistory(userId).then((result) => {
+      if (cancelled) return
+      if (!result.ok) {
+        setStatus('error')
+        setError(result.message)
+        return
+      }
+      setStats(result.stats)
+      setStatus('success')
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [userId, attempt])
+
+  const retry = () => {
+    setAttempt((current) => current + 1)
+  }
+
+  return { status, stats, error, retry }
 }

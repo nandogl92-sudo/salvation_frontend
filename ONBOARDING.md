@@ -218,7 +218,7 @@ Variables de `.env.example`:
 | Iconos | lucide-react | Navbar, reglas, cartas de juego |
 | Estilos | Tailwind CSS 4, fuente DM Sans | Paleta coral / teal |
 | Juegos | HTML5 Canvas + `requestAnimationFrame` | Cinco componentes en `src/games` |
-| Build | Vite 6 | `npm run dev` en puerto 3001, host `0.0.0.0` |
+| Build | Vite 6 | `npm run dev` en puerto 4000, host `0.0.0.0` |
 | Deploy | Netlify (`npm run build` → `dist/`) | Config en `.netlify/` |
 | Backend planeado | Express | Sin servidor |
 | IA planeada | `@google/genai` | Sin cablear |
@@ -287,7 +287,7 @@ npm install
 npm run dev
 ```
 
-Vite queda en **http://localhost:3001** (`--host=0.0.0.0`). El puerto 3000 se deja libre para Sunset.
+Vite queda en **http://localhost:4000** (`--host=0.0.0.0`). En local `VITE_API_URL` va vacía: el navegador llama a ese mismo origen y Vite reenvía `/users`, `/auth`, `/matchmaking` y `/matches` al backend en **http://localhost:4444**. El puerto 3000 se deja libre para Sunset.
 
 Otros scripts:
 

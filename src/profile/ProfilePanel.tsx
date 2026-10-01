@@ -1,5 +1,6 @@
 import { Trophy, AlertCircle, TrendingUp, TrendingDown, Gamepad2, RefreshCcw } from 'lucide-react';
 import type { MatchHistoryRecord, UserProfile } from '../types';
+import { formatPoints } from '../components/utils/formatPoints';
 import { usePlayerStats } from './usePlayerStats';
 
 const RESULT_LABELS: Record<MatchHistoryRecord['result'], string> = {
@@ -62,7 +63,7 @@ function HistoryRow({ record }: { record: MatchHistoryRecord }) {
         <div>
           <p className="text-sm font-bold text-text-100">{record.gameName}</p>
           <p className="text-xs text-text-200">
-            {RESULT_LABELS[record.result]} · apuesta ${record.betAmount.toFixed(2)}
+            {RESULT_LABELS[record.result]} · {formatPoints(record.betAmount)} puntos
           </p>
         </div>
       </div>
@@ -74,7 +75,7 @@ function HistoryRow({ record }: { record: MatchHistoryRecord }) {
         >
           {isRefund
             ? 'Reembolsado'
-            : `${isWin ? '+' : ''}$${record.profit.toFixed(2)}`}
+            : `${isWin ? '+' : ''}${formatPoints(record.profit)} pts`}
         </p>
         <p className="text-xs text-text-200">
           {new Date(record.playedAt).toLocaleDateString('es-ES', {
@@ -96,9 +97,12 @@ export default function ProfilePanel({
   user: UserProfile;
   onBack: () => void;
 }) {
-  const stats = usePlayerStats(user.id);
+  const { status, stats, error, retry } = usePlayerStats(user.id);
   const winRate =
     stats.totalGames > 0 ? Math.round((stats.wins / stats.totalGames) * 100) : 0;
+  const handleRetry = () => {
+    retry();
+  };
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
@@ -113,7 +117,26 @@ export default function ProfilePanel({
         </div>
       </div>
 
-      {/* Tarjetas de estadísticas */}
+      {status === 'loading' && (
+        <p className="text-sm text-text-200" role="status">Cargando historial...</p>
+      )}
+
+      {status === 'error' && (
+        <div className="bg-red-50 text-red-500 rounded-2xl p-4 space-y-3" role="alert">
+          <p className="text-sm">{error}</p>
+          <button
+            type="button"
+            aria-label="Reintentar cargar el historial"
+            onClick={handleRetry}
+            className="text-sm font-bold underline"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+
+      {status === 'success' && (
+      <>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard label="Partidas" value={stats.totalGames.toString()} />
         <StatCard
@@ -125,16 +148,16 @@ export default function ProfilePanel({
         <StatCard label="Derrotas" value={stats.losses.toString()} accent="red" />
         <StatCard
           label="Profit total"
-          value={`${stats.totalProfit >= 0 ? '+' : ''}$${stats.totalProfit.toFixed(2)}`}
+          value={`${stats.totalProfit >= 0 ? '+' : ''}${formatPoints(stats.totalProfit)} pts`}
           accent={stats.totalProfit >= 0 ? 'green' : 'red'}
         />
       </div>
 
-      {/* Saldo actual */}
+      {/* Puntos actuales */}
       <div className="bg-primary-300 rounded-2xl p-5 flex items-center justify-between">
         <div>
-          <p className="text-xs font-bold text-primary-100 uppercase tracking-widest">Saldo disponible</p>
-          <p className="text-3xl font-bold text-primary-100">${user.balance.toFixed(2)}</p>
+          <p className="text-xs font-bold text-primary-100 uppercase tracking-widest">Puntos</p>
+          <p className="text-3xl font-bold text-primary-100">{formatPoints(user.balance)}</p>
         </div>
         {stats.totalProfit >= 0 ? (
           <TrendingUp className="w-8 h-8 text-primary-100 opacity-50" />
@@ -158,6 +181,8 @@ export default function ProfilePanel({
           )}
         </div>
       </div>
+      </>
+      )}
 
       {/* Botón volver */}
       <button
