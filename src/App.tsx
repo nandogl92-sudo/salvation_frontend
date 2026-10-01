@@ -34,7 +34,7 @@ const readResetToken = (): string | null => {
 // Datos estáticos
 const GAMES: Game[] = [
   { id: 'pong', name: 'Paddle Duel', description: 'Reflejos rápidos. El primero en llegar a 10 puntos gana.', icon: <Activity className="w-8 h-8" /> },
-  { id: 'snake', name: 'Worm Clash', description: 'Sobrevive más tiempo que tu oponente o haz que choque.', icon: <Gamepad2 className="w-8 h-8" /> },
+  { id: 'snake', name: 'Worm Clash', description: 'Templo de la serpiente. Come gemas y haz que el rival choque.', icon: <Gamepad2 className="w-8 h-8" /> },
   { id: 'tetris', name: 'Block Battle', description: 'Limpia líneas para enviar basura a tu rival.', icon: <Grid className="w-8 h-8" /> },
   { id: 'combat', name: 'Arena Clash', description: 'Espada y arco de cinco flechas. Reduce la vida del rival a cero.', icon: <Swords className="w-8 h-8" /> },
   { id: 'shooter', name: 'Laser Duel', description: 'Disparos en arena cerrada. Precisión y velocidad.', icon: <Crosshair className="w-8 h-8" /> },
@@ -492,7 +492,9 @@ export default function App() {
                 betAmount={betAmount}
                 controlsHint={selectedGame.id === 'combat'
                   ? 'Controles — P1: WASD, Espacio (espada), F (arco, 5 flechas) | P2: Flechas, Enter, K (arco)'
-                  : undefined}
+                  : selectedGame.id === 'snake'
+                    ? 'Controles — P1: WASD, Shift (acelerón) | P2: Flechas'
+                    : undefined}
               >
                 {renderGame()}
               </PlayingArena>
