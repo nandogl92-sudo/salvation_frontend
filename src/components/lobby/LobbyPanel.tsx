@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useState } from 'react'
 import { AlertCircle, WifiOff } from 'lucide-react'
 import type { Game, QueueStatus, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
@@ -10,10 +10,8 @@ type LobbyPanelProps = {
   balance: number
   betAmount: number
   queueStatus: QueueStatus
-  onBetChange: (amount: number) => void
   onCancel: () => void
   onRetry: () => void
-  onChangeBet: () => void
   onPlayBot: () => void
   queueError: string | null
   currentUser: UserProfile
@@ -26,10 +24,8 @@ const LobbyPanel = ({
   balance,
   betAmount,
   queueStatus,
-  onBetChange,
   onCancel,
   onRetry,
-  onChangeBet,
   onPlayBot,
   queueError,
   currentUser,
@@ -44,10 +40,6 @@ const LobbyPanel = ({
   const { status: rivalsStatus, ranking, error: rivalsError, retry } = usePointsRanking(currentUser)
   const rivals = ranking.filter((user) => user.id !== currentUser.id)
   const selectedRival = rivals.find((user) => user.id === selectedRivalId) ?? null
-
-  const handleBetChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onBetChange(Number(event.target.value))
-  }
 
   const handlePlay = () => {
     if (isInvalidBet || rivals.length === 0) return
@@ -79,27 +71,15 @@ const LobbyPanel = ({
           {selectedGame.icon}
         </div>
         <h2 className="text-2xl font-bold">{selectedGame.name}</h2>
-        <p className="text-text-200 text-sm mt-2">Elige rival y cuántos puntos pones en juego. Si no eliges, toca uno al azar.</p>
+        <p className="text-text-200 text-sm mt-2">Elige rival. Cada partida se juega por 1 punto. Si no eliges, toca uno al azar.</p>
       </div>
 
       <div className="space-y-6">
         <div className="bg-bg-200 p-4 rounded-xl">
-          <label htmlFor="bet-amount" className="block text-sm font-bold text-text-100 mb-2">
-            Puntos en juego
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              id="bet-amount"
-              type="number"
-              aria-label="Cantidad de puntos"
-              value={betAmount}
-              onChange={handleBetChange}
-              min="1"
-              max={balance}
-              disabled={isSearching}
-              className="w-full bg-transparent text-2xl font-bold text-text-100 focus:outline-none"
-            />
-          </div>
+          <p className="block text-sm font-bold text-text-100 mb-2">Puntos en juego</p>
+          <p className="text-2xl font-bold text-text-100" aria-label="Cantidad de puntos">
+            {formatPoints(betAmount)} punto
+          </p>
         </div>
 
         {hasInsufficientBalance && (
@@ -144,16 +124,6 @@ const LobbyPanel = ({
               className="w-full py-3 rounded-xl font-bold text-text-100 bg-bg-200 hover:bg-bg-300 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Seguir buscando
-            </button>
-            <button
-              type="button"
-              aria-label="Cambiar puntos"
-              tabIndex={0}
-              onClick={onChangeBet}
-              onKeyDown={(event) => handleActivateKey(event, onChangeBet)}
-              className="w-full py-3 rounded-xl font-bold text-text-100 bg-bg-200 hover:bg-bg-300 transition-colors"
-            >
-              Cambiar puntos
             </button>
           </div>
         ) : (

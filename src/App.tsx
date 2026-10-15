@@ -34,9 +34,9 @@ const readResetToken = (): string | null => {
 // Datos estáticos
 const GAMES: Game[] = [
   { id: 'pong', name: 'Paddle Duel', description: 'Reflejos rápidos. El primero en llegar a 10 puntos gana.', icon: <Activity className="w-8 h-8" /> },
-  { id: 'snake', name: 'Worm Clash', description: 'Templo de la serpiente. Come gemas y haz que el rival choque.', icon: <Gamepad2 className="w-8 h-8" /> },
+  { id: 'snake', name: 'Worm Clash', description: 'Templo de la serpiente. El primero en 20 gemas gana, o quien haga chocar al rival.', icon: <Gamepad2 className="w-8 h-8" /> },
   { id: 'tetris', name: 'Block Battle', description: 'Limpia líneas para enviar basura a tu rival.', icon: <Grid className="w-8 h-8" /> },
-  { id: 'combat', name: 'Arena Clash', description: 'Espada y arco de cinco flechas. Reduce la vida del rival a cero.', icon: <Swords className="w-8 h-8" /> },
+  { id: 'combat', name: 'Arena Clash', description: 'Espada, esquiva, escudo de 10 golpes y arco de cinco flechas. Reduce la vida del rival a cero.', icon: <Swords className="w-8 h-8" /> },
   { id: 'shooter', name: 'Laser Duel', description: 'Disparos en arena cerrada. Precisión y velocidad.', icon: <Crosshair className="w-8 h-8" /> },
 ];
 
@@ -54,7 +54,7 @@ export default function App() {
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   
   // Estados para el Lobby
-  const [betAmount, setBetAmount] = useState<number>(10);
+  const betAmount = 1;
 
   // ==========================================
   // BÚSQUEDA (matchmaking mock) — ver src/matchmaking/README.md.
@@ -213,12 +213,6 @@ export default function App() {
   const retrySearch = () => {
     setQueueStatus('idle');
     startMatchmaking();
-  };
-
-  // SRC-04 — Tras un timeout, permite volver a elegir la apuesta.
-  const changeBet = () => {
-    setTicket(null);
-    setQueueStatus('idle');
   };
 
   const startAgainstRival = async (rival: UserProfile) => {
@@ -451,10 +445,8 @@ export default function App() {
             balance={currentUser.balance}
             betAmount={betAmount}
             queueStatus={queueStatus}
-            onBetChange={setBetAmount}
             onCancel={cancelSearch}
             onRetry={retrySearch}
-            onChangeBet={changeBet}
             onPlayBot={playAgainstBot}
             queueError={queueError}
             currentUser={currentUser}
@@ -491,9 +483,9 @@ export default function App() {
                 opponent={opponent}
                 betAmount={betAmount}
                 controlsHint={selectedGame.id === 'combat'
-                  ? 'Controles — P1: WASD, Espacio (espada), F (arco, 5 flechas) | P2: Flechas, Enter, K (arco)'
+                  ? 'Controles — P1: WASD, Shift (esquiva), S (escudo, aguanta 10 golpes), Espacio (espada, pulsa otra vez para el combo), F (arco, 5 flechas) | P2: Flechas, L (esquiva), Abajo (escudo), Enter (espada), K (arco)'
                   : selectedGame.id === 'snake'
-                    ? 'Controles — P1: WASD, Shift (acelerón) | P2: Flechas'
+                    ? 'Controles — P1: WASD, Shift (acelerón), Q (escudo), E (mordisco) | P2: Flechas, M (acelerón), K (escudo), L (mordisco)'
                     : undefined}
               >
                 {renderGame()}
