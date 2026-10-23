@@ -89,8 +89,8 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
     : 'text-[#d5dcf0] hover:text-white'
 
   return (
-    <header className="relative bg-[#0c1224]/95 border-b border-[#243056] sticky top-0 z-20 backdrop-blur">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
+    <header className="relative bg-[#0c1224]/95 border-b border-[#243056] sticky top-0 z-20 backdrop-blur overflow-x-clip">
+      <div className="max-w-6xl mx-auto px-3 py-2 flex flex-wrap items-center justify-between gap-2 min-h-16">
         <button
           type="button"
           aria-label="Ir al inicio de Retro Hub"
@@ -107,7 +107,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
           </span>
         </button>
 
-        <nav className="flex items-center gap-1" aria-label="Secciones">
+        <nav className="flex items-center gap-1 order-3 w-full sm:order-none sm:w-auto sm:flex-1 sm:justify-center overflow-x-auto" aria-label="Secciones">
           {LINKS.map(({ id, label, icon: Icon }) => {
             const handleNavigate = () => {
               onNavigate(id)
@@ -124,7 +124,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
                 tabIndex={0}
                 onClick={handleNavigate}
                 onKeyDown={(event) => handleActivateKey(event, handleNavigate)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide ${linkClass}`}
+                className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide ${linkClass}`}
               >
                 <Icon className="w-4 h-4" aria-hidden="true" />
                 <span className="hidden lg:inline">{label}</span>
@@ -133,7 +133,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
           })}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {showAuth && (
             <>
               <button
@@ -206,7 +206,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
         </div>
       </div>
       {showAuth && authOpen && (
-        <div className="absolute right-4 top-16 w-[min(100vw-2rem,360px)] z-30">
+        <div className="absolute left-3 right-3 sm:left-auto sm:right-4 top-full mt-1 z-30 sm:w-[360px] max-h-[min(80svh,36rem)] overflow-y-auto">
           <AuthPanel
             hideTabs
             initialMode={authMode}

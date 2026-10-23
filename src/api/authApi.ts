@@ -79,6 +79,7 @@ const readErrorMessage = async (response: Response): Promise<string> => {
   } catch {
     // Cuerpo vacío (204) o no JSON.
   }
+  if (response.status >= 500) return 'El servidor no pudo atender la solicitud. Inténtalo de nuevo.'
   return 'No se pudo completar la solicitud.'
 }
 

@@ -51,10 +51,14 @@ const GameArt = ({ gameId }: { gameId: string }) => {
   }
   if (gameId === 'combat') {
     return (
-      <div className="h-28 bg-[#14080c] relative">
+      <div className="h-28 bg-[#14080c] relative overflow-hidden">
+        <div className="absolute inset-x-4 top-2 h-1.5 bg-[#3a1020]" />
+        <div className="absolute left-4 top-2 h-1.5 w-10 bg-orange-400" />
+        <div className="absolute right-4 top-2 h-1.5 w-10 bg-sky-400" />
         <div className="absolute left-8 bottom-5 w-5 h-8 bg-orange-400" />
         <div className="absolute right-8 bottom-5 w-5 h-8 bg-sky-400" />
-        <div className="absolute left-1/2 top-6 w-6 h-1 bg-white/40" />
+        <div className="absolute left-1/2 top-10 w-8 h-1 bg-yellow-300" />
+        <div className="absolute left-[46%] top-8 w-2 h-2 bg-white" />
       </div>
     )
   }
@@ -135,7 +139,11 @@ const HomeLanding = ({
               <span className="block">EN UN SOLO LUGAR</span>
             </h1>
             <p className="text-sm sm:text-base landscape:text-sm text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">Revive la magia de los clásicos. Juega, recuerda, disfruta.</p>
-            <p className="text-xs sm:text-sm text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">Crea una cuenta o inicia sesión para jugar.</p>
+            <p className="text-xs sm:text-sm text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
+              {currentUser
+                ? `Hola, ${currentUser.username}. Elige un juego para entrar al lobby.`
+                : 'Crea una cuenta o inicia sesión para jugar.'}
+            </p>
             <p className="text-xs sm:text-sm font-bold text-[#f5c518] drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">El primero del mes en el ranking elige un premio.</p>
             <button
               type="button"

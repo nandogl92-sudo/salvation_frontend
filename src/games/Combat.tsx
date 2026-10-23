@@ -15,6 +15,9 @@ const DASH_CD = 46;
 const JUMP = -6.6;
 const GRAVITY = 0.46;
 const STEP_UP = 20;
+const METER_MAX = 100;
+const INTRO_FRAMES = 72;
+const KO_FRAMES = 110;
 const PIX = '"Press Start 2P", monospace';
 
 type Platform = { x: number; y: number; w: number; h: number; stair?: boolean };
@@ -52,6 +55,24 @@ type Palette = {
   armorLight: string;
   aura: string;
   crest: string;
+};
+
+type Particle = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  color: string;
+  size: number;
+};
+
+type Wave = {
+  x: number;
+  y: number;
+  vx: number;
+  owner: Side;
+  life: number;
 };
 
 const FIRE: Palette = {
@@ -121,14 +142,57 @@ const drawPagoda = (ctx: Ctx, x: number, y: number) => {
   ctx.fillRect(x - 2, y - 164, 4, 16);
 };
 
-const drawSnowField = (ctx: Ctx) => {
+const drawLantern = (ctx: Ctx, x: number, y: number, sway: number) => {
+  const px = x + sway;
+  ctx.fillStyle = '#5c4030';
+  ctx.fillRect(x, y - 28, 2, 18);
+  ctx.fillStyle = '#c45c18';
+  ctx.fillRect(px - 7, y - 12, 16, 18);
+  ctx.fillStyle = '#f4c14a';
+  ctx.fillRect(px - 4, y - 8, 10, 10);
+  ctx.fillStyle = '#7a1e18';
+  ctx.fillRect(px - 7, y - 12, 16, 3);
+  ctx.fillRect(px - 7, y + 6, 16, 3);
+};
+
+const drawFlag = (ctx: Ctx, x: number, y: number, frames: number, color: string) => {
+  const wave = Math.round(Math.sin(frames / 8) * 4);
+  ctx.fillStyle = '#6b4428';
+  ctx.fillRect(x, y - 70, 4, 70);
+  ctx.fillStyle = color;
+  ctx.fillRect(x + 4, y - 68, 28 + wave, 16);
+  ctx.fillStyle = '#f7f3ea';
+  ctx.fillRect(x + 8, y - 64, 8, 8);
+};
+
+const drawCrowd = (ctx: Ctx, frames: number) => {
+  for (let i = 0; i < 22; i += 1) {
+    const x = 18 + i * 43;
+    const bob = Math.round(Math.sin((frames + i * 11) / 9) * 3);
+    const h = 16 + (i % 3) * 5;
+    ctx.fillStyle = i % 2 === 0 ? '#1a1420' : '#241820';
+    ctx.fillRect(x, GROUND - h + bob, 14, h);
+    ctx.fillStyle = '#3a2a22';
+    ctx.fillRect(x + 3, GROUND - h - 6 + bob, 8, 8);
+  }
+};
+
+const drawSnowField = (ctx: Ctx, frames: number) => {
   const sky = ctx.createLinearGradient(0, 0, 0, GROUND);
-  sky.addColorStop(0, '#8eb4d8');
-  sky.addColorStop(0.45, '#d5e4f2');
-  sky.addColorStop(0.72, '#f3d7a4');
+  sky.addColorStop(0, '#5d7eae');
+  sky.addColorStop(0.35, '#8eb4d8');
+  sky.addColorStop(0.62, '#d5e4f2');
+  sky.addColorStop(0.82, '#f3d7a4');
   sky.addColorStop(1, '#f7f4ee');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  ctx.fillStyle = '#f4efe6';
+  ctx.fillRect(72, 48, 28, 28);
+  ctx.fillRect(64, 56, 44, 20);
+  ctx.fillRect(80, 44, 12, 8);
+  ctx.fillStyle = '#d5e1ee';
+  ctx.fillRect(84, 60, 8, 8);
 
   fillRidge(ctx, [
     [0, 250], [80, 170], [160, 210], [250, 120], [340, 180],
@@ -152,6 +216,11 @@ const drawSnowField = (ctx: Ctx) => {
   drawPine(ctx, 830, GROUND, 84);
   drawTorii(ctx, 430, GROUND - 4);
   drawPagoda(ctx, 760, GROUND);
+  drawFlag(ctx, 250, GROUND, frames, '#b4332a');
+  drawFlag(ctx, 690, GROUND, frames + 6, '#2458c9');
+  drawLantern(ctx, 200, 118, Math.round(Math.sin(frames / 14) * 5));
+  drawLantern(ctx, 480, 96, Math.round(Math.sin(frames / 12 + 1) * 6));
+  drawLantern(ctx, 760, 118, Math.round(Math.sin(frames / 16 + 2) * 5));
 
   ctx.fillStyle = '#f7fbff';
   ctx.fillRect(0, GROUND, WIDTH, HEIGHT - GROUND);
@@ -165,6 +234,7 @@ const drawSnowField = (ctx: Ctx) => {
   ctx.fill();
   ctx.fillStyle = '#c4a078';
   ctx.fillRect(470, GROUND + 8, 16, HEIGHT - GROUND);
+  drawCrowd(ctx, frames);
 };
 
 const drawPlatform = (ctx: Ctx, plat: Platform) => {
@@ -236,8 +306,9 @@ const blitSprite = (ctx: Ctx, pixels: SpritePixel[]) => {
   });
 };
 
-const drawSwordArm = (ctx: Ctx, swing: number, heavy: boolean) => {
-  const reach = swing > 0 ? Math.round(Math.sin(Math.PI * swing) * (heavy ? 8 : 6)) : 0;
+const drawSwordArm = (ctx: Ctx, swing: number, heavy: boolean, special: boolean) => {
+  const power = special ? 10 : heavy ? 8 : 6;
+  const reach = swing > 0 ? Math.round(Math.sin(Math.PI * swing) * power) : 0;
   const lift = reach > 0 ? -1 : 0;
   if (reach > 0) {
     for (let i = 0; i < reach; i += 1) {
@@ -257,12 +328,15 @@ const drawSwordArm = (ctx: Ctx, swing: number, heavy: boolean) => {
     );
   });
   if (swing <= 0) return;
-  const extra = Math.round(Math.sin(Math.PI * swing) * (heavy ? 14 : 10));
+  const extra = Math.round(Math.sin(Math.PI * swing) * (special ? 18 : heavy ? 14 : 10));
   const length = 8 + extra;
   const x = (19 + reach) * SAMURAI_SCALE;
   const y = (-8 + lift) * SAMURAI_SCALE;
-  paint(ctx, x, y, length, SAMURAI_SCALE, '#969696');
+  paint(ctx, x, y, length, SAMURAI_SCALE, special ? '#ffe08a' : '#969696');
   paint(ctx, x + length, y - 1, SAMURAI_SCALE, SAMURAI_SCALE + 2, '#e4e4e4');
+  if (!special) return;
+  paint(ctx, x + 4, y - 3, 10, 2, '#fff4c2');
+  paint(ctx, x + 8, y + 3, 8, 2, '#ffb000');
 };
 
 const drawShield = (ctx: Ctx) => {
@@ -306,21 +380,30 @@ const drawSamurai = (
   dashing: boolean,
   blocking: boolean,
   step: number,
+  hurt: boolean,
+  jumping: boolean,
+  supering: boolean,
+  flash: boolean,
+  bruise: boolean,
+  special: boolean,
 ) => {
   ctx.save();
-  ctx.translate(dir === 1 ? x : x + BODY_W, y);
+  ctx.translate(dir === 1 ? x : x + BODY_W, y + (hurt ? 3 : 0) + (jumping ? -2 : 0));
   ctx.scale(dir, 1);
+  if (hurt) ctx.translate(-4, 0);
 
-  if (dashing) {
-    ctx.fillStyle = palette.aura;
-    ctx.fillRect(-8, -28, 6, 16);
-    ctx.fillRect(-14, -20, 5, 8);
+  if (dashing || supering) {
+    ctx.fillStyle = supering ? palette.armorLight : palette.aura;
+    ctx.globalAlpha = supering ? 0.55 : 0.7;
+    ctx.fillRect(-10, -32, 8, 22);
+    ctx.fillRect(-18, -22, 7, 10);
+    ctx.globalAlpha = 1;
   }
 
   const drawFeet = (pixels: SpritePixel[], lift: boolean) => {
     pixels.forEach(([footX, footY, color]) => {
       const offsetX = lift ? 2 : 0;
-      const offsetY = lift ? -3 : 0;
+      const offsetY = lift ? -3 : jumping ? -5 : 0;
       paint(
         ctx,
         (footX + offsetX) * SAMURAI_SCALE,
@@ -333,14 +416,26 @@ const drawSamurai = (
   };
 
   blitSprite(ctx, samuraiBody);
+  paint(ctx, 18, -40, 6, 4, palette.armor);
+  paint(ctx, 20, -46, 2, 6, palette.crest);
+  if (bruise) {
+    paint(ctx, 22, -28, 4, 3, '#7a2430');
+    paint(ctx, 26, -24, 3, 2, '#4a1820');
+  }
   drawFeet(samuraiFrontFoot, step === 0);
   drawFeet(samuraiBackFoot, step === 1);
   if (swing > 0) blitSprite(ctx, samuraiSheath);
-  drawSwordArm(ctx, blocking || aiming ? 0 : swing, heavy);
+  drawSwordArm(ctx, blocking || aiming ? 0 : swing, heavy, special || supering);
   if (blocking) {
     drawShield(ctx);
   } else if (aiming) {
     drawBow(ctx);
+  }
+  if (flash) {
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(8, -44, 36, 44);
+    ctx.globalAlpha = 1;
   }
 
   ctx.restore();
@@ -364,6 +459,21 @@ const drawArrow = (ctx: Ctx, x: number, y: number, dir: number, color: string) =
   ctx.restore();
 };
 
+const drawWave = (ctx: Ctx, wave: Wave, color: string) => {
+  const dir = wave.vx > 0 ? 1 : -1;
+  ctx.save();
+  ctx.translate(wave.x, wave.y);
+  ctx.scale(dir, 1);
+  ctx.globalAlpha = Math.min(1, wave.life / 10);
+  ctx.fillStyle = color;
+  ctx.fillRect(0, -10, 28, 6);
+  ctx.fillRect(8, -16, 18, 6);
+  ctx.fillRect(8, -4, 18, 6);
+  ctx.fillStyle = '#fff4c2';
+  ctx.fillRect(18, -8, 16, 4);
+  ctx.restore();
+};
+
 const drawArrowStock = (ctx: Ctx, x: number, y: number, left: number, color: string) => {
   for (let i = 0; i < ARROW_STOCK; i += 1) {
     ctx.fillStyle = i < left ? color : '#2a3344';
@@ -384,99 +494,163 @@ const drawShieldStock = (ctx: Ctx, x: number, y: number, left: number) => {
   }
 };
 
+const drawBar = (
+  ctx: Ctx,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  fill: number,
+  ghost: number,
+  alignRight: boolean,
+  fillColor: string,
+  ghostColor: string,
+) => {
+  ctx.fillStyle = '#1b2430';
+  ctx.fillRect(x, y, w, h);
+  const ghostW = Math.max(0, Math.min(1, ghost)) * w;
+  const fillW = Math.max(0, Math.min(1, fill)) * w;
+  ctx.fillStyle = ghostColor;
+  ctx.fillRect(alignRight ? x + w - ghostW : x, y, ghostW, h);
+  ctx.fillStyle = fillColor;
+  ctx.fillRect(alignRight ? x + w - fillW : x, y, fillW, h);
+  ctx.strokeStyle = '#f7f3ea';
+  ctx.strokeRect(x, y, w, h);
+};
+
 const drawHud = (
   ctx: Ctx,
-  p1: { hp: number; score: number; arrows: number; shield: number },
-  p2: { hp: number; score: number; arrows: number; shield: number },
+  p1: { hp: number; hpShow: number; score: number; arrows: number; shield: number; meter: number; combo: number; comboTimer: number },
+  p2: { hp: number; hpShow: number; score: number; arrows: number; shield: number; meter: number; combo: number; comboTimer: number },
   seconds: number,
-  showFight: boolean,
+  frames: number,
+  ko: Side | null,
 ) => {
-  ctx.fillStyle = 'rgba(8, 16, 32, 0.72)';
-  ctx.fillRect(0, 0, WIDTH, 104);
+  ctx.fillStyle = 'rgba(8, 16, 32, 0.78)';
+  ctx.fillRect(0, 0, WIDTH, 92);
 
   const drawSide = (
     sideX: number,
     alignRight: boolean,
     label: string,
     name: string,
-    hp: number,
-    score: number,
-    arrows: number,
-    shield: number,
+    fighter: { hp: number; hpShow: number; score: number; arrows: number; shield: number; meter: number },
     palette: Palette,
   ) => {
     const portraitX = alignRight ? sideX + 286 : sideX;
     ctx.fillStyle = '#101820';
-    ctx.fillRect(portraitX, 10, 44, 44);
+    ctx.fillRect(portraitX, 8, 44, 44);
     ctx.strokeStyle = palette.armorLight;
-    ctx.strokeRect(portraitX, 10, 44, 44);
+    ctx.strokeRect(portraitX, 8, 44, 44);
     ctx.fillStyle = palette.armor;
-    ctx.fillRect(portraitX + 12, 18, 20, 14);
+    ctx.fillRect(portraitX + 12, 16, 20, 14);
     ctx.fillStyle = '#f2c014';
-    ctx.fillRect(portraitX + 16, 8, 3, 8);
-    ctx.fillRect(portraitX + 24, 10, 3, 6);
+    ctx.fillRect(portraitX + 16, 6, 3, 8);
+    ctx.fillRect(portraitX + 24, 8, 3, 6);
     ctx.fillStyle = '#f0c8a0';
-    ctx.fillRect(portraitX + 14, 28, 8, 6);
+    ctx.fillRect(portraitX + 14, 26, 8, 6);
     ctx.fillStyle = '#111';
-    ctx.fillRect(portraitX + 16, 30, 3, 3);
+    ctx.fillRect(portraitX + 16, 28, 3, 3);
 
     const textX = alignRight ? sideX + 270 : sideX + 52;
     ctx.textAlign = alignRight ? 'right' : 'left';
     ctx.fillStyle = '#f7f3ea';
     ctx.font = `8px ${PIX}`;
-    ctx.fillText(label, textX, 20);
+    ctx.fillText(label, textX, 16);
     ctx.font = `10px ${PIX}`;
-    ctx.fillText(name, textX, 56);
+    ctx.fillText(name, textX, 54);
     ctx.font = `8px ${PIX}`;
-    ctx.fillText(String(score).padStart(6, '0'), textX, 74);
+    ctx.fillText(String(fighter.score).padStart(6, '0'), textX, 70);
 
     const barX = alignRight ? sideX : sideX + 52;
-    ctx.fillStyle = '#1b2430';
-    ctx.fillRect(barX, 26, 200, 12);
-    ctx.fillStyle = hp > 30 ? '#7dce3a' : '#e23b2f';
-    const fill = Math.max(0, hp) * 2;
-    ctx.fillRect(alignRight ? barX + 200 - fill : barX, 26, fill, 12);
-    ctx.textAlign = alignRight ? 'left' : 'right';
+    const hpColor = fighter.hp > 30 ? '#7dce3a' : '#e23b2f';
+    drawBar(ctx, barX, 22, 220, 12, fighter.hp / 100, fighter.hpShow / 100, alignRight, hpColor, '#7a2430');
+    drawBar(ctx, barX, 38, 220, 8, fighter.meter / METER_MAX, fighter.meter / METER_MAX, alignRight, '#ffb000', '#5a3a08');
     ctx.fillStyle = '#f7f3ea';
-    ctx.fillText(`HP: ${Math.max(0, hp)}%`, alignRight ? barX : barX + 200, 18);
+    ctx.font = `7px ${PIX}`;
+    ctx.textAlign = alignRight ? 'left' : 'right';
+    ctx.fillText('HP', alignRight ? barX : barX + 220, 18);
+    ctx.fillText(fighter.meter >= METER_MAX ? 'SUPER' : 'KI', alignRight ? barX : barX + 220, 50);
 
     const stockX = alignRight ? sideX + 90 : sideX + 150;
-    drawArrowStock(ctx, stockX, 90, arrows, palette.armorLight);
-    drawShieldStock(ctx, alignRight ? sideX : sideX + 52, 78, shield);
+    drawArrowStock(ctx, stockX, 82, fighter.arrows, palette.armorLight);
+    drawShieldStock(ctx, alignRight ? sideX : sideX + 52, 74, fighter.shield);
     ctx.textAlign = 'left';
   };
 
-  drawSide(12, false, 'PLAYER 1', 'TAKEDA', p1.hp, p1.score, p1.arrows, p1.shield, FIRE);
-  drawSide(WIDTH - 342, true, 'PLAYER 2', 'REN', p2.hp, p2.score, p2.arrows, p2.shield, ICE);
+  drawSide(12, false, 'PLAYER 1', 'TAKEDA', p1, FIRE);
+  drawSide(WIDTH - 342, true, 'PLAYER 2', 'REN', p2, ICE);
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f7f3ea';
   ctx.font = `8px ${PIX}`;
-  ctx.fillText(`TIME: ${String(seconds).padStart(2, '0')}`, WIDTH / 2, 18);
+  ctx.fillText(`TIME ${String(seconds).padStart(2, '0')}`, WIDTH / 2, 16);
   ctx.fillStyle = '#ff8a1a';
   ctx.font = `16px ${PIX}`;
-  ctx.fillText('VS', WIDTH / 2, 40);
+  ctx.fillText('VS', WIDTH / 2, 38);
   ctx.fillStyle = '#f7f3ea';
   ctx.font = `8px ${PIX}`;
-  ctx.fillText('ROUND 1', WIDTH / 2, 68);
-  if (showFight) {
+  ctx.fillText('ROUND 1', WIDTH / 2, 58);
+
+  if (frames < 40) {
+    ctx.fillStyle = '#ffb000';
+    ctx.font = `22px ${PIX}`;
+    ctx.fillText('ROUND 1', WIDTH / 2, 250);
+  } else if (frames < INTRO_FRAMES) {
+    ctx.fillStyle = '#ffb000';
+    ctx.font = `28px ${PIX}`;
+    ctx.fillText('FIGHT!', WIDTH / 2, 250);
+  }
+  if (ko) {
+    ctx.fillStyle = 'rgba(8, 8, 16, 0.35)';
+    ctx.fillRect(0, 200, WIDTH, 80);
+    ctx.fillStyle = '#ffb000';
+    ctx.font = `32px ${PIX}`;
+    ctx.fillText('K.O.', WIDTH / 2, 250);
+    ctx.fillStyle = '#f7f3ea';
+    ctx.font = `10px ${PIX}`;
+    ctx.fillText(ko === 'p1' ? 'TAKEDA WINS' : 'REN WINS', WIDTH / 2, 276);
+  }
+
+  if (p1.comboTimer > 0 && p1.combo >= 2) {
+    ctx.textAlign = 'left';
     ctx.fillStyle = '#ffb000';
     ctx.font = `12px ${PIX}`;
-    ctx.fillText('FIGHT!', WIDTH / 2, 92);
+    ctx.fillText(`${p1.combo} HITS`, 24, 130);
+  }
+  if (p2.comboTimer > 0 && p2.combo >= 2) {
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#9ad8ff';
+    ctx.font = `12px ${PIX}`;
+    ctx.fillText(`${p2.combo} HITS`, WIDTH - 24, 130);
   }
   ctx.textAlign = 'left';
 
   ctx.fillStyle = '#243044';
   ctx.font = `8px ${PIX}`;
-  ctx.fillText('SNOWY PASS', 16, HEIGHT - 48);
+  ctx.fillText('SNOWY PASS', 16, HEIGHT - 44);
   ctx.fillStyle = 'rgba(8, 16, 32, 0.88)';
-  ctx.fillRect(0, HEIGHT - 40, WIDTH, 40);
+  ctx.fillRect(0, HEIGHT - 36, WIDTH, 36);
   ctx.fillStyle = '#f7f3ea';
   ctx.font = `7px ${PIX}`;
   ctx.textAlign = 'center';
-  ctx.fillText('P1   WASD   SHIFT ESQUIVA   S ESCUDO   ESPACIO COMBO   F ARCO', WIDTH / 2, HEIGHT - 24);
-  ctx.fillText('P2   FLECHAS   L ESQUIVA   ABAJO ESCUDO   ENTER COMBO   K ARCO', WIDTH / 2, HEIGHT - 10);
+  ctx.fillText('P1  WASD  SHIFT ESQUIVA  S ESCUDO  ESPACIO COMBO  F ARCO  BARRA LLENA = SUPER', WIDTH / 2, HEIGHT - 22);
+  ctx.fillText('P2  FLECHAS  L ESQUIVA  ABAJO ESCUDO  ENTER COMBO  K ARCO', WIDTH / 2, HEIGHT - 10);
   ctx.textAlign = 'left';
+};
+
+const spawnBurst = (list: Particle[], x: number, y: number, color: string, count: number) => {
+  for (let i = 0; i < count; i += 1) {
+    list.push({
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 7,
+      vy: -1 - Math.random() * 4,
+      life: 12 + Math.floor(Math.random() * 10),
+      color,
+      size: Math.random() > 0.5 ? 3 : 2,
+    });
+  }
 };
 
 export default function Combat({
@@ -503,10 +677,14 @@ export default function Combat({
       vx: 0,
       vy: 0,
       hp: 100,
+      hpShow: 100,
       dir,
       attacking: 0,
       attackLock: 0,
       heavy: false,
+      special: false,
+      supering: false,
+      didHit: false,
       arrows: ARROW_STOCK,
       shield: SHIELD_HITS,
       shootCd: 0,
@@ -516,12 +694,19 @@ export default function Combat({
       blocking: false,
       grounded: true,
       swingFrom: 0,
+      stun: 0,
+      flash: 0,
+      meter: 0,
+      combo: 0,
+      comboTimer: 0,
     });
 
     const state = {
       p1: makeFighter(22, 1),
       p2: makeFighter(WIDTH - BODY_W - 22, -1),
       shots: [] as { x: number; y: number; vx: number; owner: Side }[],
+      waves: [] as Wave[],
+      fx: [] as Particle[],
       flakes: Array.from({ length: 42 }, () => ({
         x: Math.random() * WIDTH,
         y: Math.random() * HEIGHT,
@@ -530,20 +715,36 @@ export default function Combat({
       })),
       keys: {} as Record<string, boolean>,
       frames: 0,
+      hitStop: 0,
+      shake: 0,
+      ko: null as Side | null,
+      koFrames: 0,
+    };
+
+    const impactFrame = (fighter: typeof state.p1) => {
+      if (fighter.supering) return 12;
+      if (fighter.special) return 10;
+      if (fighter.heavy) return 8;
+      return 9;
     };
 
     const tryDash = (owner: Side) => {
       const fighter = state[owner];
-      if (fighter.dashCd > 0 || fighter.dashing > 0 || !fighter.grounded) return;
+      if (state.ko || state.frames < INTRO_FRAMES) return;
+      if (fighter.stun > 0 || fighter.dashCd > 0 || fighter.dashing > 0 || !fighter.grounded) return;
       fighter.dashing = DASH_FRAMES;
       fighter.dashCd = DASH_CD;
       fighter.blocking = false;
       fighter.attacking = 0;
+      fighter.special = false;
+      fighter.supering = false;
+      spawnBurst(state.fx, fighter.x + BODY_W / 2, fighter.y - 8, '#f7f3ea', 6);
     };
 
     const shoot = (owner: Side) => {
       const fighter = state[owner];
-      if (fighter.arrows <= 0 || fighter.shootCd > 0 || fighter.blocking || fighter.dashing > 0) return;
+      if (state.ko || state.frames < INTRO_FRAMES) return;
+      if (fighter.stun > 0 || fighter.arrows <= 0 || fighter.shootCd > 0 || fighter.blocking || fighter.dashing > 0) return;
       fighter.arrows -= 1;
       fighter.shootCd = 42;
       state.shots.push({
@@ -556,12 +757,28 @@ export default function Combat({
 
     const startSlash = (owner: Side) => {
       const fighter = state[owner];
-      if (fighter.blocking || fighter.dashing > 0) return;
+      if (state.ko || state.frames < INTRO_FRAMES) return;
+      if (fighter.stun > 0 || fighter.blocking || fighter.dashing > 0) return;
       if (fighter.attacking === 0 && fighter.attackLock === 0) {
+        if (fighter.meter >= METER_MAX) {
+          fighter.attacking = 28;
+          fighter.attackLock = 36;
+          fighter.swingFrom = 28;
+          fighter.heavy = true;
+          fighter.special = true;
+          fighter.supering = true;
+          fighter.didHit = false;
+          fighter.meter = 0;
+          fighter.vx += fighter.dir * 3.4;
+          return;
+        }
         fighter.attacking = 18;
         fighter.attackLock = 22;
         fighter.swingFrom = 18;
         fighter.heavy = false;
+        fighter.special = false;
+        fighter.supering = false;
+        fighter.didHit = false;
         fighter.vx += fighter.dir * 2.2;
         return;
       }
@@ -570,7 +787,18 @@ export default function Combat({
         fighter.attacking = 16;
         fighter.swingFrom = 16;
         fighter.attackLock = 32;
+        fighter.didHit = false;
         fighter.vx += fighter.dir * 3;
+        return;
+      }
+      if (fighter.heavy && !fighter.special && fighter.attacking > 0 && fighter.attacking <= 10 && fighter.meter >= 50) {
+        fighter.special = true;
+        fighter.attacking = 20;
+        fighter.swingFrom = 20;
+        fighter.attackLock = 38;
+        fighter.didHit = false;
+        fighter.meter -= 50;
+        fighter.vx += fighter.dir * 3.6;
       }
     };
 
@@ -616,6 +844,10 @@ export default function Combat({
         fighter.vx = fighter.dir * DASH_SPEED;
         return;
       }
+      if (fighter.stun > 0) {
+        fighter.vx *= 0.8;
+        return;
+      }
       if (dir !== 0 && !fighter.blocking) {
         fighter.dir = dir;
         fighter.vx += dir * ACCEL;
@@ -627,18 +859,36 @@ export default function Combat({
       if (fighter.vx < -cap) fighter.vx = -cap;
     };
 
-    const applyHit = (defender: typeof state.p1, attacker: typeof state.p1, amount: number, knock: number) => {
-      if (defender.dashing > 0) return;
+    const applyHit = (defender: typeof state.p1, attacker: typeof state.p1, amount: number, knock: number, stun: number) => {
+      if (defender.dashing > 0) return false;
       const facing = defender.dir === -Math.sign(knock || 1);
+      const hitX = defender.x + BODY_W / 2;
+      const hitY = defender.y - 24;
       if (defender.blocking && facing && defender.shield > 0) {
         defender.shield -= 1;
         defender.vx = knock * 1.4;
-        return;
+        attacker.meter = Math.min(METER_MAX, attacker.meter + 4);
+        spawnBurst(state.fx, hitX, hitY, '#f2c014', 6);
+        state.hitStop = 3;
+        state.shake = 4;
+        return false;
       }
       defender.hp -= amount;
       defender.vx = knock * 9;
-      defender.vy = -5;
+      defender.vy = -4.2;
+      defender.stun = stun;
+      defender.flash = 6;
+      defender.attacking = 0;
+      defender.blocking = false;
       attacker.score += amount * 25;
+      attacker.meter = Math.min(METER_MAX, attacker.meter + amount);
+      if (attacker.comboTimer > 0) attacker.combo += 1;
+      else attacker.combo = 1;
+      attacker.comboTimer = 50;
+      spawnBurst(state.fx, hitX, hitY, amount > 12 ? '#ffe08a' : '#ffffff', amount > 12 ? 14 : 8);
+      state.hitStop = amount > 12 ? 8 : 5;
+      state.shake = amount > 12 ? 10 : 6;
+      return true;
     };
 
     const botUpdate = () => {
@@ -649,7 +899,7 @@ export default function Combat({
       if (arrowNear && Math.random() < 0.4) tryDash('p2');
       if (absDist > 360 && state.p2.dashCd === 0 && state.p2.grounded && Math.random() < 0.03) tryDash('p2');
       const playerSwinging = state.p1.attacking > 0 && absDist < 70;
-      state.p2.blocking = playerSwinging && state.p2.dashing === 0 && state.p2.grounded && state.p2.shield > 0;
+      state.p2.blocking = playerSwinging && state.p2.dashing === 0 && state.p2.grounded && state.p2.shield > 0 && state.p2.stun === 0;
       if (state.p2.blocking) {
         steer(state.p2, 0);
       } else if (absDist > 42) {
@@ -661,6 +911,8 @@ export default function Combat({
       if (!state.p2.blocking && state.p2.attacking === 0 && state.p2.attackLock === 0 && absDist < 46 && Math.random() < 0.35) {
         startSlash('p2');
         state.p2.attackLock = 64;
+      } else if (state.p2.attacking > 0 && absDist < 50 && Math.random() < 0.2) {
+        startSlash('p2');
       }
       if (absDist > 160 && state.p2.arrows > 0 && state.p2.shootCd === 0 && state.frames > 100 && Math.random() < 0.012) {
         shoot('p2');
@@ -672,106 +924,200 @@ export default function Combat({
 
     const update = () => {
       state.frames += 1;
-      state.p1.blocking = Boolean(state.keys['s'] && state.p1.grounded && state.p1.dashing === 0 && state.p1.shield > 0);
-      if (!botEnabled) {
-        state.p2.blocking = Boolean(state.keys['ArrowDown'] && state.p2.grounded && state.p2.dashing === 0 && state.p2.shield > 0);
-      }
+      if (state.hitStop > 0) {
+        state.hitStop -= 1;
+      } else if (!state.ko) {
+        if (state.frames >= INTRO_FRAMES) {
+          state.p1.blocking = Boolean(state.keys['s'] && state.p1.grounded && state.p1.dashing === 0 && state.p1.shield > 0 && state.p1.stun === 0);
+          if (!botEnabled) {
+            state.p2.blocking = Boolean(state.keys['ArrowDown'] && state.p2.grounded && state.p2.dashing === 0 && state.p2.shield > 0 && state.p2.stun === 0);
+          }
 
-      const p1Dir = state.keys['a'] ? -1 : state.keys['d'] ? 1 : 0;
-      steer(state.p1, p1Dir);
-      if (state.keys['w'] && state.p1.grounded && !state.p1.blocking && state.p1.dashing === 0) state.p1.vy = JUMP;
+          const p1Dir = state.keys['a'] ? -1 : state.keys['d'] ? 1 : 0;
+          steer(state.p1, p1Dir);
+          if (state.keys['w'] && state.p1.grounded && !state.p1.blocking && state.p1.dashing === 0 && state.p1.stun === 0) {
+            state.p1.vy = JUMP;
+          }
 
-      if (!botEnabled) {
-        const p2Dir = state.keys['ArrowLeft'] ? -1 : state.keys['ArrowRight'] ? 1 : 0;
-        steer(state.p2, p2Dir);
-        if (state.keys['ArrowUp'] && state.p2.grounded && !state.p2.blocking && state.p2.dashing === 0) state.p2.vy = JUMP;
-      } else {
-        botUpdate();
-      }
+          if (!botEnabled) {
+            const p2Dir = state.keys['ArrowLeft'] ? -1 : state.keys['ArrowRight'] ? 1 : 0;
+            steer(state.p2, p2Dir);
+            if (state.keys['ArrowUp'] && state.p2.grounded && !state.p2.blocking && state.p2.dashing === 0 && state.p2.stun === 0) {
+              state.p2.vy = JUMP;
+            }
+          } else {
+            botUpdate();
+          }
+        }
 
-      const land = (fighter: typeof state.p1, prevY: number) => {
-        let grounded = false;
-        if (fighter.vy >= 0) {
-          PLATFORMS.forEach((plat) => {
-            const overlaps = fighter.x + 4 < plat.x + plat.w && fighter.x + BODY_W - 4 > plat.x;
-            const crossed = prevY <= plat.y && fighter.y >= plat.y && fighter.y <= plat.y + 14;
-            if (!overlaps || !crossed) return;
-            fighter.y = plat.y;
+        const land = (fighter: typeof state.p1, prevY: number) => {
+          let grounded = false;
+          if (fighter.vy >= 0) {
+            PLATFORMS.forEach((plat) => {
+              const overlaps = fighter.x + 4 < plat.x + plat.w && fighter.x + BODY_W - 4 > plat.x;
+              const crossed = prevY <= plat.y && fighter.y >= plat.y && fighter.y <= plat.y + 14;
+              if (!overlaps || !crossed) return;
+              fighter.y = plat.y;
+              fighter.vy = 0;
+              grounded = true;
+            });
+          }
+          if (fighter.y >= GROUND) {
+            fighter.y = GROUND;
             fighter.vy = 0;
             grounded = true;
-          });
-        }
-        if (fighter.y >= GROUND) {
-          fighter.y = GROUND;
-          fighter.vy = 0;
-          grounded = true;
-        }
-        fighter.grounded = grounded;
-      };
-
-      const climb = (fighter: typeof state.p1) => {
-        if (fighter.vy < -1) return;
-        let stepped = fighter.y;
-        PLATFORMS.forEach((plat) => {
-          const overlaps = fighter.x + 6 < plat.x + plat.w && fighter.x + BODY_W - 6 > plat.x;
-          const rise = fighter.y - plat.y;
-          if (!overlaps || rise <= 0 || rise > STEP_UP) return;
-          if (plat.y < stepped) stepped = plat.y;
-        });
-        if (stepped === fighter.y) return;
-        fighter.y = stepped;
-        fighter.vy = 0;
-        fighter.grounded = true;
-      };
-
-      [state.p1, state.p2].forEach((fighter) => {
-        const prevY = fighter.y;
-        fighter.vy += GRAVITY;
-        fighter.y += fighter.vy;
-        fighter.x += fighter.vx;
-        land(fighter, prevY);
-        climb(fighter);
-        if (fighter.x < 12) fighter.x = 12;
-        if (fighter.x > WIDTH - BODY_W - 12) fighter.x = WIDTH - BODY_W - 12;
-        if (fighter.attacking > 0) fighter.attacking -= 1;
-        if (fighter.attackLock > 0) fighter.attackLock -= 1;
-        if (fighter.shootCd > 0) fighter.shootCd -= 1;
-        if (fighter.dashing > 0) fighter.dashing -= 1;
-        if (fighter.dashCd > 0) fighter.dashCd -= 1;
-      });
-
-      const swingOf = (fighter: typeof state.p1) => {
-        if (fighter.attacking <= 0 || fighter.swingFrom <= 0) return 0;
-        return 1 - fighter.attacking / fighter.swingFrom;
-      };
-
-      const strike = (attacker: Side, defender: Side) => {
-        const fighter = state[attacker];
-        const impact = fighter.heavy ? 8 : 9;
-        if (fighter.attacking !== impact) return;
-        const reach = fighter.heavy ? 42 : 32;
-        const box = {
-          x: fighter.dir === 1 ? fighter.x + 34 : fighter.x - reach + 6,
-          y: fighter.y - 24,
-          w: reach,
-          h: 12,
+          }
+          fighter.grounded = grounded;
         };
-        if (!hits(box, state[defender])) return;
-        applyHit(state[defender], fighter, fighter.heavy ? 14 : 8, fighter.dir * 6);
-      };
-      strike('p1', 'p2');
-      strike('p2', 'p1');
 
-      state.shots = state.shots.filter((shot) => {
-        shot.x += shot.vx;
-        if (shot.x < -40 || shot.x > WIDTH + 40) return false;
-        const defender = shot.owner === 'p1' ? state.p2 : state.p1;
-        const box = { x: shot.vx > 0 ? shot.x + 16 : shot.x, y: shot.y - 4, w: 16, h: 10 };
-        if (!hits(box, defender)) return true;
-        applyHit(defender, state[shot.owner], 7, Math.sign(shot.vx) * 7);
-        return false;
+        const climb = (fighter: typeof state.p1) => {
+          if (fighter.vy < -1) return;
+          let stepped = fighter.y;
+          PLATFORMS.forEach((plat) => {
+            const overlaps = fighter.x + 6 < plat.x + plat.w && fighter.x + BODY_W - 6 > plat.x;
+            const rise = fighter.y - plat.y;
+            if (!overlaps || rise <= 0 || rise > STEP_UP) return;
+            if (plat.y < stepped) stepped = plat.y;
+          });
+          if (stepped === fighter.y) return;
+          fighter.y = stepped;
+          fighter.vy = 0;
+          fighter.grounded = true;
+        };
+
+        [state.p1, state.p2].forEach((fighter) => {
+          const prevY = fighter.y;
+          fighter.vy += GRAVITY;
+          fighter.y += fighter.vy;
+          fighter.x += fighter.vx;
+          land(fighter, prevY);
+          climb(fighter);
+          if (fighter.x < 12) fighter.x = 12;
+          if (fighter.x > WIDTH - BODY_W - 12) fighter.x = WIDTH - BODY_W - 12;
+          if (fighter.attacking > 0) fighter.attacking -= 1;
+          if (fighter.attackLock > 0) fighter.attackLock -= 1;
+          if (fighter.shootCd > 0) fighter.shootCd -= 1;
+          if (fighter.dashing > 0) fighter.dashing -= 1;
+          if (fighter.dashCd > 0) fighter.dashCd -= 1;
+          if (fighter.stun > 0) fighter.stun -= 1;
+          if (fighter.flash > 0) fighter.flash -= 1;
+          if (fighter.comboTimer > 0) fighter.comboTimer -= 1;
+          else fighter.combo = 0;
+          if (fighter.hpShow > fighter.hp) fighter.hpShow -= 0.45;
+          if (fighter.hpShow < fighter.hp) fighter.hpShow = fighter.hp;
+          if (fighter.attacking === 0) {
+            fighter.heavy = false;
+            fighter.special = false;
+            fighter.supering = false;
+            fighter.didHit = false;
+          }
+        });
+
+        const strikeBox = (fighter: typeof state.p1) => {
+          const reach = fighter.supering ? 56 : fighter.special ? 48 : fighter.heavy ? 42 : 32;
+          return {
+            x: fighter.dir === 1 ? fighter.x + 34 : fighter.x - reach + 6,
+            y: fighter.y - 24,
+            w: reach,
+            h: 12,
+          };
+        };
+
+        const strike = (attacker: Side, defender: Side) => {
+          const fighter = state[attacker];
+          if (fighter.didHit || fighter.attacking !== impactFrame(fighter)) return;
+          const box = strikeBox(fighter);
+          if (!hits(box, state[defender])) return;
+          fighter.didHit = true;
+          const amount = fighter.supering ? 22 : fighter.special ? 16 : fighter.heavy ? 14 : 8;
+          const stun = fighter.supering ? 22 : fighter.special ? 18 : fighter.heavy ? 16 : 12;
+          const connected = applyHit(state[defender], fighter, amount, fighter.dir * (fighter.supering ? 8 : 6), stun);
+          if (connected && fighter.supering) {
+            state.waves.push({
+              x: fighter.dir === 1 ? fighter.x + BODY_W : fighter.x,
+              y: fighter.y - 22,
+              vx: fighter.dir * 10,
+              owner: attacker,
+              life: 28,
+            });
+          }
+        };
+
+        const p1Impact = state.p1.attacking === impactFrame(state.p1) && !state.p1.didHit;
+        const p2Impact = state.p2.attacking === impactFrame(state.p2) && !state.p2.didHit;
+        if (p1Impact && p2Impact && Math.abs(state.p1.x - state.p2.x) < 78) {
+          state.p1.didHit = true;
+          state.p2.didHit = true;
+          state.p1.vx = -state.p1.dir * 5;
+          state.p2.vx = -state.p2.dir * 5;
+          state.hitStop = 9;
+          state.shake = 8;
+          spawnBurst(state.fx, (state.p1.x + state.p2.x) / 2, state.p1.y - 22, '#ffe08a', 16);
+        } else {
+          strike('p1', 'p2');
+          strike('p2', 'p1');
+        }
+
+        state.shots = state.shots.filter((shot) => {
+          shot.x += shot.vx;
+          if (shot.x < -40 || shot.x > WIDTH + 40) return false;
+          const defender = shot.owner === 'p1' ? state.p2 : state.p1;
+          const box = { x: shot.vx > 0 ? shot.x + 16 : shot.x, y: shot.y - 4, w: 16, h: 10 };
+          if (!hits(box, defender)) return true;
+          applyHit(defender, state[shot.owner], 7, Math.sign(shot.vx) * 7, 10);
+          return false;
+        });
+
+        state.waves = state.waves.filter((wave) => {
+          wave.x += wave.vx;
+          wave.life -= 1;
+          if (wave.life <= 0 || wave.x < -50 || wave.x > WIDTH + 50) return false;
+          const defender = wave.owner === 'p1' ? state.p2 : state.p1;
+          const box = { x: wave.vx > 0 ? wave.x : wave.x - 28, y: wave.y - 12, w: 32, h: 20 };
+          if (!hits(box, defender)) return true;
+          applyHit(defender, state[wave.owner], 10, Math.sign(wave.vx) * 8, 16);
+          return false;
+        });
+      } else {
+        [state.p1, state.p2].forEach((fighter) => {
+          fighter.vy += GRAVITY;
+          fighter.y += fighter.vy;
+          fighter.x += fighter.vx * 0.4;
+          if (fighter.y > GROUND) {
+            fighter.y = GROUND;
+            fighter.vy = 0;
+          }
+          if (fighter.flash > 0) fighter.flash -= 1;
+          if (fighter.hpShow > fighter.hp) fighter.hpShow -= 0.6;
+        });
+        state.koFrames -= 1;
+        if (state.koFrames <= 0 && state.ko) {
+          onGameEnd(state.ko);
+          return;
+        }
+      }
+
+      if (!state.ko) {
+        if (state.p1.hp <= 0) {
+          state.ko = 'p2';
+          state.koFrames = KO_FRAMES;
+          state.p1.stun = 999;
+          state.p1.vy = -5;
+        } else if (state.p2.hp <= 0) {
+          state.ko = 'p1';
+          state.koFrames = KO_FRAMES;
+          state.p2.stun = 999;
+          state.p2.vy = -5;
+        }
+      }
+
+      state.fx = state.fx.filter((spark) => {
+        spark.x += spark.vx;
+        spark.y += spark.vy;
+        spark.vy += 0.18;
+        spark.life -= 1;
+        return spark.life > 0;
       });
-
       state.flakes.forEach((flake) => {
         flake.y += flake.v;
         flake.x += 0.3;
@@ -780,34 +1126,63 @@ export default function Combat({
           flake.x = Math.random() * WIDTH;
         }
       });
+      if (state.shake > 0) state.shake -= 1;
 
-      if (state.p1.hp <= 0) { onGameEnd('p2'); return; }
-      if (state.p2.hp <= 0) { onGameEnd('p1'); return; }
-
-      drawSnowField(ctx);
+      const ox = state.shake > 0 ? Math.round((Math.random() - 0.5) * state.shake) : 0;
+      const oy = state.shake > 0 ? Math.round((Math.random() - 0.5) * state.shake) : 0;
+      ctx.save();
+      ctx.translate(ox, oy);
+      drawSnowField(ctx, state.frames);
       PLATFORMS.forEach((plat) => drawPlatform(ctx, plat));
       const stepOf = (fighter: typeof state.p1) => {
-        if (!fighter.grounded || Math.abs(fighter.vx) < 0.55) return -1;
+        if (!fighter.grounded || Math.abs(fighter.vx) < 0.55 || fighter.stun > 0) return -1;
         return Math.floor(state.frames / 6) % 2;
       };
-      drawSamurai(
-        ctx, state.p1.x, state.p1.y, state.p1.dir, FIRE,
-        swingOf(state.p1), state.p1.heavy, state.p1.shootCd > 8, state.p1.dashing > 0, state.p1.blocking,
-        stepOf(state.p1),
-      );
-      drawSamurai(
-        ctx, state.p2.x, state.p2.y, state.p2.dir, ICE,
-        swingOf(state.p2), state.p2.heavy, state.p2.shootCd > 8, state.p2.dashing > 0, state.p2.blocking,
-        stepOf(state.p2),
-      );
+      const swingOf = (fighter: typeof state.p1) => {
+        if (fighter.attacking <= 0 || fighter.swingFrom <= 0) return 0;
+        return 1 - fighter.attacking / fighter.swingFrom;
+      };
+      const paintFighter = (fighter: typeof state.p1, palette: Palette) => {
+        drawSamurai(
+          ctx,
+          fighter.x,
+          fighter.y,
+          fighter.dir,
+          palette,
+          swingOf(fighter),
+          fighter.heavy,
+          fighter.shootCd > 8,
+          fighter.dashing > 0,
+          fighter.blocking,
+          stepOf(fighter),
+          fighter.stun > 0 && fighter.hp > 0,
+          !fighter.grounded,
+          fighter.supering,
+          fighter.flash > 0,
+          fighter.hp < 40,
+          fighter.special,
+        );
+      };
+      paintFighter(state.p1, FIRE);
+      paintFighter(state.p2, ICE);
       state.shots.forEach((shot) => {
         drawArrow(ctx, shot.x, shot.y, shot.vx > 0 ? 1 : -1, shot.owner === 'p1' ? '#ffb15a' : '#9ad8ff');
       });
+      state.waves.forEach((wave) => {
+        drawWave(ctx, wave, wave.owner === 'p1' ? '#ffb000' : '#9ad8ff');
+      });
+      state.fx.forEach((spark) => {
+        ctx.globalAlpha = Math.min(1, spark.life / 8);
+        ctx.fillStyle = spark.color;
+        ctx.fillRect(spark.x, spark.y, spark.size, spark.size);
+      });
+      ctx.globalAlpha = 1;
       ctx.fillStyle = '#ffffff';
       state.flakes.forEach((flake) => {
         ctx.fillRect(flake.x, flake.y, flake.s, flake.s);
       });
-      drawHud(ctx, state.p1, state.p2, Math.floor(state.frames / 60), state.frames < 70);
+      ctx.restore();
+      drawHud(ctx, state.p1, state.p2, Math.floor(state.frames / 60), state.frames, state.ko);
 
       animationFrameId = requestAnimationFrame(update);
     };

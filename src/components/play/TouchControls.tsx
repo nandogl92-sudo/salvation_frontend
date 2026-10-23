@@ -1,4 +1,4 @@
-import type { PointerEvent } from 'react'
+import type { KeyboardEvent, PointerEvent } from 'react'
 
 type PadKey = {
   key: string
@@ -47,7 +47,7 @@ const PADS: Record<string, GamePad> = {
       { key: 'd', label: '▶', ariaLabel: 'Derecha' },
     ],
     actions: [
-      { key: ' ', label: 'ESPADA', ariaLabel: 'Espada' },
+      { key: ' ', label: 'COMBO', ariaLabel: 'Combo de espada' },
       { key: 'f', label: 'ARCO', ariaLabel: 'Arco' },
       { key: 's', label: 'ESCUDO', ariaLabel: 'Escudo' },
       { key: 'Shift', label: 'DASH', ariaLabel: 'Esquiva' },
@@ -82,6 +82,18 @@ const PadButton = ({ padKey }: { padKey: PadKey }) => {
     sendKey('keyup', padKey.key)
   }
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    sendKey('keydown', padKey.key)
+  }
+
+  const handleKeyUp = (event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    sendKey('keyup', padKey.key)
+  }
+
   return (
     <button
       type="button"
@@ -90,10 +102,44 @@ const PadButton = ({ padKey }: { padKey: PadKey }) => {
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      onKeyDown={handleKeyDown}
+      onKeyUp={handleKeyUp}
       className="min-w-12 min-h-12 px-3 rounded-xl bg-[#1a2340] border border-[#f5c518]/60 text-[#f5c518] text-[10px] font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]"
     >
       {padKey.label}
     </button>
+  )
+}
+
+const DirPad = ({ dirs }: { dirs: PadKey[] }) => {
+  const byKey: Record<string, PadKey> = {}
+  dirs.forEach((dir) => {
+    byKey[dir.key] = dir
+  })
+  const up = byKey.w
+  const left = byKey.a
+  const down = byKey.s
+  const right = byKey.d
+
+  if (up && left && right) {
+    return (
+      <div className="grid grid-cols-3 gap-1 w-[9.75rem]" aria-label="Cruz direccional">
+        <span aria-hidden="true" />
+        <PadButton padKey={up} />
+        <span aria-hidden="true" />
+        <PadButton padKey={left} />
+        {down ? <PadButton padKey={down} /> : <span aria-hidden="true" />}
+        <PadButton padKey={right} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {dirs.map((dir) => (
+        <PadButton key={dir.ariaLabel} padKey={dir} />
+      ))}
+    </div>
   )
 }
 
@@ -106,11 +152,7 @@ const TouchControls = ({ gameId }: { gameId: string }) => {
       className="w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3"
       aria-label="Controles táctiles"
     >
-      <div className="flex flex-wrap gap-2 max-w-[50%]">
-        {pad.dirs.map((dir) => (
-          <PadButton key={dir.ariaLabel} padKey={dir} />
-        ))}
-      </div>
+      <DirPad dirs={pad.dirs} />
       {pad.actions.length > 0 && (
         <div className="flex flex-wrap justify-end gap-2 max-w-[50%]">
           {pad.actions.map((action) => (

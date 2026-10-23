@@ -36,7 +36,7 @@ const GAMES: Game[] = [
   { id: 'pong', name: 'Paddle Duel', description: 'Reflejos rápidos. El primero en llegar a 10 puntos gana.', icon: <Activity className="w-8 h-8" /> },
   { id: 'snake', name: 'Worm Clash', description: 'Templo de la serpiente. El primero en 20 gemas gana, o quien haga chocar al rival.', icon: <Gamepad2 className="w-8 h-8" /> },
   { id: 'tetris', name: 'Block Battle', description: 'Limpia líneas para enviar basura a tu rival.', icon: <Grid className="w-8 h-8" /> },
-  { id: 'combat', name: 'Arena Clash', description: 'Espada, esquiva, escudo de 10 golpes y arco de cinco flechas. Reduce la vida del rival a cero.', icon: <Swords className="w-8 h-8" /> },
+  { id: 'combat', name: 'Arena Clash', description: 'Combo de espada, súper con la barra llena, esquiva, escudo y arco. Reduce la vida del rival a cero.', icon: <Swords className="w-8 h-8" /> },
   { id: 'shooter', name: 'Laser Duel', description: 'Disparos en arena cerrada. Precisión y velocidad.', icon: <Crosshair className="w-8 h-8" /> },
 ];
 
@@ -484,7 +484,7 @@ export default function App() {
                 betAmount={betAmount}
                 gameId={selectedGame.id}
                 controlsHint={selectedGame.id === 'combat'
-                  ? 'Controles — P1: WASD, Shift (esquiva), S (escudo, aguanta 10 golpes), Espacio (espada, pulsa otra vez para el combo), F (arco, 5 flechas) | P2: Flechas, L (esquiva), Abajo (escudo), Enter (espada), K (arco)'
+                  ? 'Controles — P1: WASD, Shift (esquiva), S (escudo), Espacio (combo de 3, súper con barra llena), F (arco) | P2: Flechas, L (esquiva), Abajo (escudo), Enter (combo), K (arco)'
                   : selectedGame.id === 'snake'
                     ? 'Controles — P1: WASD, Shift (acelerón), Q (escudo), E (mordisco) | P2: Flechas, M (acelerón), K (escudo), L (mordisco)'
                     : undefined}

@@ -142,6 +142,7 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
             type="text"
             name="username"
             placeholder="Tu nombre de usuario"
+            aria-label="Nombre de usuario"
             required
             minLength={3}
             className="w-full px-4 py-3 rounded-xl border border-bg-300 focus:outline-none focus:border-primary-100 focus:ring-1 focus:ring-primary-100 transition-all bg-bg-200"
@@ -150,6 +151,7 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
             type="email"
             name="email"
             placeholder="Tu email"
+            aria-label="Email"
             required
             className="w-full px-4 py-3 rounded-xl border border-bg-300 focus:outline-none focus:border-primary-100 focus:ring-1 focus:ring-primary-100 transition-all bg-bg-200"
           />
@@ -157,6 +159,7 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
             type="password"
             name="password"
             placeholder="Contraseña (mínimo 8 caracteres)"
+            aria-label="Contraseña"
             required
             minLength={8}
             className="w-full px-4 py-3 rounded-xl border border-bg-300 focus:outline-none focus:border-primary-100 focus:ring-1 focus:ring-primary-100 transition-all bg-bg-200"
@@ -165,12 +168,14 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
             type="password"
             name="confirmPassword"
             placeholder="Confirma tu contraseña"
+            aria-label="Confirmar contraseña"
             required
             minLength={8}
             className="w-full px-4 py-3 rounded-xl border border-bg-300 focus:outline-none focus:border-primary-100 focus:ring-1 focus:ring-primary-100 transition-all bg-bg-200"
           />
           <button
             type="submit"
+            aria-label="Enviar registro"
             disabled={isSubmitting}
             className="w-full bg-primary-100 text-white font-bold py-3 rounded-xl hover:bg-primary-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
@@ -233,6 +238,7 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
             type="email"
             name="email"
             placeholder="Tu email"
+            aria-label="Email"
             required
             className="w-full px-4 py-3 rounded-xl border border-bg-300 focus:outline-none focus:border-primary-100 focus:ring-1 focus:ring-primary-100 transition-all bg-bg-200"
           />
@@ -240,11 +246,13 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
             type="password"
             name="password"
             placeholder="Contraseña"
+            aria-label="Contraseña"
             required
             className="w-full px-4 py-3 rounded-xl border border-bg-300 focus:outline-none focus:border-primary-100 focus:ring-1 focus:ring-primary-100 transition-all bg-bg-200"
           />
           <button
             type="submit"
+            aria-label="Enviar inicio de sesión"
             disabled={isSubmitting}
             className="w-full bg-primary-100 text-white font-bold py-3 rounded-xl hover:bg-primary-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >

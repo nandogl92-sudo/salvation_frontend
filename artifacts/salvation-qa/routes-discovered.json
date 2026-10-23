@@ -1,0 +1,21 @@
+{
+  "flowId": "salvation-qa",
+  "pageUrl": "http://localhost:4000/",
+  "appType": "vite-spa",
+  "discoveredAt": "2026-10-23T12:42:00Z",
+  "notes": "No hay file-routes de Next. Las vistas son estado de App.tsx.",
+  "httpRoutes": [
+    { "path": "/", "kind": "spa-entry", "requiresAuth": false },
+    { "path": "/restablecer", "kind": "spa-entry", "requiresAuth": false, "requiresId": true, "sampleId": "token de correo" },
+    { "path": "/robots.txt", "kind": "missing", "note": "Vite sirve index.html 200" },
+    { "path": "/sitemap.xml", "kind": "missing", "note": "Vite sirve index.html 200" }
+  ],
+  "inPageSections": [
+    { "id": "inicio", "selector": "#inicio" },
+    { "id": "juegos", "selector": "#juegos" },
+    { "id": "ranking", "selector": "#ranking" },
+    { "id": "info", "selector": "#info" }
+  ],
+  "appViews": ["home", "lobby", "playing", "profile"],
+  "internalAnchors": []
+}
