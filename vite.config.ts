@@ -12,6 +12,7 @@ export default defineConfig(() => {
       },
     },
     server: {
+      allowedHosts: ['sunsetbegins.info', 'www.sunsetbegins.info'],
       // El navegador llama al mismo origen (puerto 4000). Vite reenvía la API al backend.
       proxy: {
         '/users': 'http://localhost:4444',
