@@ -16,11 +16,16 @@ const RARE_EVERY_MS = 12000;
 const RARE_LIFE_MS = 8000;
 const RESPAWN_MS = 3500;
 const RECHARGE_MS = 110;
+const INTRO_MS = 1600;
+const OUTRO_MS = 1300;
+const FIELD_W = GRID_W * CELL;
+const FIELD_H = GRID_H * CELL;
 
 type Ctx = CanvasRenderingContext2D;
 type CellPos = { x: number; y: number };
 type SnakeUnit = {
   body: CellPos[];
+  prevBody: CellPos[];
   dx: number;
   dy: number;
   gems: number;
@@ -32,7 +37,25 @@ type SnakeUnit = {
   lastMove: number;
   pendingGrow: number;
   wantsBoost: boolean;
+  growPulse: number;
 };
+
+type WormPalette = {
+  main: string;
+  dark: string;
+  light: string;
+  glow: string;
+};
+
+const WORM_P1: WormPalette = { main: '#3ad46a', dark: '#14703a', light: '#b6ffd0', glow: 'rgba(80, 230, 130, 0.35)' };
+const WORM_P2: WormPalette = { main: '#b46cff', dark: '#5a288e', light: '#eed8ff', glow: 'rgba(190, 130, 255, 0.35)' };
+
+type Particle = { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string; size: number };
+type Floater = { x: number; y: number; text: string; life: number; color: string };
+
+const TORCHES: [number, number][] = [
+  [OX + 60, OY - 14], [OX + FIELD_W / 2 - 110, OY - 14], [OX + FIELD_W / 2 + 110, OY - 14], [OX + FIELD_W - 60, OY - 14],
+];
 
 const PILLARS: [number, number][] = [
   [6, 3], [6, 12], [13, 2], [13, 13], [20, 3], [20, 12],
@@ -57,210 +80,503 @@ const sameCell = (a: CellPos, b: CellPos) => a.x === b.x && a.y === b.y;
 
 const manhattan = (a: CellPos, b: CellPos) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 
+const cellCenter = (pos: CellPos) => ({ x: OX + pos.x * CELL + CELL / 2, y: OY + pos.y * CELL + CELL / 2 });
+
+/** Número pseudoaleatorio estable por casilla, para variar la textura del suelo sin parpadeos. */
+const cellNoise = (x: number, y: number) => ((x * 73856093) ^ (y * 19349663)) % 100;
+
 const drawPanel = (ctx: Ctx, x: number, y: number, w: number, h: number) => {
-  ctx.fillStyle = '#160f24';
-  ctx.fillRect(x, y, w, h);
+  const fill = ctx.createLinearGradient(0, y, 0, y + h);
+  fill.addColorStop(0, '#1d1430');
+  fill.addColorStop(1, '#120b1e');
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 8);
+  ctx.fillStyle = fill;
+  ctx.fill();
   ctx.strokeStyle = '#c9a24a';
-  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-  ctx.strokeStyle = '#5c4318';
-  ctx.strokeRect(x + 4, y + 4, w - 8, h - 8);
-};
-
-const drawNagaPortrait = (ctx: Ctx, x: number, y: number) => {
-  ctx.fillStyle = '#140e22';
-  ctx.fillRect(x, y, 64, 64);
-  ctx.strokeStyle = '#c9a24a';
-  ctx.strokeRect(x, y, 64, 64);
-  ctx.fillStyle = '#1f8a4c';
-  ctx.fillRect(x + 18, y + 10, 28, 22);
-  ctx.fillRect(x + 14, y + 18, 8, 16);
-  ctx.fillRect(x + 42, y + 18, 8, 16);
-  ctx.fillStyle = '#f0d48a';
-  ctx.fillRect(x + 22, y + 34, 20, 16);
-  ctx.fillStyle = '#111';
-  ctx.fillRect(x + 24, y + 18, 5, 5);
-  ctx.fillRect(x + 36, y + 18, 5, 5);
-  ctx.fillStyle = '#e23b4a';
-  ctx.fillRect(x + 30, y + 28, 4, 8);
-};
-
-const drawTemple = (ctx: Ctx) => {
-  const sky = ctx.createLinearGradient(0, 0, 0, HEIGHT);
-  sky.addColorStop(0, '#12061f');
-  sky.addColorStop(1, '#2a1248');
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  ctx.fillStyle = '#f4f7fb';
-  [[48, 18], [140, 40], [820, 22], [900, 48], [760, 16], [70, 50]].forEach(([x, y]) => {
-    ctx.fillRect(x, y, 2, 2);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.roundRect(x + 5, y + 5, w - 10, h - 10, 5);
+  ctx.strokeStyle = 'rgba(201, 162, 74, 0.28)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = '#c9a24a';
+  [[x + 6, y + 6], [x + w - 10, y + 6], [x + 6, y + h - 10], [x + w - 10, y + h - 10]].forEach(([cx, cy]) => {
+    ctx.fillRect(cx, cy, 4, 4);
   });
+};
 
-  const fieldW = GRID_W * CELL;
-  const fieldH = GRID_H * CELL;
-  ctx.fillStyle = '#120c1c';
-  ctx.fillRect(OX - 8, OY - 8, fieldW + 16, fieldH + 16);
-  ctx.strokeStyle = '#e6c56a';
-  ctx.strokeRect(OX - 8, OY - 8, fieldW + 16, fieldH + 16);
-  ctx.strokeStyle = '#6a4e22';
-  ctx.strokeRect(OX - 4, OY - 4, fieldW + 8, fieldH + 8);
+const drawDiamond = (ctx: Ctx, cx: number, cy: number, r: number, color: string) => {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r);
+  ctx.lineTo(cx + r * 0.8, cy);
+  ctx.lineTo(cx, cy + r);
+  ctx.lineTo(cx - r * 0.8, cy);
+  ctx.closePath();
+  ctx.fill();
+};
 
-  for (let y = 0; y < GRID_H; y += 1) {
-    for (let x = 0; x < GRID_W; x += 1) {
-      ctx.fillStyle = (x + y) % 2 === 0 ? '#2c2344' : '#231b38';
-      ctx.fillRect(OX + x * CELL, OY + y * CELL, CELL, CELL);
+const drawSparkle = (ctx: Ctx, cx: number, cy: number, r: number, color: string) => {
+  ctx.fillStyle = color;
+  ctx.fillRect(cx - r, cy - 1, r * 2, 2);
+  ctx.fillRect(cx - 1, cy - r, 2, r * 2);
+};
+
+const paintBrickWall = (ctx: Ctx, x: number, y: number, w: number, h: number, dark: boolean) => {
+  ctx.fillStyle = dark ? '#2c2044' : '#3a2c54';
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = dark ? '#221834' : '#2e2346';
+  for (let row = 0; row < h; row += 7) {
+    const shift = (row / 7) % 2 === 0 ? 0 : 8;
+    for (let col = -8; col < w; col += 16) {
+      ctx.fillRect(x + col + shift, y + row, 14, 6);
     }
   }
 };
 
-const drawPillar = (ctx: Ctx, x: number, y: number) => {
+/** Fondo fijo del templo: suelo, muros y adornos. Se pinta una vez en un canvas aparte. */
+const paintTempleBackdrop = (ctx: Ctx) => {
+  const sky = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+  sky.addColorStop(0, '#080414');
+  sky.addColorStop(0.4, '#160a2c');
+  sky.addColorStop(1, '#241038');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  ctx.fillStyle = '#f8fafc';
+  [[48, 18], [140, 40], [820, 22], [900, 48], [760, 16], [70, 50], [300, 12], [620, 30], [440, 8], [510, 36]].forEach(([x, y]) => {
+    ctx.fillRect(x, y, 2, 2);
+  });
+
+  const wallX = OX - 18;
+  const wallY = OY - 18;
+  const wallW = FIELD_W + 36;
+  const wallH = FIELD_H + 36;
+  paintBrickWall(ctx, wallX, wallY, wallW, 18, true);
+  paintBrickWall(ctx, wallX, wallY + wallH - 18, wallW, 18, true);
+  paintBrickWall(ctx, wallX, wallY, 18, wallH, true);
+  paintBrickWall(ctx, wallX + wallW - 18, wallY, 18, wallH, true);
+
+  ctx.fillStyle = '#e6c56a';
+  ctx.fillRect(wallX, wallY, wallW, 3);
+  ctx.fillRect(wallX, wallY + wallH - 3, wallW, 3);
+  ctx.fillRect(wallX, wallY, 3, wallH);
+  ctx.fillRect(wallX + wallW - 3, wallY, 3, wallH);
+  ctx.fillStyle = '#7a5a26';
+  ctx.fillRect(OX - 4, OY - 4, FIELD_W + 8, 2);
+  ctx.fillRect(OX - 4, OY + FIELD_H + 2, FIELD_W + 8, 2);
+  ctx.fillRect(OX - 4, OY - 4, 2, FIELD_H + 8);
+  ctx.fillRect(OX + FIELD_W + 2, OY - 4, 2, FIELD_H + 8);
+
+  for (let y = 0; y < GRID_H; y += 1) {
+    for (let x = 0; x < GRID_W; x += 1) {
+      const px = OX + x * CELL;
+      const py = OY + y * CELL;
+      const noise = cellNoise(x, y);
+      const center = x === 13 || x === 14;
+      const midRow = y === 7 || y === 8;
+      const base = center || midRow
+        ? ((x + y) % 2 === 0 ? '#2a2450' : '#241e46')
+        : ((x + y) % 2 === 0 ? '#262040' : '#1b1632');
+      ctx.fillStyle = base;
+      ctx.fillRect(px, py, CELL, CELL);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.fillRect(px + 1, py + 1, CELL - 3, 1);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+      ctx.fillRect(px, py + CELL - 1, CELL, 1);
+      ctx.fillRect(px + CELL - 1, py, 1, CELL);
+      if (noise < 7) {
+        ctx.fillStyle = 'rgba(70, 160, 110, 0.28)';
+        ctx.fillRect(px + 4, py + 11, 8, 4);
+        ctx.fillRect(px + 9, py + 7, 5, 4);
+      } else if (noise < 12) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(px + 5, py + 4, 1, 9);
+        ctx.fillRect(px + 6, py + 12, 7, 1);
+      } else if (noise > 93) {
+        ctx.fillStyle = 'rgba(230, 197, 106, 0.12)';
+        ctx.fillRect(px + 7, py + 7, 6, 6);
+      }
+    }
+  }
+
+  ctx.fillStyle = 'rgba(230, 197, 106, 0.18)';
+  ctx.fillRect(OX + 13 * CELL, OY, 2, FIELD_H);
+  ctx.fillRect(OX, OY + 7 * CELL + 9, FIELD_W, 2);
+
+  const vignette = ctx.createRadialGradient(OX + FIELD_W / 2, OY + FIELD_H / 2, FIELD_H * 0.35, OX + FIELD_W / 2, OY + FIELD_H / 2, FIELD_W * 0.72);
+  vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  vignette.addColorStop(1, 'rgba(0, 0, 0, 0.38)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(OX, OY, FIELD_W, FIELD_H);
+
+  TORCHES.forEach(([x, y]) => {
+    ctx.fillStyle = '#3a2810';
+    ctx.fillRect(x - 3, y, 6, 12);
+    ctx.fillStyle = '#8a6a2a';
+    ctx.fillRect(x - 5, y - 3, 10, 4);
+    ctx.fillStyle = '#e6c56a';
+    ctx.fillRect(x - 4, y - 2, 8, 2);
+  });
+};
+
+const drawTorchFlames = (ctx: Ctx, now: number) => {
+  TORCHES.forEach(([x, y], index) => {
+    const flicker = 0.75 + Math.sin(now / 90 + index * 1.7) * 0.15 + Math.sin(now / 37 + index) * 0.1;
+    const glow = ctx.createRadialGradient(x, y, 2, x, y, 100 * flicker);
+    glow.addColorStop(0, 'rgba(255, 170, 60, 0.28)');
+    glow.addColorStop(1, 'rgba(255, 120, 20, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - 100, y - 30, 200, 140);
+    const h = 9 + Math.round(Math.sin(now / 70 + index) * 3);
+    ctx.fillStyle = '#ff6a18';
+    ctx.fillRect(x - 4, y - 5 - h, 8, h + 2);
+    ctx.fillStyle = '#ff9a2a';
+    ctx.fillRect(x - 3, y - 6 - h, 6, h);
+    ctx.fillStyle = '#ffe08a';
+    ctx.fillRect(x - 1, y - 4 - h, 2, h - 2);
+  });
+};
+
+const drawDust = (ctx: Ctx, now: number) => {
+  for (let i = 0; i < 10; i += 1) {
+    const x = OX + 24 + ((i * 97 + now / 40) % (FIELD_W - 48));
+    const y = OY + 16 + ((i * 53 + now / 70) % (FIELD_H - 32));
+    ctx.fillStyle = `rgba(255, 230, 180, ${0.08 + (i % 3) * 0.05})`;
+    ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+  }
+};
+
+const drawPillar = (ctx: Ctx, x: number, y: number, now: number) => {
   const px = OX + x * CELL;
   const py = OY + y * CELL;
-  ctx.fillStyle = '#8d7aa0';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  ctx.fillRect(px + 3, py + 16, 15, 4);
+  ctx.fillStyle = '#5a4a72';
   ctx.fillRect(px + 5, py + 3, 10, 14);
+  ctx.fillStyle = '#8c7aa8';
+  ctx.fillRect(px + 6, py + 4, 3, 12);
+  ctx.fillStyle = '#3c3054';
+  ctx.fillRect(px + 12, py + 4, 2, 12);
   ctx.fillStyle = '#f0d48a';
   ctx.fillRect(px + 2, py + 1, 16, 4);
   ctx.fillRect(px + 2, py + 15, 16, 4);
   ctx.fillStyle = '#fff6d0';
-  ctx.fillRect(px + 4, py + 2, 4, 2);
+  ctx.fillRect(px + 4, py + 2, 5, 2);
+  const pulse = 0.5 + Math.sin(now / 300 + x + y) * 0.5;
+  ctx.fillStyle = `rgba(126, 224, 255, ${0.45 + pulse * 0.55})`;
+  ctx.fillRect(px + 9, py + 8, 2, 4);
 };
 
-const drawGap = (ctx: Ctx, x: number, y: number) => {
-  const px = OX + x * CELL;
-  const py = OY + y * CELL;
-  ctx.fillStyle = '#f0d48a';
-  ctx.fillRect(px + 4, py + 4, CELL - 8, CELL - 8);
-  ctx.fillStyle = '#231b38';
-  ctx.fillRect(px + 7, py + 7, CELL - 14, CELL - 14);
+const drawGap = (ctx: Ctx, x: number, y: number, now: number) => {
+  const { x: cx, y: cy } = cellCenter({ x, y });
+  const pulse = 0.5 + Math.sin(now / 160) * 0.5;
+  ctx.strokeStyle = `rgba(240, 212, 138, ${0.5 + pulse * 0.5})`;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(cx - 7, cy - 7, 14, 14);
+  ctx.lineWidth = 1;
+  drawDiamond(ctx, cx, cy, 4 + pulse * 2, `rgba(255, 230, 150, ${0.4 + pulse * 0.4})`);
 };
 
-const drawGem = (ctx: Ctx, x: number, y: number, color: string) => {
-  const cx = OX + x * CELL + CELL / 2;
-  const cy = OY + y * CELL + CELL / 2;
-  ctx.fillStyle = '#1a1020';
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - 9);
-  ctx.lineTo(cx + 8, cy);
-  ctx.lineTo(cx, cy + 9);
-  ctx.lineTo(cx - 8, cy);
-  ctx.closePath();
-  ctx.fill();
+const drawGem = (ctx: Ctx, x: number, y: number, color: string, now: number) => {
+  const { x: cx, y: cy } = cellCenter({ x, y });
+  const bob = Math.round(Math.sin(now / 220) * 2);
+  const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, 18);
+  glow.addColorStop(0, color);
+  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = glow;
+  ctx.fillRect(cx - 18, cy - 18, 36, 36);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  ctx.fillRect(cx - 5, cy + 8, 10, 3);
+  drawDiamond(ctx, cx, cy + bob, 9, '#140c1c');
+  drawDiamond(ctx, cx, cy + bob, 7, color);
+  drawDiamond(ctx, cx - 1, cy + bob - 1, 3, '#ffffff');
   ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - 7);
-  ctx.lineTo(cx + 6, cy);
-  ctx.lineTo(cx, cy + 7);
-  ctx.lineTo(cx - 6, cy);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(cx - 2, cy - 4, 3, 3);
+  ctx.fillRect(cx - 1, cy + bob + 2, 2, 4);
+  const twinkle = (now / 380 + x) % 1;
+  if (twinkle < 0.35) drawSparkle(ctx, cx + 7, cy + bob - 6, 3, 'rgba(255, 255, 255, 0.9)');
 };
 
-const drawRareGem = (ctx: Ctx, x: number, y: number) => {
-  const px = OX + x * CELL;
-  const py = OY + y * CELL;
-  ctx.fillStyle = '#ffd76a';
-  ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
+const drawRareGem = (ctx: Ctx, x: number, y: number, now: number, remaining: number) => {
+  const { x: cx, y: cy } = cellCenter({ x, y });
+  const pulse = 0.5 + Math.sin(now / 120) * 0.5;
+  const urgent = remaining < 2500 && Math.floor(now / 150) % 2 === 0;
+  const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, 24);
+  glow.addColorStop(0, 'rgba(255, 110, 70, 0.6)');
+  glow.addColorStop(1, 'rgba(255, 90, 60, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(cx - 24, cy - 24, 48, 48);
+  ctx.fillStyle = urgent ? '#fff0c0' : '#ffd76a';
+  ctx.fillRect(cx - 9, cy - 9, 18, 18);
   ctx.fillStyle = '#3a1860';
-  ctx.fillRect(px + 3, py + 3, CELL - 6, CELL - 6);
-  const cx = px + CELL / 2;
-  const cy = py + CELL / 2;
-  ctx.fillStyle = '#ff5a3c';
-  ctx.beginPath();
-  ctx.moveTo(cx, cy - 8);
-  ctx.lineTo(cx + 7, cy);
-  ctx.lineTo(cx, cy + 8);
-  ctx.lineTo(cx - 7, cy);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#fff6d0';
-  ctx.fillRect(cx - 2, cy - 2, 4, 4);
+  ctx.fillRect(cx - 7, cy - 7, 14, 14);
+  drawDiamond(ctx, cx, cy, 7 + pulse, '#ff5a3c');
+  drawDiamond(ctx, cx - 1, cy - 2, 3, '#fff6d0');
+  for (let i = 0; i < 4; i += 1) {
+    const angle = now / 420 + (i * Math.PI * 2) / 4;
+    drawSparkle(ctx, cx + Math.cos(angle) * 13, cy + Math.sin(angle) * 13, 2, 'rgba(255, 220, 160, 0.95)');
+  }
 };
 
-const drawBug = (ctx: Ctx, x: number, y: number) => {
+const drawBug = (ctx: Ctx, x: number, y: number, now: number) => {
   const px = OX + x * CELL + 3;
   const py = OY + y * CELL + 5;
-  ctx.fillStyle = '#ff8a3d';
-  ctx.fillRect(px + 1, py + 2, 12, 8);
+  const wiggle = Math.floor(now / 120 + x) % 2;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+  ctx.fillRect(px + 2, py + 12, 12, 2);
+  ctx.fillStyle = '#5a1c08';
+  ctx.fillRect(px - 1 + wiggle, py + 4, 3, 2);
+  ctx.fillRect(px + 13 - wiggle, py + 4, 3, 2);
+  ctx.fillRect(px - 1 + (1 - wiggle), py + 8, 3, 2);
+  ctx.fillRect(px + 13 - (1 - wiggle), py + 8, 3, 2);
   ctx.fillStyle = '#7a2e10';
-  ctx.fillRect(px, py, 3, 4);
-  ctx.fillRect(px + 11, py, 3, 4);
-  ctx.fillRect(px + 2, py + 10, 2, 3);
-  ctx.fillRect(px + 10, py + 10, 2, 3);
-  ctx.fillStyle = '#111';
-  ctx.fillRect(px + 3, py + 4, 2, 2);
-  ctx.fillRect(px + 9, py + 4, 2, 2);
+  ctx.fillRect(px + 3, py - 2 + wiggle, 1, 4);
+  ctx.fillRect(px + 11, py - 2 + (1 - wiggle), 1, 4);
+  ctx.fillStyle = '#ff8a3d';
+  ctx.fillRect(px + 2, py + 2, 12, 9);
+  ctx.fillStyle = '#ffb06a';
+  ctx.fillRect(px + 3, py + 3, 4, 3);
+  ctx.fillStyle = '#c85a1c';
+  ctx.fillRect(px + 7, py + 2, 2, 9);
+  ctx.fillStyle = '#2a0c04';
+  ctx.fillRect(px + 4, py + 6, 2, 2);
+  ctx.fillRect(px + 10, py + 6, 2, 2);
 };
 
-const drawKey = (ctx: Ctx, x: number, y: number) => {
+const drawKey = (ctx: Ctx, x: number, y: number, now: number) => {
   const px = OX + x * CELL + 3;
   const py = OY + y * CELL + 4;
-  ctx.fillStyle = '#fff6d0';
-  ctx.fillRect(px, py, 10, 10);
+  const bob = Math.round(Math.sin(now / 260 + y) * 1);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  ctx.fillRect(px + 1, py + 13, 14, 2);
+  ctx.fillStyle = '#c9a24a';
+  ctx.fillRect(px + 1, py + 1 + bob, 9, 9);
+  ctx.fillStyle = '#ffe08a';
+  ctx.fillRect(px + 2, py + 2 + bob, 7, 7);
   ctx.fillStyle = '#3a1860';
-  ctx.fillRect(px + 3, py + 3, 4, 4);
-  ctx.fillStyle = '#f0d48a';
-  ctx.fillRect(px + 8, py + 4, 8, 3);
-  ctx.fillRect(px + 12, py + 7, 3, 4);
-  ctx.fillRect(px + 9, py + 7, 3, 3);
+  ctx.fillRect(px + 4, py + 4 + bob, 3, 3);
+  ctx.fillStyle = '#ffe08a';
+  ctx.fillRect(px + 8, py + 4 + bob, 8, 3);
+  ctx.fillRect(px + 12, py + 7 + bob, 2, 4);
+  ctx.fillRect(px + 15, py + 7 + bob, 2, 5);
+  const shine = (now / 900 + x) % 1;
+  if (shine < 0.28) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.fillRect(px + 2 + shine * 36, py + 2 + bob, 2, 2);
+  }
 };
 
-const drawSnakeBody = (
+/** Posiciones intermedias entre la casilla anterior y la actual, para que el gusano se deslice. */
+const smoothBody = (snake: SnakeUnit, now: number, interval: number) => {
+  const t = Math.min(1, Math.max(0, (now - snake.lastMove) / interval));
+  const eased = t * t * (3 - 2 * t);
+  return snake.body.map((segment, index) => {
+    const from = snake.prevBody[index] ?? segment;
+    if (Math.abs(from.x - segment.x) > 1 || Math.abs(from.y - segment.y) > 1) return cellCenter(segment);
+    const pos = cellCenter(segment);
+    const start = cellCenter(from);
+    return { x: start.x + (pos.x - start.x) * eased, y: start.y + (pos.y - start.y) * eased };
+  });
+};
+
+const strokeWorm = (ctx: Ctx, points: { x: number; y: number }[], widthAt: (index: number) => number, color: string) => {
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let i = 0; i < points.length - 1; i += 1) {
+    ctx.lineWidth = widthAt(i);
+    ctx.beginPath();
+    ctx.moveTo(points[i].x, points[i].y);
+    ctx.lineTo(points[i + 1].x, points[i + 1].y);
+    ctx.stroke();
+  }
+  if (points.length === 1) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(points[0].x, points[0].y, widthAt(0) / 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+};
+
+const paintDisk = (ctx: Ctx, cx: number, cy: number, radius: number, color: string) => {
+  ctx.fillStyle = color;
+  for (let y = -radius; y <= radius; y += 1) {
+    const span = Math.floor(Math.sqrt(radius * radius - y * y));
+    ctx.fillRect(cx - span, cy + y, span * 2 + 1, 1);
+  }
+};
+
+const drawWormHead = (
   ctx: Ctx,
-  body: CellPos[],
-  color: string,
-  accent: string,
-  shielded: boolean,
-  slowed: boolean,
+  cx: number,
+  cy: number,
+  dx: number,
+  dy: number,
+  palette: WormPalette,
+  now: number,
+  biting: boolean,
 ) => {
-  body.forEach((segment, index) => {
-    const px = OX + segment.x * CELL;
-    const py = OY + segment.y * CELL;
-    ctx.fillStyle = '#120c18';
-    ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
-    ctx.fillStyle = index === 0 ? accent : color;
-    ctx.fillRect(px + 3, py + 3, CELL - 6, CELL - 6);
-    if (index !== 0) return;
-    ctx.fillStyle = '#111';
-    ctx.fillRect(px + 5, py + 6, 4, 4);
-    ctx.fillRect(px + 11, py + 6, 4, 4);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(px + 6, py + 7, 2, 2);
-    ctx.fillRect(px + 12, py + 7, 2, 2);
-    ctx.fillStyle = accent;
-    ctx.fillRect(px + 8, py - 1, 4, 4);
-    if (shielded) {
-      ctx.strokeStyle = '#7ee0ff';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(px - 1, py - 1, CELL + 2, CELL + 2);
-      ctx.lineWidth = 1;
-    }
-    if (slowed) {
-      ctx.strokeStyle = '#ff8a3d';
-      ctx.strokeRect(px + 2, py + 2, CELL - 4, CELL - 4);
+  const hx = Math.round(cx);
+  const hy = Math.round(cy);
+  const px = -dy;
+  const py = dx;
+  paintDisk(ctx, hx, hy, 10, '#0a0710');
+  paintDisk(ctx, hx, hy, 8, palette.dark);
+  paintDisk(ctx, hx, hy, 7, palette.main);
+  paintDisk(ctx, hx - dx * 2 - px, hy - dy * 2 - py, 3, palette.light);
+  ctx.fillStyle = '#f0d48a';
+  ctx.fillRect(hx - px * 2 - 1, hy - py * 2 - dy * 8, dx === 0 ? 5 : 3, dy === 0 ? 5 : 3);
+  ctx.fillRect(hx - 1 - dx, hy - 1 - dy * 9, 3, 3);
+
+  const tongueOut = Math.floor(now / 160) % 5 !== 1;
+  if (tongueOut || biting) {
+    const reach = biting ? 7 : 5;
+    ctx.fillStyle = '#ff4a5a';
+    ctx.fillRect(hx + dx * 8, hy + dy * 8, Math.max(2, Math.abs(dx) * reach), Math.max(2, Math.abs(dy) * reach));
+    ctx.fillRect(hx + dx * (8 + reach) + px * 2, hy + dy * (8 + reach) + py * 2, 3, 2);
+    ctx.fillRect(hx + dx * (8 + reach) - px * 2, hy + dy * (8 + reach) - py * 2, 3, 2);
+  }
+
+  [1, -1].forEach((side) => {
+    const ex = hx + dx * 2 + px * 4 * side;
+    const ey = hy + dy * 2 + py * 4 * side;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(ex - 2, ey - 2, 5, 5);
+    ctx.fillStyle = '#111111';
+    ctx.fillRect(ex + dx, ey + dy, 3, 3);
+    ctx.fillStyle = '#7ad0ff';
+    ctx.fillRect(ex + 1 + dx, ey + 1 + dy, 1, 1);
+    if (biting) {
+      ctx.fillStyle = palette.dark;
+      ctx.fillRect(ex - 2, ey - 4 - dy, 5, 2);
     }
   });
 };
 
+const drawWorm = (
+  ctx: Ctx,
+  snake: SnakeUnit,
+  palette: WormPalette,
+  now: number,
+  interval: number,
+  biting: boolean,
+) => {
+  const points = smoothBody(snake, now, interval);
+  const count = points.length;
+  const popping = now - snake.growPulse < 220;
+  const widthAt = (index: number) => {
+    const fromTail = count - 1 - index;
+    const taper = Math.min(1, fromTail / 4);
+    const pulse = popping ? 1.15 : 1;
+    return (8 + taper * 8) * pulse;
+  };
+
+  if (snake.wantsBoost && snake.boost > 8) {
+    ctx.fillStyle = palette.glow;
+    points.forEach((point, index) => {
+      const r = widthAt(index) / 2 + 4;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+  points.forEach((point, index) => {
+    ctx.beginPath();
+    ctx.arc(point.x + 2, point.y + 5, widthAt(index) / 2, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  strokeWorm(ctx, points, (index) => widthAt(index) + 5, '#0a0710');
+  strokeWorm(ctx, points, widthAt, palette.main);
+  points.forEach((point, index) => {
+    if (index === 0) return;
+    const w = widthAt(index);
+    const ring = index % 2 === 1;
+    ctx.fillStyle = ring ? palette.dark : palette.main;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, w / 2 - 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+    ctx.beginPath();
+    ctx.arc(point.x - 2, point.y - 3, Math.max(1.5, w / 6), 0, Math.PI * 2);
+    ctx.fill();
+    if (ring) {
+      ctx.fillStyle = palette.light;
+      ctx.fillRect(Math.round(point.x) - 1, Math.round(point.y) - 1, 2, 2);
+    }
+  });
+
+  const head = points[0];
+  drawWormHead(ctx, head.x, head.y, snake.dx, snake.dy, palette, now, biting);
+
+  if (snake.shieldUntil > now) {
+    const pulse = 0.6 + Math.sin(now / 80) * 0.3;
+    ctx.fillStyle = `rgba(126, 224, 255, ${0.16 * pulse})`;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(126, 224, 255, ${pulse})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, 15, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+  if (snake.slowUntil > now) {
+    ctx.save();
+    ctx.setLineDash([3, 3]);
+    ctx.lineDashOffset = -now / 40;
+    ctx.strokeStyle = '#ff8a3d';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(head.x, head.y, 14, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+
 const drawMeter = (ctx: Ctx, x: number, y: number, w: number, h: number, value: number, color: string) => {
+  const clamped = Math.max(0, Math.min(100, value));
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, h / 2);
   ctx.fillStyle = '#0c0814';
-  ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = color;
-  ctx.fillRect(x, y, Math.round(Math.max(0, Math.min(100, value)) / 100 * w), h);
+  ctx.fill();
+  const filled = Math.round((clamped / 100) * (w - 4));
+  if (filled > 0) {
+    ctx.beginPath();
+    ctx.roundRect(x + 2, y + 2, filled, h - 4, (h - 4) / 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.fillRect(x + 5, y + 3, Math.max(0, filled - 6), 2);
+  }
   ctx.strokeStyle = '#5c4318';
-  ctx.strokeRect(x, y, w, h);
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, h / 2);
+  ctx.stroke();
 };
 
 const abilityLabel = (value: number) => (value >= 100 ? 'LISTA' : `${Math.round(value)}%`);
 
 const drawPips = (ctx: Ctx, x: number, y: number, count: number, on: string) => {
-  const size = 12;
-  const gap = 3;
+  const step = 15;
   for (let i = 0; i < GEM_GOAL; i += 1) {
     const col = i % 10;
     const row = Math.floor(i / 10);
-    ctx.fillStyle = i < count ? on : '#2a2140';
-    ctx.fillRect(x + col * (size + gap), y + row * (size + gap), size, size);
+    const cx = x + col * step + 6;
+    const cy = y + row * step + 6;
+    drawDiamond(ctx, cx, cy, 6, i < count ? '#0d0a14' : '#1d1830');
+    drawDiamond(ctx, cx, cy, 4.5, i < count ? on : '#2a2244');
+    if (i < count) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillRect(cx - 1, cy - 2, 1.5, 1.5);
+    }
   }
 };
 
@@ -274,10 +590,15 @@ const drawHud = (
 ) => {
   const level = 1 + Math.floor(p1.gems / 4);
   ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
   drawPanel(ctx, 10, 6, WIDTH - 20, 62);
   ctx.fillStyle = '#f0d48a';
   ctx.font = `13px ${PIX}`;
-  ctx.fillText('VENOM TEMPLE', WIDTH / 2, 26);
+  ctx.fillText('WORM CLASH', WIDTH / 2, 26);
+  ctx.font = `7px ${PIX}`;
+  ctx.fillStyle = '#9aa6b8';
+  ctx.fillText('TEMPLO NAGA', WIDTH / 2 - 150, 28);
+  ctx.fillText(`MAX ${String(hi).padStart(4, '0')}`, WIDTH / 2 + 150, 28);
   ctx.font = `8px ${PIX}`;
   ctx.fillStyle = '#7ee0a8';
   ctx.fillText('TU', 118, 46);
@@ -293,13 +614,20 @@ const drawHud = (
   ctx.fillText('RIVAL', WIDTH - 118, 46);
   ctx.font = `14px ${PIX}`;
   ctx.fillText(`${p2.gems}/${GEM_GOAL}`, WIDTH - 210, 50);
-  ctx.fillStyle = '#9aa6b8';
-  ctx.font = `8px ${PIX}`;
-  ctx.fillText(`MAX ${String(hi).padStart(4, '0')}`, WIDTH / 2 + 150, 28);
 
-  drawPanel(ctx, 10, OY, 170, GRID_H * CELL);
+  drawPanel(ctx, 10, OY, 170, FIELD_H);
   const left = 95;
-  drawNagaPortrait(ctx, left - 32, OY + 14);
+  ctx.fillStyle = '#0d0a14';
+  ctx.beginPath();
+  ctx.roundRect(left - 32, OY + 14, 64, 64, 6);
+  ctx.fill();
+  ctx.strokeStyle = '#c9a24a';
+  ctx.stroke();
+  ctx.save();
+  ctx.translate(left, OY + 46);
+  ctx.scale(2, 2);
+  drawWormHead(ctx, 0, 0, 1, 0, WORM_P1, now, false);
+  ctx.restore();
   ctx.fillStyle = '#7ee0a8';
   ctx.font = `8px ${PIX}`;
   ctx.fillText('NAGA', left, OY + 96);
@@ -321,7 +649,7 @@ const drawHud = (
   ctx.fillText(`K ${abilityLabel(p2.shield)}`, left, OY + 286);
   ctx.fillText(`L ${abilityLabel(p2.bite)}`, left, OY + 306);
 
-  drawPanel(ctx, 768, OY, 182, GRID_H * CELL);
+  drawPanel(ctx, 768, OY, 182, FIELD_H);
   const right = 859;
   ctx.fillStyle = '#f0d48a';
   ctx.font = `8px ${PIX}`;
@@ -356,6 +684,76 @@ const drawHud = (
   ctx.textAlign = 'left';
 };
 
+const drawNote = (ctx: Ctx, label: string, remaining: number) => {
+  const alpha = Math.min(1, remaining / 250);
+  const scale = 1 + Math.max(0, (remaining - 650) / 150) * 0.25;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(OX + FIELD_W / 2, OY + 20);
+  ctx.scale(scale, scale);
+  ctx.font = `12px ${PIX}`;
+  ctx.textAlign = 'center';
+  const plateW = label.length * 12 + 28;
+  ctx.fillStyle = '#160f24';
+  ctx.beginPath();
+  ctx.roundRect(-plateW / 2, -12, plateW, 24, 6);
+  ctx.fill();
+  ctx.strokeStyle = '#f0d48a';
+  ctx.stroke();
+  ctx.fillStyle = '#ffd76a';
+  ctx.fillText(label, 0, 5);
+  ctx.restore();
+};
+
+const drawIntro = (ctx: Ctx, elapsed: number) => {
+  const alpha = elapsed < INTRO_MS - 400 ? 1 : Math.max(0, (INTRO_MS - elapsed) / 400);
+  const rise = Math.min(1, elapsed / 300);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(8, 4, 16, 0.62)';
+  ctx.fillRect(OX, OY, FIELD_W, FIELD_H);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f0d48a';
+  ctx.font = `26px ${PIX}`;
+  ctx.fillText('WORM CLASH', OX + FIELD_W / 2, OY + FIELD_H / 2 - 18 + (1 - rise) * 20);
+  ctx.fillStyle = '#f4efe6';
+  ctx.font = `10px ${PIX}`;
+  ctx.fillText(`PRIMERO EN ${GEM_GOAL} GEMAS`, OX + FIELD_W / 2, OY + FIELD_H / 2 + 14);
+  ctx.fillStyle = '#9aa6b8';
+  ctx.font = `8px ${PIX}`;
+  ctx.fillText('COME, CRECE, NO CHOQUES', OX + FIELD_W / 2, OY + FIELD_H / 2 + 38);
+  ctx.restore();
+};
+
+const drawOutro = (ctx: Ctx, winner: 'p1' | 'p2', elapsed: number) => {
+  const alpha = Math.min(1, elapsed / 250);
+  const scale = 1 + Math.max(0, 1 - elapsed / 250) * 0.6;
+  const won = winner === 'p1';
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = 'rgba(8, 4, 16, 0.68)';
+  ctx.fillRect(OX, OY, FIELD_W, FIELD_H);
+  ctx.translate(OX + FIELD_W / 2, OY + FIELD_H / 2);
+  ctx.scale(scale, scale);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = won ? '#8af2b0' : '#dcbcff';
+  ctx.font = `24px ${PIX}`;
+  ctx.fillText(won ? 'VICTORIA' : 'GANA EL RIVAL', 0, -10);
+  ctx.fillStyle = '#f0d48a';
+  ctx.font = `10px ${PIX}`;
+  ctx.fillText(won ? 'EL TEMPLO ES TUYO' : 'LA PROXIMA CAE', 0, 22);
+  ctx.restore();
+};
+
+const spawnBurst = (list: Particle[], x: number, y: number, count: number, color: string, speed: number) => {
+  for (let i = 0; i < count; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const v = speed * (0.4 + Math.random() * 0.8);
+    const max = 320 + Math.random() * 240;
+    list.push({ x, y, vx: Math.cos(angle) * v, vy: Math.sin(angle) * v, life: max, max, color, size: 2 + Math.round(Math.random() * 2) });
+  }
+};
+
 const intervalFor = (snake: SnakeUnit, now: number) => {
   const level = Math.floor(snake.gems / 4);
   let interval = Math.max(48, 120 - level * 18);
@@ -381,11 +779,18 @@ export default function Snake({
 
     void document.fonts.load(`16px ${PIX}`);
 
+    const backdrop = document.createElement('canvas');
+    backdrop.width = WIDTH;
+    backdrop.height = HEIGHT;
+    const backdropCtx = backdrop.getContext('2d');
+    if (backdropCtx) paintTempleBackdrop(backdropCtx);
+
     let animationFrameId = 0;
     let ended = false;
     const startedAt = performance.now();
     const makeSnake = (body: CellPos[], dx: number): SnakeUnit => ({
       body,
+      prevBody: body.map((cell) => ({ ...cell })),
       dx,
       dy: 0,
       gems: 0,
@@ -397,6 +802,7 @@ export default function Snake({
       lastMove: startedAt,
       pendingGrow: 0,
       wantsBoost: false,
+      growPulse: 0,
     });
 
     const state = {
@@ -416,6 +822,11 @@ export default function Snake({
       lastRecharge: startedAt,
       note: '',
       noteUntil: 0,
+      particles: [] as Particle[],
+      floaters: [] as Floater[],
+      biteFlash: { p1: 0, p2: 0 },
+      outro: null as { winner: 'p1' | 'p2'; at: number } | null,
+      lastFrame: startedAt,
     };
 
     const pillarAt = (x: number, y: number) => state.pillars.some(([px, py]) => px === x && py === y);
@@ -448,19 +859,28 @@ export default function Snake({
       if (cell) state.food = cell;
     };
 
-    const finish = (winner: 'p1' | 'p2') => {
-      if (ended) return;
-      ended = true;
-      onGameEnd(winner);
+    const finish = (winner: 'p1' | 'p2', now: number) => {
+      if (state.outro) return;
+      state.outro = { winner, at: now };
+      const loser = winner === 'p1' ? state.p2 : state.p1;
+      const loserPalette = winner === 'p1' ? WORM_P2 : WORM_P1;
+      loser.body.forEach((segment) => {
+        const { x, y } = cellCenter(segment);
+        spawnBurst(state.particles, x, y, 3, loserPalette.light, 0.08);
+      });
+      const winnerHead = cellCenter(state[winner].body[0]);
+      spawnBurst(state.particles, winnerHead.x, winnerHead.y, 24, '#ffd76a', 0.14);
     };
 
     const useShield = (snake: SnakeUnit, now: number) => {
       if (snake.shield < 100) return;
       snake.shield = 0;
       snake.shieldUntil = now + SHIELD_MS;
+      const head = cellCenter(snake.body[0]);
+      spawnBurst(state.particles, head.x, head.y, 10, '#7ee0ff', 0.1);
     };
 
-    const useBite = (attacker: SnakeUnit, victim: SnakeUnit, now: number) => {
+    const useBite = (attacker: SnakeUnit, victim: SnakeUnit, now: number, attackerId: 'p1' | 'p2') => {
       if (attacker.bite < 100) return;
       const canSteal = victim.gems > 0;
       const cut = Math.min(3, Math.max(0, victim.body.length - 3));
@@ -470,7 +890,14 @@ export default function Snake({
         victim.gems -= 1;
         attacker.gems += 1;
       }
-      if (cut > 0) victim.body.splice(victim.body.length - cut, cut);
+      if (cut > 0) {
+        victim.body.slice(victim.body.length - cut).forEach((segment) => {
+          const { x, y } = cellCenter(segment);
+          spawnBurst(state.particles, x, y, 5, '#ff5a3c', 0.1);
+        });
+        victim.body.splice(victim.body.length - cut, cut);
+      }
+      state.biteFlash[attackerId] = now + 500;
       state.note = 'MORDISCO';
       state.noteUntil = now + 800;
     };
@@ -491,6 +918,8 @@ export default function Snake({
       });
       const removed = state.pillars.splice(best, 1)[0];
       state.hidden = { x: removed[0], y: removed[1], backAt: now + GAP_MS };
+      const gapCenter = cellCenter({ x: removed[0], y: removed[1] });
+      spawnBurst(state.particles, gapCenter.x, gapCenter.y, 12, '#f0d48a', 0.1);
       state.note = 'HUECO';
       state.noteUntil = now + 800;
     };
@@ -508,7 +937,7 @@ export default function Snake({
       if (key === 'a' && state.p1.dx === 0) { state.p1.dx = -1; state.p1.dy = 0; }
       if (key === 'd' && state.p1.dx === 0) { state.p1.dx = 1; state.p1.dy = 0; }
       if (key === 'q') useShield(state.p1, now);
-      if (key === 'e') useBite(state.p1, state.p2, now);
+      if (key === 'e') useBite(state.p1, state.p2, now, 'p1');
       if (key === 'Shift') state.p1.wantsBoost = true;
       if (!botEnabled) {
         if (event.key === 'ArrowUp' && state.p2.dy === 0) { state.p2.dx = 0; state.p2.dy = -1; }
@@ -516,7 +945,7 @@ export default function Snake({
         if (event.key === 'ArrowLeft' && state.p2.dx === 0) { state.p2.dx = -1; state.p2.dy = 0; }
         if (event.key === 'ArrowRight' && state.p2.dx === 0) { state.p2.dx = 1; state.p2.dy = 0; }
         if (key === 'k') useShield(state.p2, now);
-        if (key === 'l') useBite(state.p2, state.p1, now);
+        if (key === 'l') useBite(state.p2, state.p1, now, 'p2');
         if (key === 'm') state.p2.wantsBoost = true;
       }
     };
@@ -572,7 +1001,7 @@ export default function Snake({
       }
       state.p2.wantsBoost = manhattan(head, foodTarget) > 8 && state.p2.boost > 30;
       if (state.p2.bite >= 100 && (state.p1.gems > 0 || state.p1.body.length > 5) && manhattan(head, state.p1.body[0]) < 8) {
-        useBite(state.p2, state.p1, now);
+        useBite(state.p2, state.p1, now, 'p2');
       }
     };
 
@@ -607,7 +1036,7 @@ export default function Snake({
       state.nextRareAt = now + RARE_EVERY_MS;
     };
 
-    const stepSnake = (id: 'p1' | 'p2', now: number) => {
+    const stepSnake = (id: 'p1' | 'p2', now: number, gemColor: string) => {
       const snake = state[id];
       const other = id === 'p1' ? state.p2 : state.p1;
       if (now - snake.lastMove < intervalFor(snake, now)) return false;
@@ -615,21 +1044,33 @@ export default function Snake({
       const next = { x: snake.body[0].x + snake.dx, y: snake.body[0].y + snake.dy };
       const deadly = hits(next, snake, other);
       if (deadly && snake.shieldUntil > now) return false;
+      snake.prevBody = snake.body.map((cell) => ({ ...cell }));
       snake.body.unshift(next);
+      const palette = id === 'p1' ? WORM_P1 : WORM_P2;
       let grew = false;
       if (sameCell(next, state.food)) {
         snake.gems += 1;
+        snake.growPulse = now;
         grew = true;
+        const { x, y } = cellCenter(next);
+        spawnBurst(state.particles, x, y, 14, gemColor, 0.12);
+        state.floaters.push({ x, y: y - 10, text: '+1', life: 700, color: palette.light });
         placeFood();
       } else if (state.rare && sameCell(next, state.rare)) {
         applyRare(snake, other, now);
+        snake.growPulse = now;
         grew = true;
+        const { x, y } = cellCenter(next);
+        spawnBurst(state.particles, x, y, 22, '#ff5a3c', 0.16);
+        state.floaters.push({ x, y: y - 10, text: '+1', life: 700, color: '#ffd76a' });
       }
       const bugIndex = state.bugs.findIndex((bug) => sameCell(bug, next));
       if (bugIndex >= 0) {
         state.bugs.splice(bugIndex, 1);
         snake.slowUntil = now + SLOW_MS;
         state.bugRespawns.push(now + RESPAWN_MS);
+        const { x, y } = cellCenter(next);
+        spawnBurst(state.particles, x, y, 8, '#ff8a3d', 0.08);
       }
       const keyIndex = state.keys.findIndex((key) => sameCell(key, next));
       if (keyIndex >= 0) {
@@ -707,54 +1148,111 @@ export default function Snake({
       return null;
     };
 
+    const updateEffects = (dt: number) => {
+      state.particles = state.particles.filter((particle) => {
+        particle.x += particle.vx * dt;
+        particle.y += particle.vy * dt;
+        particle.vy += 0.00025 * dt;
+        particle.life -= dt;
+        return particle.life > 0;
+      });
+      state.floaters = state.floaters.filter((floater) => {
+        floater.y -= 0.03 * dt;
+        floater.life -= dt;
+        return floater.life > 0;
+      });
+    };
+
+    const drawEffects = () => {
+      state.particles.forEach((particle) => {
+        ctx.globalAlpha = Math.max(0, particle.life / particle.max);
+        ctx.fillStyle = particle.color;
+        ctx.fillRect(Math.round(particle.x), Math.round(particle.y), particle.size, particle.size);
+      });
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'center';
+      ctx.font = `10px ${PIX}`;
+      state.floaters.forEach((floater) => {
+        ctx.globalAlpha = Math.min(1, floater.life / 300);
+        ctx.fillStyle = '#0d0a14';
+        ctx.fillText(floater.text, floater.x + 1, floater.y + 1);
+        ctx.fillStyle = floater.color;
+        ctx.fillText(floater.text, floater.x, floater.y);
+      });
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'left';
+    };
+
+    const drawScene = (time: number, gemColor: string) => {
+      ctx.drawImage(backdrop, 0, 0);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(OX - 14, OY - 40, FIELD_W + 28, FIELD_H + 54);
+      ctx.clip();
+      drawTorchFlames(ctx, time);
+      drawDust(ctx, time);
+      ctx.restore();
+      state.pillars.forEach(([x, y]) => drawPillar(ctx, x, y, time));
+      if (state.hidden) drawGap(ctx, state.hidden.x, state.hidden.y, time);
+      state.bugs.forEach((bug) => drawBug(ctx, bug.x, bug.y, time));
+      state.keys.forEach((key) => drawKey(ctx, key.x, key.y, time));
+      drawGem(ctx, state.food.x, state.food.y, gemColor, time);
+      if (state.rare) drawRareGem(ctx, state.rare.x, state.rare.y, time, state.rareUntil - time);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(OX - 2, OY - 2, FIELD_W + 4, FIELD_H + 4);
+      ctx.clip();
+      drawWorm(ctx, state.p2, WORM_P2, time, intervalFor(state.p2, time), state.biteFlash.p2 > time);
+      drawWorm(ctx, state.p1, WORM_P1, time, intervalFor(state.p1, time), state.biteFlash.p1 > time);
+      drawEffects();
+      ctx.restore();
+      drawHud(ctx, state.p1, state.p2, state.hi, time - startedAt, time);
+      if (state.noteUntil > time && !state.outro) drawNote(ctx, state.note, state.noteUntil - time);
+      if (time - startedAt < INTRO_MS) drawIntro(ctx, time - startedAt);
+    };
+
     const update = (time: number) => {
       if (ended) return;
       animationFrameId = requestAnimationFrame(update);
+      const dt = Math.min(50, time - state.lastFrame);
+      state.lastFrame = time;
+      const gemColor = ['#5ee0ff', '#e85ad0', '#7dff6a', '#f0d48a'][state.p1.gems % 4];
+
+      if (state.outro) {
+        updateEffects(dt);
+        drawScene(time, gemColor);
+        drawOutro(ctx, state.outro.winner, time - state.outro.at);
+        if (time - state.outro.at >= OUTRO_MS) {
+          ended = true;
+          cancelAnimationFrame(animationFrameId);
+          onGameEnd(state.outro.winner);
+        }
+        return;
+      }
+
       recharge(time);
       flushRespawns(time);
       spawnRare(time);
       const crushed = restoreGap(time);
       if (botEnabled) botThink(time);
 
-      const p1Dead = stepSnake('p1', time);
-      const p2Dead = stepSnake('p2', time);
+      const p1Dead = stepSnake('p1', time, gemColor);
+      const p2Dead = stepSnake('p2', time, gemColor);
       state.hi = Math.max(state.hi, state.p1.gems * 100, state.p2.gems * 100);
+      updateEffects(dt);
 
       const p1Lost = p1Dead || crushed === 'p1' || crushed === 'both';
       const p2Lost = p2Dead || crushed === 'p2' || crushed === 'both';
-      if (p1Lost && p2Lost) { finish('p1'); return; }
-      if (p1Lost) { finish('p2'); return; }
-      if (p2Lost) { finish('p1'); return; }
-      const winner = gemWinner();
-      if (winner) { finish(winner); return; }
-
-      const gemColor = ['#5ee0ff', '#e85ad0', '#7dff6a', '#f0d48a'][state.p1.gems % 4];
-      drawTemple(ctx);
-      ctx.textAlign = 'center';
-      state.pillars.forEach(([x, y]) => drawPillar(ctx, x, y));
-      if (state.hidden) drawGap(ctx, state.hidden.x, state.hidden.y);
-      state.bugs.forEach((bug) => drawBug(ctx, bug.x, bug.y));
-      state.keys.forEach((key) => drawKey(ctx, key.x, key.y));
-      drawGem(ctx, state.food.x, state.food.y, gemColor);
-      if (state.rare) drawRareGem(ctx, state.rare.x, state.rare.y);
-      drawSnakeBody(ctx, state.p1.body, '#1f8a4c', '#7ee0a8', state.p1.shieldUntil > time, state.p1.slowUntil > time);
-      drawSnakeBody(ctx, state.p2.body, '#6a3a9a', '#d7b4ff', state.p2.shieldUntil > time, state.p2.slowUntil > time);
-      drawHud(ctx, state.p1, state.p2, state.hi, time - startedAt, time);
-      if (state.noteUntil > time) {
-        const label = state.note;
-        ctx.font = `12px ${PIX}`;
-        ctx.textAlign = 'center';
-        const plateW = label.length * 12 + 28;
-        const plateX = OX + (GRID_W * CELL - plateW) / 2;
-        const plateY = OY + 8;
-        ctx.fillStyle = '#160f24';
-        ctx.fillRect(plateX, plateY, plateW, 24);
-        ctx.strokeStyle = '#f0d48a';
-        ctx.strokeRect(plateX, plateY, plateW, 24);
-        ctx.fillStyle = '#ffd76a';
-        ctx.fillText(label, OX + (GRID_W * CELL) / 2, plateY + 17);
-        ctx.textAlign = 'left';
+      if (p1Lost && p2Lost) finish('p1', time);
+      else if (p1Lost) finish('p2', time);
+      else if (p2Lost) finish('p1', time);
+      else {
+        const winner = gemWinner();
+        if (winner) finish(winner, time);
       }
+
+      drawScene(time, gemColor);
+      if (state.outro) drawOutro(ctx, state.outro.winner, 0);
     };
 
     animationFrameId = requestAnimationFrame(update);
@@ -769,10 +1267,10 @@ export default function Snake({
   return (
     <canvas
       ref={canvasRef}
-      width={960}
-      height={540}
+      width={WIDTH}
+      height={HEIGHT}
       aria-label="Worm Clash"
-      className="w-full max-w-full rounded-xl [image-rendering:pixelated]"
+      className="w-full max-w-full aspect-video rounded-xl [image-rendering:pixelated]"
     />
   );
 }

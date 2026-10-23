@@ -6,36 +6,77 @@ const BOT_SPEED = 4;
 const WIDTH = 960;
 const HEIGHT = 540;
 const FRAME = { x: 16, y: 90, w: 928, h: 434, cut: 26 };
-const PLAY_TOP = 104;
-const PLAY_BOTTOM = 510;
+const SKY_BOTTOM = 136;
+const PLAY_TOP = 152;
+const PLAY_BOTTOM = 508;
+const WALL_H = 14;
 const PADDLE_W = 18;
 const PADDLE_H = 108;
 const P1_X = 62;
 const P2_X = WIDTH - 62 - PADDLE_W;
 const BALL_R = 6;
-const WATER_Y = 352;
-const SUN = { x: 480, y: 292, r: 62 };
+const MAX_BALL_SPEED = 15;
+const SERVICE_LEFT = 272;
+const SERVICE_RIGHT = WIDTH - 272;
+const SUN = { x: 480, y: 128, r: 22 };
+const PLAYER_SCALE = 3;
+const SWING_FRAMES = 10;
+const SHAKE_FRAMES = 12;
 
 const CYAN = '#3ec8ff';
 const ORANGE = '#ff8c24';
-
-const HEART = [
-  '01100110',
-  '11111111',
-  '11111111',
-  '01111110',
-  '00111100',
-  '00011000',
-];
+const BALL_COLOR = '#d9f23c';
 
 const STARS: [number, number][] = [
-  [48, 118], [90, 150], [140, 128], [188, 168], [230, 112], [280, 146],
-  [330, 124], [390, 160], [430, 118], [520, 132], [570, 156], [620, 114],
-  [670, 148], [730, 122], [790, 164], [850, 136], [900, 118], [160, 200],
-  [360, 188], [640, 196], [820, 186], [70, 210], [500, 176], [250, 214],
+  [48, 100], [120, 112], [200, 96], [300, 118], [380, 102], [600, 108],
+  [690, 96], [780, 116], [860, 100], [920, 112], [250, 128], [720, 126],
 ];
 
 type Ctx = CanvasRenderingContext2D;
+
+type Team = {
+  main: string;
+  dark: string;
+  light: string;
+};
+
+const TEAM_P1: Team = { main: CYAN, dark: '#1d6f99', light: '#d7f6ff' };
+const TEAM_P2: Team = { main: ORANGE, dark: '#a34f0e', light: '#ffe0bf' };
+
+/**
+ * Jugador en pixel art, 12 columnas x 17 filas, mirando a la derecha.
+ * c cap · v visera · s piel · e ojo · t camiseta · d camiseta oscura
+ * w cuello · p pantalón · k zapatilla
+ */
+const PLAYER_ROWS = [
+  '....cccc....',
+  '...cccccc...',
+  '...ccccccvv.',
+  '...ssssss...',
+  '...sssses...',
+  '....ssss....',
+  '...wtttttw..',
+  '..tttttttt..',
+  '..sdtttttds.',
+  '...dttttd...',
+  '...dttttd...',
+  '...pppppp...',
+  '...pppppp...',
+  '...ss..ss...',
+  '...ss..ss...',
+  '...ss..ss...',
+  '..kkk..kkk..',
+];
+
+const LEG_ROWS_STEP = [
+  '..ss....ss..',
+  '..ss....ss..',
+  '...ss..ss...',
+  '.kkk....kkk.',
+];
+
+const PLAYER_W = PLAYER_ROWS[0].length * PLAYER_SCALE;
+const PLAYER_H = PLAYER_ROWS.length * PLAYER_SCALE;
 
 const traceChamfer = (ctx: Ctx, x: number, y: number, w: number, h: number, cut: number) => {
   ctx.beginPath();
@@ -65,29 +106,6 @@ const fillRidge = (ctx: Ctx, points: [number, number][], floor: number, color: s
   }
 };
 
-const drawHeart = (ctx: Ctx, x: number, y: number, color: string) => {
-  ctx.fillStyle = color;
-  HEART.forEach((row, rowIndex) => {
-    for (let col = 0; col < row.length; col += 1) {
-      if (row[col] !== '1') continue;
-      ctx.fillRect(x + col * 3, y + rowIndex * 3, 3, 3);
-    }
-  });
-};
-
-const drawHearts = (ctx: Ctx, x: number, y: number, color: string) => {
-  for (let i = 0; i < 3; i += 1) drawHeart(ctx, x + i * 30, y, color);
-};
-
-const drawBar = (ctx: Ctx, x: number, y: number, color: string) => {
-  ctx.beginPath();
-  ctx.roundRect(x, y, 132, 10, 5);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.45)';
-  ctx.fillRect(x + 8, y + 2, 116, 2);
-};
-
 const drawPanel = (ctx: Ctx, x: number, y: number, w: number, h: number, stroke: string | CanvasGradient) => {
   traceChamfer(ctx, x, y, w, h, 12);
   ctx.fillStyle = '#070b18';
@@ -97,151 +115,280 @@ const drawPanel = (ctx: Ctx, x: number, y: number, w: number, h: number, stroke:
   ctx.stroke();
 };
 
-const drawHud = (ctx: Ctx, leftScore: number, rightScore: number) => {
+const drawHud = (ctx: Ctx, leftScore: number, rightScore: number, botEnabled: boolean) => {
   const y = 12;
   const h = 66;
+  ctx.textBaseline = 'middle';
+
   drawPanel(ctx, 16, y, 292, h, CYAN);
-  drawHearts(ctx, 32, 28, CYAN);
-  drawBar(ctx, 148, 40, CYAN);
+  ctx.textAlign = 'left';
+  ctx.font = '18px "Press Start 2P", monospace';
+  ctx.fillStyle = CYAN;
+  ctx.fillText('P1', 40, 46);
+  ctx.font = '8px "Press Start 2P", monospace';
+  ctx.fillStyle = '#9fb3c8';
+  ctx.fillText('W / S', 104, 38);
+  ctx.fillStyle = '#f6f1e8';
+  ctx.fillText('PRIMERO A 10', 104, 56);
 
   const fade = ctx.createLinearGradient(324, 0, 636, 0);
   fade.addColorStop(0, CYAN);
   fade.addColorStop(1, ORANGE);
   drawPanel(ctx, 324, y, 312, h, fade);
-
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = '11px "Press Start 2P", monospace';
+  ctx.font = '10px "Press Start 2P", monospace';
   ctx.fillStyle = '#f6f1e8';
-  ctx.fillText('SCORE', 480, 30);
-  ctx.font = '20px "Press Start 2P", monospace';
+  ctx.fillText('PADDLE DUEL', 480, 30);
+  ctx.font = '22px "Press Start 2P", monospace';
   ctx.fillStyle = CYAN;
-  ctx.fillText(String(leftScore).padStart(2, '0'), 430, 54);
+  ctx.fillText(String(leftScore).padStart(2, '0'), 426, 56);
   ctx.fillStyle = '#f6f1e8';
-  ctx.fillText('-', 480, 54);
+  ctx.fillText('-', 480, 56);
   ctx.fillStyle = ORANGE;
-  ctx.fillText(String(rightScore).padStart(2, '0'), 530, 54);
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(String(rightScore).padStart(2, '0'), 534, 56);
 
   drawPanel(ctx, 652, y, 292, h, ORANGE);
-  drawBar(ctx, 676, 40, ORANGE);
-  drawHearts(ctx, 836, 28, ORANGE);
-};
+  ctx.textAlign = 'right';
+  ctx.font = '18px "Press Start 2P", monospace';
+  ctx.fillStyle = ORANGE;
+  ctx.fillText('P2', 920, 46);
+  ctx.font = '8px "Press Start 2P", monospace';
+  ctx.fillStyle = '#9fb3c8';
+  ctx.fillText(botEnabled ? 'BOT' : 'FLECHAS', 856, 38);
+  ctx.fillStyle = '#f6f1e8';
+  ctx.fillText('PRIMERO A 10', 856, 56);
 
-const drawCloud = (ctx: Ctx, x: number, y: number) => {
-  ctx.fillStyle = '#4a3c86';
-  ctx.fillRect(x + 8, y, 40, 8);
-  ctx.fillRect(x, y + 8, 64, 8);
-  ctx.fillRect(x + 16, y + 16, 28, 6);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
 };
 
 const drawSun = (ctx: Ctx) => {
-  const glow = ctx.createRadialGradient(SUN.x, SUN.y, 8, SUN.x, SUN.y, 110);
-  glow.addColorStop(0, 'rgba(255, 150, 40, 0.35)');
+  const glow = ctx.createRadialGradient(SUN.x, SUN.y, 4, SUN.x, SUN.y, 70);
+  glow.addColorStop(0, 'rgba(255, 150, 40, 0.4)');
   glow.addColorStop(1, 'rgba(255, 120, 20, 0)');
   ctx.fillStyle = glow;
-  ctx.fillRect(SUN.x - 160, SUN.y - 160, 320, 320);
+  ctx.fillRect(SUN.x - 90, FRAME.y, 180, SKY_BOTTOM - FRAME.y);
 
   ctx.save();
   ctx.beginPath();
   ctx.arc(SUN.x, SUN.y, SUN.r, 0, Math.PI * 2);
   ctx.clip();
-  for (let y = SUN.y - SUN.r; y < SUN.y + SUN.r; y += 4) {
-    const band = Math.floor((y - (SUN.y - SUN.r)) / 4);
+  for (let y = SUN.y - SUN.r; y < SUN.y + SUN.r; y += 3) {
+    const band = Math.floor((y - (SUN.y - SUN.r)) / 3);
     ctx.fillStyle = band % 2 === 0 ? '#ff9a1f' : '#e25c12';
-    ctx.fillRect(SUN.x - SUN.r, y, SUN.r * 2, 4);
+    ctx.fillRect(SUN.x - SUN.r, y, SUN.r * 2, 3);
   }
   ctx.restore();
 };
 
-const drawWater = (ctx: Ctx) => {
-  ctx.fillStyle = '#070e22';
-  ctx.fillRect(FRAME.x, WATER_Y, FRAME.w, FRAME.y + FRAME.h - WATER_Y);
-  for (let y = WATER_Y + 10; y < FRAME.y + FRAME.h - 12; y += 9) {
-    ctx.fillStyle = 'rgba(70, 100, 170, 0.2)';
-    ctx.fillRect(FRAME.x + 20, y, FRAME.w - 40, 2);
-  }
-  ctx.fillStyle = 'rgba(255, 168, 70, 0.45)';
-  ctx.fillRect(SUN.x - 110, WATER_Y, 220, 3);
-  for (let i = 0; i < 8; i += 1) {
-    const y = WATER_Y + 10 + i * 14;
-    const half = 100 - i * 6;
-    const shift = i % 2 === 0 ? 0 : 10;
-    ctx.fillStyle = `rgba(255, 138, 40, ${0.62 - i * 0.06})`;
-    ctx.fillRect(SUN.x - half + shift, y, half * 2 - shift, 4);
-  }
-};
-
-const drawField = (ctx: Ctx) => {
-  const sky = ctx.createLinearGradient(0, FRAME.y, 0, WATER_Y);
+const drawSky = (ctx: Ctx) => {
+  const sky = ctx.createLinearGradient(0, FRAME.y, 0, SKY_BOTTOM);
   sky.addColorStop(0, '#0c1236');
-  sky.addColorStop(0.55, '#1a1458');
-  sky.addColorStop(1, '#3a1868');
+  sky.addColorStop(0.6, '#2a1660');
+  sky.addColorStop(1, '#6a2a6c');
   ctx.fillStyle = sky;
-  ctx.fillRect(FRAME.x, FRAME.y, FRAME.w, FRAME.h);
+  ctx.fillRect(FRAME.x, FRAME.y, FRAME.w, SKY_BOTTOM - FRAME.y);
 
   ctx.fillStyle = '#f8fafc';
   STARS.forEach(([x, y]) => {
     ctx.fillRect(x, y, 2, 2);
   });
 
-  drawCloud(ctx, 70, 150);
-  drawCloud(ctx, 250, 186);
-  drawCloud(ctx, 620, 158);
-  drawCloud(ctx, 800, 196);
-
   fillRidge(ctx, [
-    [16, 280], [70, 220], [130, 250], [200, 190], [270, 230],
-    [340, 200], [410, 260], [500, 250], [580, 210], [660, 240],
-    [740, 180], [820, 220], [900, 190], [944, 240],
-  ], WATER_Y + 6, '#322860');
-
+    [16, 134], [80, 112], [150, 126], [230, 104], [320, 122], [420, 110],
+    [540, 118], [640, 100], [740, 120], [830, 104], [900, 118], [944, 126],
+  ], SKY_BOTTOM, '#3a2a6a');
   drawSun(ctx);
-
   fillRidge(ctx, [
-    [16, 230], [60, 180], [120, 220], [190, 160], [260, 210],
-    [330, 250], [400, 300], [470, 318], [540, 300], [620, 230],
-    [700, 170], [780, 210], [860, 160], [944, 220],
-  ], WATER_Y + 20, '#140e30');
+    [16, 136], [90, 120], [180, 132], [280, 116], [380, 130], [480, 134],
+    [580, 124], [690, 112], [800, 128], [880, 118], [944, 130],
+  ], SKY_BOTTOM, '#1a1038');
+};
 
-  drawWater(ctx);
+const drawCourtFloor = (ctx: Ctx) => {
+  const floor = ctx.createLinearGradient(0, PLAY_TOP, 0, PLAY_BOTTOM);
+  floor.addColorStop(0, '#1b5a98');
+  floor.addColorStop(1, '#2c80c8');
+  ctx.fillStyle = floor;
+  ctx.fillRect(FRAME.x, PLAY_TOP, FRAME.w, PLAY_BOTTOM - PLAY_TOP);
 
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+  for (let y = PLAY_TOP + 6; y < PLAY_BOTTOM; y += 12) {
+    ctx.fillRect(FRAME.x, y, FRAME.w, 1);
+  }
+
+  const sideShade = ctx.createLinearGradient(FRAME.x, 0, FRAME.x + FRAME.w, 0);
+  sideShade.addColorStop(0, 'rgba(0, 0, 0, 0.35)');
+  sideShade.addColorStop(0.18, 'rgba(0, 0, 0, 0)');
+  sideShade.addColorStop(0.82, 'rgba(0, 0, 0, 0)');
+  sideShade.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+  ctx.fillStyle = sideShade;
+  ctx.fillRect(FRAME.x, PLAY_TOP, FRAME.w, PLAY_BOTTOM - PLAY_TOP);
+
+  const midY = (PLAY_TOP + PLAY_BOTTOM) / 2;
+  ctx.fillStyle = '#f6f8ff';
+  ctx.fillRect(FRAME.x, PLAY_TOP + 2, FRAME.w, 3);
+  ctx.fillRect(FRAME.x, PLAY_BOTTOM - 5, FRAME.w, 3);
+  ctx.fillRect(SERVICE_LEFT, PLAY_TOP, 3, PLAY_BOTTOM - PLAY_TOP);
+  ctx.fillRect(SERVICE_RIGHT - 3, PLAY_TOP, 3, PLAY_BOTTOM - PLAY_TOP);
+  ctx.fillRect(FRAME.x, midY - 1, SERVICE_LEFT - FRAME.x, 3);
+  ctx.fillRect(SERVICE_RIGHT, midY - 1, FRAME.x + FRAME.w - SERVICE_RIGHT, 3);
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+  ctx.fillRect(WIDTH / 2 + 5, PLAY_TOP, 10, PLAY_BOTTOM - PLAY_TOP);
+};
+
+const drawNet = (ctx: Ctx) => {
+  const x = WIDTH / 2 - 4;
+  ctx.fillStyle = 'rgba(240, 246, 255, 0.28)';
+  ctx.fillRect(x, PLAY_TOP, 8, PLAY_BOTTOM - PLAY_TOP);
+  ctx.fillStyle = 'rgba(10, 20, 40, 0.55)';
+  for (let y = PLAY_TOP; y < PLAY_BOTTOM; y += 6) {
+    ctx.fillRect(x, y, 8, 1);
+  }
+  ctx.fillRect(x + 3, PLAY_TOP, 2, PLAY_BOTTOM - PLAY_TOP);
+  ctx.fillStyle = '#f6f8ff';
+  ctx.fillRect(x - 1, PLAY_TOP, 10, 4);
+  ctx.fillRect(x - 1, PLAY_BOTTOM - 4, 10, 4);
+  ctx.fillStyle = '#2c3240';
+  ctx.fillRect(x - 3, PLAY_TOP - 8, 14, 12);
+  ctx.fillRect(x - 3, PLAY_BOTTOM - 4, 14, 12);
+  ctx.fillStyle = '#8c94a6';
+  ctx.fillRect(x - 1, PLAY_TOP - 6, 10, 3);
+  ctx.fillRect(x - 1, PLAY_BOTTOM - 2, 10, 3);
+};
+
+const drawGlassWall = (ctx: Ctx, y: number) => {
+  ctx.fillStyle = 'rgba(170, 220, 255, 0.32)';
+  ctx.fillRect(FRAME.x, y, FRAME.w, WALL_H);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+  for (let x = FRAME.x + 12; x < FRAME.x + FRAME.w; x += 58) {
+    ctx.fillRect(x, y + 2, 12, 2);
+    ctx.fillRect(x + 4, y + 6, 8, 2);
+  }
+  ctx.fillStyle = '#1b2230';
+  for (let x = FRAME.x; x <= FRAME.x + FRAME.w; x += 116) {
+    ctx.fillRect(x - 2, y, 4, WALL_H);
+  }
+  ctx.fillRect(FRAME.x, y, FRAME.w, 2);
+  ctx.fillRect(FRAME.x, y + WALL_H - 2, FRAME.w, 2);
+};
+
+const drawFence = (ctx: Ctx, x: number) => {
+  ctx.fillStyle = 'rgba(200, 220, 240, 0.22)';
+  for (let y = PLAY_TOP; y < PLAY_BOTTOM; y += 6) {
+    ctx.fillRect(x, y, 12, 1);
+  }
+  for (let fx = x; fx <= x + 12; fx += 6) {
+    ctx.fillRect(fx, PLAY_TOP, 1, PLAY_BOTTOM - PLAY_TOP);
+  }
+};
+
+const drawField = (ctx: Ctx) => {
+  drawSky(ctx);
+  drawCourtFloor(ctx);
+  drawGlassWall(ctx, PLAY_TOP - WALL_H);
+  drawGlassWall(ctx, PLAY_BOTTOM);
+  drawFence(ctx, FRAME.x + 2);
+  drawFence(ctx, FRAME.x + FRAME.w - 14);
+  drawNet(ctx);
+};
+
+const pixelColor = (char: string, team: Team): string | null => {
+  switch (char) {
+    case 'c': return team.main;
+    case 'v': return '#f6f8ff';
+    case 's': return '#f0b98a';
+    case 'e': return '#1a1a24';
+    case 't': return team.main;
+    case 'd': return team.dark;
+    case 'w': return '#f6f8ff';
+    case 'p': return '#1f2a44';
+    case 'k': return '#eef2f8';
+    default: return null;
+  }
+};
+
+const drawPlayer = (ctx: Ctx, x: number, y: number, dir: 1 | -1, team: Team, step: number, swing: number) => {
   ctx.save();
-  ctx.setLineDash([3, 9]);
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-  ctx.lineWidth = 2;
+  ctx.translate(dir === 1 ? x : x + PLAYER_W, y);
+  ctx.scale(dir, 1);
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
   ctx.beginPath();
-  ctx.moveTo(WIDTH / 2, PLAY_TOP);
-  ctx.lineTo(WIDTH / 2, PLAY_BOTTOM);
-  ctx.stroke();
+  ctx.ellipse(PLAYER_W / 2, PLAYER_H + 2, 14, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const stepRows = step >= 0 && step % 2 === 1 ? LEG_ROWS_STEP : null;
+  PLAYER_ROWS.forEach((row, rowIndex) => {
+    const isLeg = rowIndex >= 13;
+    const source = stepRows && isLeg ? stepRows[rowIndex - 13] : row;
+    for (let col = 0; col < source.length; col += 1) {
+      const color = pixelColor(source[col], team);
+      if (!color) continue;
+      ctx.fillStyle = color;
+      ctx.fillRect(col * PLAYER_SCALE, rowIndex * PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
+    }
+  });
+
+  const reach = swing > 0 ? Math.round(Math.sin((swing / SWING_FRAMES) * Math.PI) * 6) : 0;
+  const armY = 8 * PLAYER_SCALE;
+  ctx.fillStyle = '#f0b98a';
+  ctx.fillRect(10 * PLAYER_SCALE, armY, 4 + reach, PLAYER_SCALE);
+  ctx.fillStyle = '#6b3e22';
+  ctx.fillRect(10 * PLAYER_SCALE + 4 + reach, armY - 1, 10, PLAYER_SCALE + 2);
+
   ctx.restore();
 };
 
-const drawCapsule = (ctx: Ctx, x: number, y: number, color: string, shine: string) => {
+const drawRacket = (ctx: Ctx, x: number, y: number, team: Team) => {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+  ctx.beginPath();
+  ctx.roundRect(x + 3, y + 5, PADDLE_W, PADDLE_H, PADDLE_W / 2);
+  ctx.fill();
+
   ctx.beginPath();
   ctx.roundRect(x, y, PADDLE_W, PADDLE_H, PADDLE_W / 2);
-  ctx.fillStyle = color;
+  ctx.fillStyle = team.dark;
   ctx.fill();
-  ctx.fillStyle = shine;
-  ctx.fillRect(x + 6, y + 14, 4, PADDLE_H - 28);
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath();
+  ctx.roundRect(x + 2, y + 2, PADDLE_W - 4, PADDLE_H - 4, (PADDLE_W - 4) / 2);
+  ctx.fillStyle = team.main;
+  ctx.fill();
+
+  ctx.fillStyle = team.dark;
+  for (let hy = y + 16; hy < y + PADDLE_H - 14; hy += 8) {
+    ctx.fillRect(x + 5, hy, 2, 2);
+    ctx.fillRect(x + 11, hy, 2, 2);
+    ctx.fillRect(x + 8, hy + 4, 2, 2);
+  }
+  ctx.fillStyle = team.light;
   ctx.fillRect(x + 4, y + 8, PADDLE_W - 8, 3);
   ctx.fillRect(x + 4, y + PADDLE_H - 11, PADDLE_W - 8, 3);
 };
 
 const drawBall = (ctx: Ctx, x: number, y: number, trail: { x: number; y: number }[]) => {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+  ctx.beginPath();
+  ctx.ellipse(x + 3, y + 7, 6, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
   trail.forEach((point, index) => {
     const fade = (index + 1) / (trail.length + 1);
     ctx.beginPath();
-    ctx.arc(point.x, point.y, 2 + fade * 2, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255,255,255,${0.15 + fade * 0.45})`;
+    ctx.arc(point.x, point.y, 1.5 + fade * 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(217, 242, 60, ${0.1 + fade * 0.35})`;
     ctx.fill();
   });
+
   ctx.beginPath();
   ctx.arc(x, y, BALL_R, 0, Math.PI * 2);
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = BALL_COLOR;
   ctx.fill();
+  ctx.fillStyle = '#8fae16';
+  ctx.fillRect(x - 1, y - 5, 2, 10);
+  ctx.fillStyle = '#f7ffb0';
+  ctx.fillRect(x - 3, y - 4, 2, 2);
 };
 
 const drawFrame = (ctx: Ctx) => {
@@ -258,6 +405,25 @@ const drawFrame = (ctx: Ctx) => {
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 2;
   ctx.stroke();
+};
+
+type Spark = { x: number; y: number; vx: number; vy: number; life: number; color: string };
+
+const spawnSparks = (sparks: Spark[], x: number, y: number, count: number, color: string) => {
+  for (let i = 0; i < count; i += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 1.5 + Math.random() * 2.5;
+    sparks.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 14, color });
+  }
+};
+
+const drawSparks = (ctx: Ctx, sparks: Spark[]) => {
+  sparks.forEach((spark) => {
+    ctx.globalAlpha = spark.life / 14;
+    ctx.fillStyle = spark.color;
+    ctx.fillRect(Math.round(spark.x), Math.round(spark.y), 3, 3);
+  });
+  ctx.globalAlpha = 1;
 };
 
 export default function Pong({
@@ -283,10 +449,13 @@ export default function Pong({
     const maxPaddle = PLAY_BOTTOM - PADDLE_H - 6;
 
     const state = {
-      p1: { y: paddleStart, score: 0 },
-      p2: { y: paddleStart, score: 0 },
+      p1: { y: paddleStart, score: 0, swing: 0, moving: 0 },
+      p2: { y: paddleStart, score: 0, swing: 0, moving: 0 },
       ball: { x: WIDTH / 2, y: (PLAY_TOP + PLAY_BOTTOM) / 2, vx: 6, vy: 4 },
       trail: [] as { x: number; y: number }[],
+      sparks: [] as Spark[],
+      shake: 0,
+      frames: 0,
       keys: {} as Record<string, boolean>,
     };
 
@@ -305,7 +474,26 @@ export default function Pong({
       };
     };
 
+    const bounceOff = (paddleY: number, dir: 1 | -1) => {
+      const offset = (state.ball.y - (paddleY + PADDLE_H / 2)) / (PADDLE_H / 2);
+      const speed = Math.min(MAX_BALL_SPEED, Math.abs(state.ball.vx) * 1.1);
+      state.ball.vx = dir * speed;
+      state.ball.vy = offset * 6;
+    };
+
+    const scorePoint = (side: 'p1' | 'p2') => {
+      state[side].score += 1;
+      state.shake = SHAKE_FRAMES;
+      const exitX = side === 'p1' ? WIDTH - 24 : 24;
+      spawnSparks(state.sparks, exitX, state.ball.y, 14, side === 'p1' ? CYAN : ORANGE);
+      resetBall();
+    };
+
     const update = () => {
+      state.frames += 1;
+      const p1Before = state.p1.y;
+      const p2Before = state.p2.y;
+
       if (state.keys['w'] || state.keys['W']) state.p1.y = Math.max(minPaddle, state.p1.y - 7);
       if (state.keys['s'] || state.keys['S']) state.p1.y = Math.min(maxPaddle, state.p1.y + 7);
 
@@ -318,6 +506,12 @@ export default function Pong({
         if (state.keys['ArrowDown']) state.p2.y = Math.min(maxPaddle, state.p2.y + 7);
       }
 
+      state.p1.moving = state.p1.y !== p1Before ? Math.floor(state.frames / 6) : -1;
+      state.p2.moving = state.p2.y !== p2Before ? Math.floor(state.frames / 6) : -1;
+      if (state.p1.swing > 0) state.p1.swing -= 1;
+      if (state.p2.swing > 0) state.p2.swing -= 1;
+      if (state.shake > 0) state.shake -= 1;
+
       state.trail.push({ x: state.ball.x, y: state.ball.y });
       if (state.trail.length > 8) state.trail.shift();
 
@@ -327,10 +521,12 @@ export default function Pong({
       if (state.ball.y <= PLAY_TOP + BALL_R) {
         state.ball.y = PLAY_TOP + BALL_R;
         state.ball.vy *= -1;
+        spawnSparks(state.sparks, state.ball.x, PLAY_TOP, 4, '#cfe9ff');
       }
       if (state.ball.y >= PLAY_BOTTOM - BALL_R) {
         state.ball.y = PLAY_BOTTOM - BALL_R;
         state.ball.vy *= -1;
+        spawnSparks(state.sparks, state.ball.x, PLAY_BOTTOM, 4, '#cfe9ff');
       }
 
       const hitsPaddle = (paddleY: number) => (
@@ -343,8 +539,10 @@ export default function Pong({
         state.ball.x >= P1_X - BALL_R &&
         hitsPaddle(state.p1.y)
       ) {
-        state.ball.vx = Math.abs(state.ball.vx) * 1.1;
+        bounceOff(state.p1.y, 1);
         state.ball.x = P1_X + PADDLE_W + BALL_R;
+        state.p1.swing = SWING_FRAMES;
+        spawnSparks(state.sparks, state.ball.x, state.ball.y, 6, CYAN);
       }
       if (
         state.ball.vx > 0 &&
@@ -352,12 +550,22 @@ export default function Pong({
         state.ball.x <= P2_X + PADDLE_W + BALL_R &&
         hitsPaddle(state.p2.y)
       ) {
-        state.ball.vx = -Math.abs(state.ball.vx) * 1.1;
+        bounceOff(state.p2.y, -1);
         state.ball.x = P2_X - BALL_R;
+        state.p2.swing = SWING_FRAMES;
+        spawnSparks(state.sparks, state.ball.x, state.ball.y, 6, ORANGE);
       }
 
-      if (state.ball.x < 0) { state.p2.score += 1; resetBall(); }
-      if (state.ball.x > WIDTH) { state.p1.score += 1; resetBall(); }
+      if (state.ball.x < 0) scorePoint('p2');
+      if (state.ball.x > WIDTH) scorePoint('p1');
+
+      state.sparks = state.sparks.filter((spark) => {
+        spark.x += spark.vx;
+        spark.y += spark.vy;
+        spark.vy += 0.12;
+        spark.life -= 1;
+        return spark.life > 0;
+      });
 
       if (state.p1.score >= 10) { onGameEnd('p1'); return; }
       if (state.p2.score >= 10) { onGameEnd('p2'); return; }
@@ -365,15 +573,27 @@ export default function Pong({
       ctx.fillStyle = '#05070f';
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
       ctx.save();
+      if (state.shake > 0) {
+        const power = state.shake / SHAKE_FRAMES;
+        ctx.translate((Math.random() - 0.5) * 6 * power, (Math.random() - 0.5) * 6 * power);
+      }
       traceChamfer(ctx, FRAME.x, FRAME.y, FRAME.w, FRAME.h, FRAME.cut);
       ctx.clip();
       drawField(ctx);
-      drawCapsule(ctx, P1_X, state.p1.y, CYAN, '#d7f6ff');
-      drawCapsule(ctx, P2_X, state.p2.y, ORANGE, '#ffe0bf');
+
+      const p1SwingShift = state.p1.swing > 0 ? Math.round(Math.sin((state.p1.swing / SWING_FRAMES) * Math.PI) * 6) : 0;
+      const p2SwingShift = state.p2.swing > 0 ? Math.round(Math.sin((state.p2.swing / SWING_FRAMES) * Math.PI) * 6) : 0;
+      const p1PlayerY = Math.round(state.p1.y + PADDLE_H / 2 - PLAYER_H / 2);
+      const p2PlayerY = Math.round(state.p2.y + PADDLE_H / 2 - PLAYER_H / 2);
+      drawPlayer(ctx, P1_X - PLAYER_W - 2, p1PlayerY, 1, TEAM_P1, state.p1.moving, state.p1.swing);
+      drawPlayer(ctx, P2_X + PADDLE_W + 2, p2PlayerY, -1, TEAM_P2, state.p2.moving, state.p2.swing);
+      drawRacket(ctx, P1_X + p1SwingShift, state.p1.y, TEAM_P1);
+      drawRacket(ctx, P2_X - p2SwingShift, state.p2.y, TEAM_P2);
       drawBall(ctx, state.ball.x, state.ball.y, state.trail);
+      drawSparks(ctx, state.sparks);
       ctx.restore();
       drawFrame(ctx);
-      drawHud(ctx, state.p1.score, state.p2.score);
+      drawHud(ctx, state.p1.score, state.p2.score, botEnabled);
 
       animationFrameId = requestAnimationFrame(update);
     };
@@ -393,7 +613,7 @@ export default function Pong({
       width={WIDTH}
       height={HEIGHT}
       aria-label="Paddle Duel"
-      className="w-full max-w-full rounded-xl [image-rendering:pixelated]"
+      className="w-full max-w-full aspect-video rounded-xl [image-rendering:pixelated]"
     />
   );
 }
