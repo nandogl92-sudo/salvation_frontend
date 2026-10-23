@@ -43,16 +43,10 @@ const PADS: Record<string, GamePad> = {
   },
   combat: {
     dirs: [
-      { key: 'w', label: '▲', ariaLabel: 'Saltar' },
-      { key: 'a', label: '◀', ariaLabel: 'Izquierda' },
-      { key: 'd', label: '▶', ariaLabel: 'Derecha' },
+      { key: 'a', label: '◀', ariaLabel: 'Mover izquierda' },
+      { key: 'd', label: '▶', ariaLabel: 'Mover derecha' },
     ],
-    actions: [
-      { key: ' ', label: 'COMBO', ariaLabel: 'Combo de espada' },
-      { key: 'f', label: 'ARCO', ariaLabel: 'Arco' },
-      { key: 's', label: 'ESCUDO', ariaLabel: 'Escudo' },
-      { key: 'Shift', label: 'DASH', ariaLabel: 'Esquiva' },
-    ],
+    actions: [],
   },
   shooter: {
     dirs: [

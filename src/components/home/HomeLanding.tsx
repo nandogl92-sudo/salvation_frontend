@@ -7,7 +7,7 @@ const CARD_BORDER: Record<string, string> = {
   pong: 'border-yellow-400',
   snake: 'border-cyan-400',
   tetris: 'border-red-400',
-  combat: 'border-emerald-400',
+  combat: 'border-sky-400',
   shooter: 'border-purple-400',
 }
 
@@ -53,14 +53,13 @@ const GameArt = ({ gameId }: { gameId: string }) => {
   }
   if (gameId === 'combat') {
     return (
-      <div className="h-28 bg-[#14080c] relative overflow-hidden">
-        <div className="absolute inset-x-4 top-2 h-1.5 bg-[#3a1020]" />
-        <div className="absolute left-4 top-2 h-1.5 w-10 bg-orange-400" />
-        <div className="absolute right-4 top-2 h-1.5 w-10 bg-sky-400" />
-        <div className="absolute left-8 bottom-5 w-5 h-8 bg-orange-400" />
-        <div className="absolute right-8 bottom-5 w-5 h-8 bg-sky-400" />
-        <div className="absolute left-1/2 top-10 w-8 h-1 bg-yellow-300" />
-        <div className="absolute left-[46%] top-8 w-2 h-2 bg-white" />
+      <div className="h-28 bg-[#6eb6e8] relative overflow-hidden">
+        <div className="absolute left-8 top-4 w-10 h-3 bg-rose-500 rounded-sm" />
+        <div className="absolute left-11 top-7 w-4 h-6 bg-rose-300" />
+        <div className="absolute right-10 top-5 w-10 h-3 bg-blue-600 rounded-sm" />
+        <div className="absolute right-[3.15rem] top-8 w-4 h-6 bg-blue-300" />
+        <div className="absolute left-1/2 top-12 w-16 h-5 bg-white/70 -translate-x-1/2" />
+        <div className="absolute bottom-2 left-6 w-8 h-3 bg-amber-700" />
       </div>
     )
   }

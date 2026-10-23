@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Crosshair, Flag, Gamepad2, Swords } from 'lucide-react';
+import { Activity, Crosshair, Flag, Gamepad2, Umbrella } from 'lucide-react';
 
 import Pong from './games/Pong';
 import Snake from './games/Snake';
 import Racing from './games/Racing';
-import Combat from './games/Combat';
+import Skydive from './games/Skydive';
 import Shooter from './games/Shooter';
 import { useAuth } from './auth/AuthContext';
 import ResetPasswordScreen from './auth/ResetPasswordScreen';
@@ -39,7 +39,7 @@ const GAMES: Game[] = [
   { id: 'pong', name: 'Paddle Duel', description: 'Reflejos rápidos. El primero en llegar a 10 puntos gana.', icon: <Activity className="w-8 h-8" /> },
   { id: 'snake', name: 'Worm Clash', description: 'Templo de la serpiente. El primero en 20 gemas gana, o quien haga chocar al rival.', icon: <Gamepad2 className="w-8 h-8" /> },
   { id: 'tetris', name: 'Slot Car Racing', description: 'Circuito procedural. El primero en completar 5 vueltas válidas gana.', icon: <Flag className="w-8 h-8" /> },
-  { id: 'combat', name: 'Arena Clash', description: 'Combo de espada, súper con la barra llena, esquiva, escudo y arco. Reduce la vida del rival a cero.', icon: <Swords className="w-8 h-8" /> },
+  { id: 'combat', name: 'Sky Drop', description: 'Dos paracaidistas. Gana quien sobreviva más tiempo sin chocar.', icon: <Umbrella className="w-8 h-8" /> },
   { id: 'shooter', name: 'Laser Duel', description: 'Cyan Pulse vs Amber Bolt en Laser Yard. Precisión y velocidad.', icon: <Crosshair className="w-8 h-8" /> },
 ];
 
@@ -413,7 +413,7 @@ export default function App() {
       case 'pong': return <Pong onGameEnd={handleEnd} botEnabled={botEnabled} />;
       case 'snake': return <Snake onGameEnd={handleEnd} botEnabled={botEnabled} />;
       case 'tetris': return <Racing onGameEnd={handleEnd} botEnabled={botEnabled} />;
-      case 'combat': return <Combat onGameEnd={handleEnd} botEnabled={botEnabled} />;
+      case 'combat': return <Skydive onGameEnd={handleEnd} botEnabled={botEnabled} />;
       case 'shooter': return <Shooter onGameEnd={handleEnd} botEnabled={botEnabled} />;
       default: return <div className="text-white text-center p-8">Juego no encontrado</div>;
     }
@@ -509,7 +509,7 @@ export default function App() {
                 isRanked={Boolean(activeMatch?.isRanked)}
                 gameId={selectedGame.id}
                 controlsHint={selectedGame.id === 'combat'
-                  ? 'Controles — P1: WASD, Shift (esquiva), S (escudo), Espacio (combo de 3, súper con barra llena), F (arco) | P2: Flechas, L (esquiva), Abajo (escudo), Enter (combo), K (arco)'
+                  ? 'Controles — P1: A/D para moverte | P2: Flechas. Gana quien sobreviva más tiempo.'
                   : selectedGame.id === 'snake'
                     ? 'Controles — P1: WASD, Shift (acelerón), Q (escudo), E (mordisco) | P2: Flechas, M (acelerón), K (escudo), L (mordisco)'
                     : selectedGame.id === 'tetris'

@@ -15,7 +15,7 @@ const GAME_NAMES: Record<string, string> = {
   pong: 'Paddle Duel',
   snake: 'Worm Clash',
   tetris: 'Slot Car Racing',
-  combat: 'Arena Clash',
+  combat: 'Sky Drop',
   shooter: 'Laser Duel',
 }
 
