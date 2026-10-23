@@ -66,10 +66,13 @@ const GameArt = ({ gameId }: { gameId: string }) => {
   }
   if (gameId === 'shooter') {
     return (
-      <div className="h-28 bg-[#070814] relative">
-        <div className="absolute left-6 top-4 w-1 h-1 bg-white" />
-        <div className="absolute right-10 top-8 w-1 h-1 bg-white" />
-        <div className="absolute left-1/2 bottom-4 w-0 h-0 border-l-8 border-r-8 border-b-12 border-l-transparent border-r-transparent border-b-lime-300" />
+      <div className="h-28 bg-[#14082c] relative overflow-hidden">
+        <div className="absolute inset-x-0 bottom-0 h-10 bg-[#24183c]" />
+        <div className="absolute left-6 bottom-8 w-6 h-8 bg-cyan-400" />
+        <div className="absolute right-6 bottom-8 w-6 h-8 bg-orange-400" />
+        <div className="absolute left-14 top-12 h-1 w-16 bg-cyan-300" />
+        <div className="absolute right-14 top-14 h-1 w-16 bg-orange-300" />
+        <div className="absolute left-1/2 top-6 w-2 h-2 bg-fuchsia-400 -translate-x-1/2" />
       </div>
     )
   }

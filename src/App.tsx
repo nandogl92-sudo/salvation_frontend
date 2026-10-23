@@ -40,7 +40,7 @@ const GAMES: Game[] = [
   { id: 'snake', name: 'Worm Clash', description: 'Templo de la serpiente. El primero en 20 gemas gana, o quien haga chocar al rival.', icon: <Gamepad2 className="w-8 h-8" /> },
   { id: 'tetris', name: 'Block Battle', description: 'Limpia líneas para enviar basura a tu rival.', icon: <Grid className="w-8 h-8" /> },
   { id: 'combat', name: 'Arena Clash', description: 'Combo de espada, súper con la barra llena, esquiva, escudo y arco. Reduce la vida del rival a cero.', icon: <Swords className="w-8 h-8" /> },
-  { id: 'shooter', name: 'Laser Duel', description: 'Disparos en arena cerrada. Precisión y velocidad.', icon: <Crosshair className="w-8 h-8" /> },
+  { id: 'shooter', name: 'Laser Duel', description: 'Cyan Pulse vs Amber Bolt en Laser Yard. Precisión y velocidad.', icon: <Crosshair className="w-8 h-8" /> },
 ];
 
 export default function App() {
