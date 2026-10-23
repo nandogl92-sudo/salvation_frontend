@@ -35,9 +35,9 @@ const PADS: Record<string, GamePad> = {
   tetris: {
     dirs: [
       { key: 'w', label: '▲', ariaLabel: 'Acelerar' },
-      { key: 'a', label: '◀', ariaLabel: 'Carril izquierdo' },
+      { key: 'a', label: '◀', ariaLabel: 'Girar a la izquierda' },
       { key: 's', label: '▼', ariaLabel: 'Frenar' },
-      { key: 'd', label: '▶', ariaLabel: 'Carril derecho' },
+      { key: 'd', label: '▶', ariaLabel: 'Girar a la derecha' },
     ],
     actions: [],
   },

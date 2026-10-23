@@ -4,11 +4,13 @@ const WIDTH = 960;
 const HEIGHT = 540;
 const PIX = '"Press Start 2P", monospace';
 const LAPS = 5;
-const TRACK_W = 58;
+const TRACK_W = 52;
 const HALF = TRACK_W / 2;
+const ORANGE = '#ff8c1a';
 const COUNT_FRAMES = 180;
 const KO_FRAMES = 100;
 const SPARK_MAX = 36;
+const FIELD = { left: 28, top: 86, right: 932, bottom: 512 };
 
 type Ctx = CanvasRenderingContext2D;
 type Pt = { x: number; y: number };
@@ -29,11 +31,19 @@ type Track = {
   total: number;
 };
 
-type Car = {
+type Hit = {
   dist: number;
   offset: number;
-  lane: number;
+  pose: Sample;
+};
+
+type Car = {
+  x: number;
+  y: number;
+  angle: number;
   speed: number;
+  progress: number;
+  lane: number;
   laps: number;
   passedMid: boolean;
   recover: number;
@@ -125,71 +135,12 @@ const loopsCross = (pts: Pt[]) => {
   return false;
 };
 
-const makeOval = (wild: boolean): Pt[] => {
-  const n = 20;
-  const pts: Pt[] = [];
-  const rx0 = wild ? 270 + Math.random() * 70 : 318;
-  const ry0 = wild ? 128 + Math.random() * 36 : 152;
-  const phase = Math.random() * Math.PI * 2;
-  for (let i = 0; i < n; i += 1) {
-    const a = (i / n) * Math.PI * 2 - Math.PI / 2;
-    const jitter = wild ? 1 : 0;
-    const rx = rx0 + (Math.random() * 2 - 1) * 28 * jitter;
-    const ry = ry0 + (Math.random() * 2 - 1) * 16 * jitter;
-    const bump = wild ? Math.sin(i * 0.7 + phase) * 26 : 0;
-    pts.push({
-      x: 480 + Math.cos(a) * (rx + bump),
-      y: 300 + Math.sin(a) * (ry + bump * 0.5),
-    });
-  }
-  let loop = pts;
-  for (let s = 0; s < 5; s += 1) loop = smoothLoop(loop);
-  return resample(loop, 120);
-};
-
 const buildTrack = (pts: Pt[]): Track => {
   const cum = [0];
   for (let i = 0; i < pts.length; i += 1) {
     cum.push(cum[i] + dist(pts[i], pts[(i + 1) % pts.length]));
   }
   return { pts, cum, total: cum[cum.length - 1] };
-};
-
-const rotatePts = (pts: Pt[], start: number) => pts.slice(start).concat(pts.slice(0, start));
-
-const sharpestTurn = (track: Track) => {
-  let worst = 0;
-  for (let d = 0; d < track.total; d += 18) {
-    const c = curveAt(track, d);
-    if (c > worst) worst = c;
-  }
-  return worst;
-};
-
-const startOnStraight = (track: Track): Track => {
-  let best = 0;
-  let bestCurve = 99;
-  for (let i = 0; i < track.pts.length; i += 1) {
-    const c = curveAt(track, track.cum[i]);
-    if (c < bestCurve) {
-      bestCurve = c;
-      best = i;
-    }
-  }
-  return buildTrack(rotatePts(track.pts, best));
-};
-
-const makeTrack = (): Track => {
-  for (let attempt = 0; attempt < 14; attempt += 1) {
-    const pts = makeOval(true);
-    const inside = pts.every((p) => p.x > 70 && p.x < 890 && p.y > 118 && p.y < 510);
-    if (!inside || loopsCross(pts)) continue;
-    let track = buildTrack(pts);
-    if (track.total < 1400) continue;
-    if (sharpestTurn(track) > 0.72) continue;
-    return startOnStraight(track);
-  }
-  return startOnStraight(buildTrack(makeOval(false)));
 };
 
 const sample = (track: Track, distance: number): Sample => {
@@ -228,11 +179,174 @@ const curveAt = (track: Track, distance: number) => {
   return Math.abs(wrapAngle(b - a));
 };
 
+const projectSeg = (track: Track, i: number, x: number, y: number): Hit => {
+  const a = track.pts[i];
+  const b = track.pts[(i + 1) % track.pts.length];
+  const vx = b.x - a.x;
+  const vy = b.y - a.y;
+  const len2 = vx * vx + vy * vy || 1;
+  let t = ((x - a.x) * vx + (y - a.y) * vy) / len2;
+  if (t < 0) t = 0;
+  if (t > 1) t = 1;
+  const px = a.x + vx * t;
+  const py = a.y + vy * t;
+  const dx = x - px;
+  const dy = y - py;
+  const len = Math.sqrt(len2);
+  const ux = vx / len;
+  const uy = vy / len;
+  const nx = -uy;
+  const ny = ux;
+  return {
+    dist: track.cum[i] + t * (track.cum[i + 1] - track.cum[i]),
+    offset: dx * nx + dy * ny,
+    pose: { x: px, y: py, tx: ux, ty: uy, nx, ny },
+  };
+};
+
+const closerHit = (x: number, y: number, a: Hit, b: Hit) => {
+  const da = (a.pose.x - x) ** 2 + (a.pose.y - y) ** 2;
+  const db = (b.pose.x - x) ** 2 + (b.pose.y - y) ** 2;
+  return db < da ? b : a;
+};
+
+const project = (track: Track, x: number, y: number): Hit => {
+  let hit = projectSeg(track, 0, x, y);
+  for (let i = 1; i < track.pts.length; i += 1) {
+    hit = closerHit(x, y, hit, projectSeg(track, i, x, y));
+  }
+  return hit;
+};
+
+const projectAround = (track: Track, x: number, y: number, around: number, span: number): Hit => {
+  const n = track.pts.length;
+  const total = track.total;
+  let found = false;
+  let hit = projectSeg(track, 0, x, y);
+  for (let i = 0; i < n; i += 1) {
+    const mid = (track.cum[i] + track.cum[i + 1]) * 0.5;
+    let gap = Math.abs(mid - around);
+    if (gap > total / 2) gap = total - gap;
+    if (gap > span) continue;
+    const next = projectSeg(track, i, x, y);
+    hit = found ? closerHit(x, y, hit, next) : next;
+    found = true;
+  }
+  return found ? hit : project(track, x, y);
+};
+
+const rotatePts = (pts: Pt[], start: number) => pts.slice(start).concat(pts.slice(0, start));
+
+const sharpestTurn = (track: Track) => {
+  let worst = 0;
+  for (let d = 0; d < track.total; d += 16) {
+    const c = curveAt(track, d);
+    if (c > worst) worst = c;
+  }
+  return worst;
+};
+
+const startOnStraight = (track: Track): Track => {
+  let best = 0;
+  let bestCurve = 99;
+  for (let i = 0; i < track.pts.length; i += 1) {
+    const c = curveAt(track, track.cum[i]);
+    if (c < bestCurve) {
+      bestCurve = c;
+      best = i;
+    }
+  }
+  return buildTrack(rotatePts(track.pts, best));
+};
+
+const pointOnFrame = (t: number, x0: number, y0: number, w: number, h: number, rad: number) => {
+  const sw = Math.max(1, w - 2 * rad);
+  const sh = Math.max(1, h - 2 * rad);
+  const arc = Math.PI * 0.5 * rad;
+  const perim = 2 * sw + 2 * sh + 4 * arc;
+  let d = (((t % 1) + 1) % 1) * perim;
+  if (d <= sw) return { x: x0 + rad + d, y: y0, nx: 0, ny: -1 };
+  d -= sw;
+  if (d <= arc) {
+    const a = -Math.PI / 2 + d / rad;
+    return { x: x0 + w - rad + Math.cos(a) * rad, y: y0 + rad + Math.sin(a) * rad, nx: Math.cos(a), ny: Math.sin(a) };
+  }
+  d -= arc;
+  if (d <= sh) return { x: x0 + w, y: y0 + rad + d, nx: 1, ny: 0 };
+  d -= sh;
+  if (d <= arc) {
+    const a = d / rad;
+    return { x: x0 + w - rad + Math.cos(a) * rad, y: y0 + h - rad + Math.sin(a) * rad, nx: Math.cos(a), ny: Math.sin(a) };
+  }
+  d -= arc;
+  if (d <= sw) return { x: x0 + w - rad - d, y: y0 + h, nx: 0, ny: 1 };
+  d -= sw;
+  if (d <= arc) {
+    const a = Math.PI / 2 + d / rad;
+    return { x: x0 + rad + Math.cos(a) * rad, y: y0 + h - rad + Math.sin(a) * rad, nx: Math.cos(a), ny: Math.sin(a) };
+  }
+  d -= arc;
+  if (d <= sh) return { x: x0, y: y0 + h - rad - d, nx: -1, ny: 0 };
+  d -= sh;
+  const a = Math.PI + d / rad;
+  return { x: x0 + rad + Math.cos(a) * rad, y: y0 + rad + Math.sin(a) * rad, nx: Math.cos(a), ny: Math.sin(a) };
+};
+
+const makeCourse = (wild: boolean): Pt[] => {
+  const n = 48;
+  const pts: Pt[] = [];
+  const x0 = FIELD.left;
+  const y0 = FIELD.top;
+  const w = FIELD.right - FIELD.left;
+  const h = FIELD.bottom - FIELD.top;
+  const rad = 40;
+  const phase = wild ? Math.random() : 0.22;
+  const dents = 5;
+  for (let i = 0; i < n; i += 1) {
+    const t = i / n;
+    const p = pointOnFrame(t, x0, y0, w, h, rad);
+    let pull = 6;
+    for (let k = 0; k < dents; k += 1) {
+      const center = (k + 0.18 + phase * 0.12) / dents;
+      let gap = Math.abs(t - center);
+      if (gap > 0.5) gap = 1 - gap;
+      const wave = Math.max(0, 1 - gap / 0.09);
+      const depth = 64 + (wild ? Math.sin(k * 2.1 + phase * 5) * 14 : 8);
+      pull += wave * wave * depth;
+    }
+    let x = p.x - p.nx * pull;
+    let y = p.y - p.ny * pull;
+    x = Math.min(FIELD.right, Math.max(FIELD.left, x));
+    y = Math.min(FIELD.bottom, Math.max(FIELD.top, y));
+    pts.push({ x, y });
+  }
+  let loop = pts;
+  loop = smoothLoop(loop);
+  return resample(loop, 180);
+};
+
+const makeTrack = (): Track => {
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const pts = makeCourse(true);
+    const inside = pts.every((p) => (
+      p.x >= FIELD.left && p.x <= FIELD.right && p.y >= FIELD.top && p.y <= FIELD.bottom
+    ));
+    if (!inside || loopsCross(pts)) continue;
+    const track = buildTrack(pts);
+    if (track.total < 1800) continue;
+    if (sharpestTurn(track) > 1.35) continue;
+    return startOnStraight(track);
+  }
+  return startOnStraight(buildTrack(makeCourse(false)));
+};
+
 const makeCar = (lane: number, color: string, dark: string, light: string, name: string): Car => ({
-  dist: 12,
-  offset: lane,
-  lane,
+  x: 0,
+  y: 0,
+  angle: 0,
   speed: 0,
+  progress: 20,
+  lane,
   laps: 0,
   passedMid: false,
   recover: 0,
@@ -242,23 +356,25 @@ const makeCar = (lane: number, color: string, dark: string, light: string, name:
   name,
 });
 
+const placeCar = (car: Car, track: Track, recover: number) => {
+  const start = sample(track, 20);
+  car.x = start.x + start.nx * car.lane;
+  car.y = start.y + start.ny * car.lane;
+  car.angle = Math.atan2(start.ty, start.tx);
+  car.speed = 0;
+  car.progress = 20;
+  car.passedMid = false;
+  car.recover = recover;
+};
+
+const hitsOrange = (track: Track, x: number, y: number) => Math.abs(project(track, x, y).offset) >= HALF - 2;
+
 const drawWorld = (ctx: Ctx, track: Track) => {
   paint(ctx, 0, 0, WIDTH, HEIGHT, '#3f8a3a');
-  paint(ctx, 0, 0, WIDTH, 96, '#2f6b32');
   ctx.fillStyle = '#4ea34a';
-  for (let i = 0; i < 18; i += 1) {
-    const x = 30 + (i * 53) % WIDTH;
-    const y = 40 + (i * 29) % 80;
-    ctx.fillRect(x, y, 22, 10);
+  for (let i = 0; i < 28; i += 1) {
+    ctx.fillRect((i * 73) % WIDTH, 40 + (i * 37) % 480, 26, 12);
   }
-  paint(ctx, 24, 118, 86, 46, '#7a2e32');
-  paint(ctx, 28, 122, 18, 14, '#f4f7fb');
-  paint(ctx, 50, 122, 18, 14, '#2563eb');
-  paint(ctx, 72, 122, 18, 14, '#f5c518');
-  paint(ctx, 850, 118, 86, 46, '#7a2e32');
-  paint(ctx, 854, 122, 18, 14, '#e11d48');
-  paint(ctx, 876, 122, 18, 14, '#f4f7fb');
-  paint(ctx, 898, 122, 18, 14, '#2563eb');
 
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
@@ -271,23 +387,12 @@ const drawWorld = (ctx: Ctx, track: Track) => {
     ctx.closePath();
     ctx.stroke();
   };
-  strokeLoop(TRACK_W + 16, '#d9d9d9');
-  strokeLoop(TRACK_W + 10, '#c1121f');
-  strokeLoop(TRACK_W + 4, '#f4f4f4');
+  strokeLoop(TRACK_W + 14, ORANGE);
+  strokeLoop(TRACK_W + 6, '#f4f4f4');
   strokeLoop(TRACK_W, '#2b2d34');
-  strokeLoop(TRACK_W - 10, '#3a3d46');
-  strokeLoop(6, '#1a1c22');
-  strokeLoop(2, '#6a6e78');
+  strokeLoop(TRACK_W - 12, '#3a3d46');
 
-  const start = sample(track, 0);
-  for (let i = 0; i < 8; i += 1) {
-    const along = (i - 3.5) * 6;
-    const px = start.x + start.nx * along;
-    const py = start.y + start.ny * along;
-    paint(ctx, px - 4, py - 4, 8, 8, i % 2 === 0 ? '#f4f4f4' : '#111');
-  }
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.32)';
   ctx.lineWidth = 2;
   ctx.setLineDash([10, 12]);
   ctx.beginPath();
@@ -296,15 +401,20 @@ const drawWorld = (ctx: Ctx, track: Track) => {
   ctx.closePath();
   ctx.stroke();
   ctx.setLineDash([]);
+
+  const start = sample(track, 0);
+  for (let i = 0; i < 8; i += 1) {
+    const along = (i - 3.5) * 6;
+    const px = start.x + start.nx * along;
+    const py = start.y + start.ny * along;
+    paint(ctx, px - 4, py - 4, 8, 8, i % 2 === 0 ? '#f4f4f4' : '#111');
+  }
 };
 
-const drawCar = (ctx: Ctx, pose: Sample, car: Car, spin: number) => {
-  const x = pose.x + pose.nx * car.offset;
-  const y = pose.y + pose.ny * car.offset;
-  const angle = Math.atan2(pose.ty, pose.tx) + spin;
+const drawCar = (ctx: Ctx, car: Car, spin: number) => {
   ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
+  ctx.translate(car.x, car.y);
+  ctx.rotate(car.angle + spin);
   paint(ctx, -9, -6, 20, 14, 'rgba(0,0,0,0.28)');
   paint(ctx, -12, -8, 8, 5, '#1a1a1a');
   paint(ctx, 4, -8, 8, 5, '#1a1a1a');
@@ -315,7 +425,7 @@ const drawCar = (ctx: Ctx, pose: Sample, car: Car, spin: number) => {
   paint(ctx, 2, -3, 8, 6, car.light);
   paint(ctx, -10, -2, 6, 4, '#dbeafe');
   if (car.recover > 0) {
-    ctx.rotate(-angle);
+    ctx.rotate(-(car.angle + spin));
     ctx.fillStyle = '#f5c518';
     ctx.font = `8px ${PIX}`;
     ctx.textAlign = 'center';
@@ -326,64 +436,64 @@ const drawCar = (ctx: Ctx, pose: Sample, car: Car, spin: number) => {
 
 const racePlace = (car: Car, other: Car) => {
   if (car.laps !== other.laps) return car.laps > other.laps ? '1' : '2';
-  return car.dist >= other.dist ? '1' : '2';
+  return car.progress >= other.progress ? '1' : '2';
 };
 
 const drawHud = (ctx: Ctx, p1: Car, p2: Car) => {
-  paint(ctx, 0, 0, WIDTH, 92, 'rgba(12, 16, 24, 0.78)');
-  paint(ctx, 12, 10, 280, 72, '#161b28');
+  paint(ctx, 0, 0, WIDTH, 56, 'rgba(12, 16, 24, 0.72)');
+  paint(ctx, 8, 6, 250, 44, '#161b28');
   ctx.strokeStyle = p1.color;
-  ctx.strokeRect(12, 10, 280, 72);
-  paint(ctx, 668, 10, 280, 72, '#161b28');
+  ctx.strokeRect(8, 6, 250, 44);
+  paint(ctx, 702, 6, 250, 44, '#161b28');
   ctx.strokeStyle = p2.color;
-  ctx.strokeRect(668, 10, 280, 72);
-  paint(ctx, 330, 10, 300, 72, '#120c1c');
+  ctx.strokeRect(702, 6, 250, 44);
+  paint(ctx, 330, 6, 300, 44, '#120c1c');
   ctx.strokeStyle = '#f5c518';
-  ctx.strokeRect(330, 10, 300, 72);
+  ctx.strokeRect(330, 6, 300, 44);
 
-  ctx.font = `10px ${PIX}`;
+  ctx.font = `9px ${PIX}`;
   ctx.textAlign = 'left';
   ctx.fillStyle = p1.color;
-  ctx.fillText(p1.name, 24, 36);
+  ctx.fillText(p1.name, 18, 24);
   ctx.fillStyle = '#f4f7fb';
-  ctx.font = `16px ${PIX}`;
-  ctx.fillText(`${p1.laps}/${LAPS}`, 24, 66);
+  ctx.font = `14px ${PIX}`;
+  ctx.fillText(`${p1.laps}/${LAPS}`, 18, 44);
   ctx.font = `7px ${PIX}`;
   ctx.fillStyle = '#9aa6b8';
-  ctx.fillText(`VUELTAS  ${racePlace(p1, p2)}o`, 120, 66);
+  ctx.fillText(`POS ${racePlace(p1, p2)}`, 110, 44);
 
   ctx.textAlign = 'right';
-  ctx.font = `10px ${PIX}`;
+  ctx.font = `9px ${PIX}`;
   ctx.fillStyle = p2.color;
-  ctx.fillText(p2.name, 936, 36);
+  ctx.fillText(p2.name, 942, 24);
   ctx.fillStyle = '#f4f7fb';
-  ctx.font = `16px ${PIX}`;
-  ctx.fillText(`${p2.laps}/${LAPS}`, 936, 66);
+  ctx.font = `14px ${PIX}`;
+  ctx.fillText(`${p2.laps}/${LAPS}`, 942, 44);
   ctx.font = `7px ${PIX}`;
   ctx.fillStyle = '#9aa6b8';
-  ctx.fillText(`${racePlace(p2, p1)}o  VUELTAS`, 820, 66);
+  ctx.fillText(`POS ${racePlace(p2, p1)}`, 850, 44);
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f5c518';
-  ctx.font = `12px ${PIX}`;
-  ctx.fillText('SLOT CAR', 480, 40);
+  ctx.font = `11px ${PIX}`;
+  ctx.fillText('SLOT CAR', 480, 26);
   ctx.fillStyle = '#f4f7fb';
-  ctx.font = `8px ${PIX}`;
-  ctx.fillText(`${LAPS} VUELTAS`, 480, 64);
+  ctx.font = `7px ${PIX}`;
+  ctx.fillText(`${LAPS} VUELTAS`, 480, 44);
   ctx.textAlign = 'left';
 };
 
 const drawBanner = (ctx: Ctx, title: string, sub: string) => {
-  paint(ctx, 170, 200, 620, 140, 'rgba(10, 12, 20, 0.86)');
+  paint(ctx, 150, 200, 660, 140, 'rgba(10, 12, 20, 0.86)');
   ctx.strokeStyle = '#f5c518';
   ctx.lineWidth = 3;
-  ctx.strokeRect(170, 200, 620, 140);
+  ctx.strokeRect(150, 200, 660, 140);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f5c518';
   ctx.font = `22px ${PIX}`;
   ctx.fillText(title, 480, 258);
   ctx.fillStyle = '#f4f7fb';
-  ctx.font = `10px ${PIX}`;
+  ctx.font = `9px ${PIX}`;
   ctx.fillText(sub, 480, 298);
   ctx.textAlign = 'left';
 };
@@ -429,6 +539,8 @@ export default function Racing({
       ko: 0,
       sparks: [] as Spark[],
     };
+    placeCar(state.p1, track, 0);
+    placeCar(state.p2, track, 0);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       state.keys[event.key] = true;
@@ -439,40 +551,52 @@ export default function Racing({
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
+    const resetCar = (car: Car) => {
+      burst(state.sparks, car.x, car.y, car.light);
+      placeCar(car, track, 36);
+    };
+
     const drive = (car: Car, gas: boolean, brake: boolean, steer: number) => {
       if (car.recover > 0) {
         car.recover -= 1;
         car.speed = 0;
         return;
       }
-      const curve = Math.max(curveAt(track, car.dist), curveAt(track, car.dist + 55));
-      if (gas) car.speed += 0.1;
-      if (brake) car.speed -= 0.18;
-      car.speed -= 0.016 + Math.min(curve, 0.5) * 0.06;
-      if (gas && car.speed < 1.35) car.speed = 1.35;
+      car.angle += steer * (0.034 + car.speed * 0.014);
+      if (gas) car.speed += 0.12;
+      if (brake) car.speed -= 0.2;
+      car.speed -= 0.02;
       if (car.speed < 0) car.speed = 0;
-      if (car.speed > 5.1) car.speed = 5.1;
-      if (car.speed > 0.4) car.offset += steer * 0.95;
-      const pose = sample(track, car.dist);
-      const offRoad = Math.abs(car.offset) > HALF - 7;
-      const hopped = curve > 0.58 && car.speed > 4.4;
-      if (offRoad || hopped) {
-        burst(state.sparks, pose.x + pose.nx * car.offset, pose.y + pose.ny * car.offset, car.light);
-        car.dist = 12;
-        car.offset = car.lane;
-        car.speed = 0;
-        car.passedMid = false;
-        car.recover = 40;
+      if (car.speed > 4.8) car.speed = 4.8;
+      car.x += Math.cos(car.angle) * car.speed * 2.6;
+      car.y += Math.sin(car.angle) * car.speed * 2.6;
+
+      const noseX = car.x + Math.cos(car.angle) * 12;
+      const noseY = car.y + Math.sin(car.angle) * 12;
+      if (hitsOrange(track, car.x, car.y) || hitsOrange(track, noseX, noseY)) {
+        resetCar(car);
         return;
       }
-      const prev = car.dist;
-      car.dist += car.speed * 3.4;
-      if (car.dist >= track.total) {
-        car.dist -= track.total;
+
+      const prev = car.progress;
+      const hit = projectAround(track, car.x, car.y, car.progress, 130);
+      car.progress = hit.dist;
+      if (prev < track.total * 0.5 && hit.dist >= track.total * 0.5) car.passedMid = true;
+      if (prev > track.total * 0.8 && hit.dist < track.total * 0.2) {
         if (car.passedMid) car.laps += 1;
         car.passedMid = false;
       }
-      if (prev < track.total * 0.5 && car.dist >= track.total * 0.5) car.passedMid = true;
+    };
+
+    const botSteer = (car: Car) => {
+      const ahead = sample(track, car.progress + 90);
+      const want = Math.atan2(ahead.y - car.y, ahead.x - car.x);
+      const err = wrapAngle(want - car.angle);
+      const steer = err > 0.05 ? 1 : err < -0.05 ? -1 : 0;
+      const side = project(track, car.x, car.y);
+      const gas = Math.abs(err) < 0.5 && car.speed < 4.1;
+      const brake = Math.abs(err) > 0.72 || Math.abs(side.offset) > HALF - 10;
+      drive(car, gas, brake, steer);
     };
 
     const update = () => {
@@ -487,13 +611,8 @@ export default function Racing({
           state.keys['s'] || state.keys['S'],
           p1Steer,
         );
-        if (botEnabled) {
-          const curve = Math.max(curveAt(track, state.p2.dist), curveAt(track, state.p2.dist + 70));
-          const gas = curve < 0.32 && state.p2.speed < 4.2;
-          const brake = curve > 0.4 || state.p2.speed > 4.5;
-          const steer = state.p2.offset > 13 ? -1 : state.p2.offset < 11 ? 1 : 0;
-          drive(state.p2, gas, brake, steer);
-        } else {
+        if (botEnabled) botSteer(state.p2);
+        else {
           const p2Steer = (state.keys['ArrowRight'] ? 1 : 0) - (state.keys['ArrowLeft'] ? 1 : 0);
           drive(state.p2, Boolean(state.keys['ArrowUp']), Boolean(state.keys['ArrowDown']), p2Steer);
         }
@@ -512,8 +631,8 @@ export default function Racing({
       drawWorld(ctx, track);
       const spin1 = state.p1.recover > 0 ? state.frames * 0.4 : 0;
       const spin2 = state.p2.recover > 0 ? state.frames * 0.4 : 0;
-      drawCar(ctx, sample(track, state.p1.dist), state.p1, spin1);
-      drawCar(ctx, sample(track, state.p2.dist), state.p2, spin2);
+      drawCar(ctx, state.p1, spin1);
+      drawCar(ctx, state.p2, spin2);
       state.sparks.forEach((spark) => {
         paint(ctx, spark.x, spark.y, 3, 3, spark.color);
       });
@@ -522,7 +641,7 @@ export default function Racing({
       if (state.frames < COUNT_FRAMES) {
         const left = COUNT_FRAMES - state.frames;
         const n = left > 120 ? '3' : left > 60 ? '2' : left > 18 ? '1' : 'GO';
-        drawBanner(ctx, n, 'P1 WASD   P2 FLECHAS   5 VUELTAS');
+        drawBanner(ctx, n, 'W ACELERA  A/D GIRA  TOCA NARANJA = REINICIO');
       }
       if (state.winner) {
         const name = state.winner === 'p1' ? state.p1.name : state.p2.name;

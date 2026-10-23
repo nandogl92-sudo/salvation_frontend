@@ -513,7 +513,7 @@ export default function App() {
                   : selectedGame.id === 'snake'
                     ? 'Controles — P1: WASD, Shift (acelerón), Q (escudo), E (mordisco) | P2: Flechas, M (acelerón), K (escudo), L (mordisco)'
                     : selectedGame.id === 'tetris'
-                      ? 'Controles — P1: W acelerar, S frenar, A/D cambiar de carril | P2: Flechas. Salirte de la pista anula la vuelta.'
+                      ? 'Controles — P1: W acelerar, S frenar, A/D girar | P2: Flechas. Tocar el borde naranja anula la vuelta.'
                       : undefined}
               >
                 {renderGame()}
