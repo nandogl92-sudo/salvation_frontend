@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+const apiProxy = process.env.API_PROXY ?? 'http://localhost:4444'
+
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
@@ -15,11 +17,11 @@ export default defineConfig(() => {
       allowedHosts: ['sunsetbegins.info', 'www.sunsetbegins.info'],
       // El navegador llama al mismo origen (puerto 4000). Vite reenvía la API al backend.
       proxy: {
-        '/users': 'http://localhost:4444',
-        '/auth': 'http://localhost:4444',
-        '/matchmaking': 'http://localhost:4444',
-        '/matches': 'http://localhost:4444',
-        '/purchases': 'http://localhost:4444',
+        '/users': { target: apiProxy, changeOrigin: true },
+        '/auth': { target: apiProxy, changeOrigin: true },
+        '/matchmaking': { target: apiProxy, changeOrigin: true },
+        '/matches': { target: apiProxy, changeOrigin: true },
+        '/purchases': { target: apiProxy, changeOrigin: true },
       },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.

@@ -12,6 +12,8 @@ RUN npm ci
 COPY . .
 
 # Vite escucha en 4000 (ver script "dev" en package.json).
+# En Docker, localhost es este contenedor: el backend es el servicio "backend".
+ENV API_PROXY=http://backend:4444
 EXPOSE 4000
 
 CMD ["npm", "run", "dev"]
