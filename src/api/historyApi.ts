@@ -14,7 +14,7 @@ import type { MatchHistoryRecord } from '../types'
 const GAME_NAMES: Record<string, string> = {
   pong: 'Paddle Duel',
   snake: 'Worm Clash',
-  tetris: 'Block Battle',
+  tetris: 'Slot Car Racing',
   combat: 'Arena Clash',
   shooter: 'Laser Duel',
 }

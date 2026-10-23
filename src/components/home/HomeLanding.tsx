@@ -6,7 +6,7 @@ import PointsRanking from './PointsRanking'
 const CARD_BORDER: Record<string, string> = {
   pong: 'border-yellow-400',
   snake: 'border-cyan-400',
-  tetris: 'border-amber-300',
+  tetris: 'border-red-400',
   combat: 'border-emerald-400',
   shooter: 'border-purple-400',
 }
@@ -43,11 +43,11 @@ const GameArt = ({ gameId }: { gameId: string }) => {
   }
   if (gameId === 'tetris') {
     return (
-      <div className="h-28 bg-[#071018] relative">
-        <div className="absolute left-8 bottom-4 w-4 h-8 bg-cyan-400" />
-        <div className="absolute left-12 bottom-4 w-8 h-4 bg-yellow-400" />
-        <div className="absolute left-12 bottom-8 w-4 h-4 bg-purple-400" />
-        <div className="absolute right-8 bottom-4 w-4 h-12 bg-rose-400" />
+      <div className="h-28 bg-[#3f8a3a] relative overflow-hidden">
+        <div className="absolute left-6 top-6 w-40 h-16 rounded-full border-8 border-[#c1121f] bg-[#2b2d34]" />
+        <div className="absolute left-16 top-10 w-6 h-3 bg-rose-500 rounded-sm" />
+        <div className="absolute left-24 top-14 w-6 h-3 bg-blue-500 rounded-sm" />
+        <div className="absolute left-[8.5rem] top-8 w-2 h-8 bg-white" />
       </div>
     )
   }
