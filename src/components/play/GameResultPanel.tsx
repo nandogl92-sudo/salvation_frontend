@@ -6,6 +6,9 @@ export type GameResult = {
   won: boolean
   profit: number
   isRefund: boolean
+  isRanked: boolean
+  monthPoints: number
+  monthPointsDelta: number
 }
 
 type GameResultPanelProps = {
@@ -27,6 +30,14 @@ const GameResultPanel = ({
     onGoHome()
   }
 
+  const monthPointsMessage = !result.isRanked
+    ? 'Esta partida no cambia los puntos del mes (amistoso o bot).'
+    : result.won && result.monthPointsDelta > 0
+      ? `+1 a tus 3 mejores semanas. Ahora tienes ${formatPoints(result.monthPoints)}.`
+      : result.won
+        ? `Esta semana no entra en las 3 mejores. Sigues con ${formatPoints(result.monthPoints)}.`
+        : `Los puntos del mes no bajan. Sigues con ${formatPoints(result.monthPoints)}.`
+
   return (
     <div className="flex flex-col items-center justify-center py-16 space-y-6">
       {result.isRefund ? (
@@ -37,7 +48,7 @@ const GameResultPanel = ({
           <h2 className="text-2xl font-bold text-text-100">Partida cancelada</h2>
           <p className="text-text-200 text-center max-w-sm">
             Se produjo un error de plataforma. Tus{' '}
-            <span className="font-bold text-text-100">{formatPoints(betAmount)} puntos</span> han sido devueltos.
+            <span className="font-bold text-text-100">{formatPoints(betAmount)} fichas</span> han sido devueltas.
           </p>
         </>
       ) : result.profit === 0 ? (
@@ -49,12 +60,13 @@ const GameResultPanel = ({
             {result.won ? 'Ganaste' : 'Perdiste'}
           </h2>
           <p className="text-text-200 text-center max-w-sm">
-            Tus puntos no cambian.
+            Tus fichas no cambian.
           </p>
           <p className="text-text-200 text-sm">
-            Puntos:{' '}
+            Fichas:{' '}
             <span className="font-bold text-text-100">{formatPoints(balance)}</span>
           </p>
+          <p className="text-text-200 text-sm text-center max-w-sm">{monthPointsMessage}</p>
         </>
       ) : result.won ? (
         <>
@@ -63,13 +75,14 @@ const GameResultPanel = ({
           </div>
           <h2 className="text-3xl font-bold text-text-100">¡Ganaste!</h2>
           <div className="text-center space-y-1">
-            <p className="text-text-200 text-sm">Puntos ganados (comisión {feePercent}% incluida)</p>
+            <p className="text-text-200 text-sm">Fichas ganadas (comisión {feePercent}% incluida)</p>
             <p className="text-4xl font-bold text-accent-100">+{formatPoints(result.profit)}</p>
           </div>
           <p className="text-text-200 text-sm">
-            Puntos:{' '}
+            Fichas:{' '}
             <span className="font-bold text-text-100">{formatPoints(balance)}</span>
           </p>
+          <p className="text-text-200 text-sm text-center max-w-sm">{monthPointsMessage}</p>
         </>
       ) : (
         <>
@@ -78,13 +91,14 @@ const GameResultPanel = ({
           </div>
           <h2 className="text-3xl font-bold text-text-100">Perdiste</h2>
           <div className="text-center space-y-1">
-            <p className="text-text-200 text-sm">Puntos perdidos</p>
+            <p className="text-text-200 text-sm">Fichas perdidas</p>
             <p className="text-4xl font-bold text-primary-100">-{formatPoints(betAmount)}</p>
           </div>
           <p className="text-text-200 text-sm">
-            Puntos:{' '}
+            Fichas:{' '}
             <span className="font-bold text-text-100">{formatPoints(balance)}</span>
           </p>
+          <p className="text-text-200 text-sm text-center max-w-sm">{monthPointsMessage}</p>
         </>
       )}
 

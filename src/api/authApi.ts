@@ -16,6 +16,7 @@
 // ==========================================
 
 import { API_URL } from './config'
+import { monthPointsOf } from '../components/utils/monthPointsOf'
 import type { AuthResult, AuthSession, LoginInput, RegisterInput, UserProfile } from '../types'
 
 const SESSION_KEY = 'betplay.api.session'
@@ -34,6 +35,13 @@ const isBrowser = (): boolean => {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
 }
 
+const withMonthPoints = (user: UserProfile, fallback = 0): UserProfile => {
+  if (typeof user.monthPoints === 'number' && Number.isFinite(user.monthPoints)) {
+    return { ...user, monthPoints: Math.max(0, user.monthPoints) }
+  }
+  return { ...user, monthPoints: Math.max(0, fallback) }
+}
+
 export const getAccessToken = (): string | null => {
   return loadStoredSession()?.token ?? null
 }
@@ -45,7 +53,7 @@ const loadStoredSession = (): StoredApiSession | null => {
     if (!raw) return null
     const parsed = JSON.parse(raw) as StoredApiSession
     if (!parsed || typeof parsed.token !== 'string' || !parsed.user) return null
-    return parsed
+    return { token: parsed.token, user: withMonthPoints(parsed.user) }
   } catch {
     return null
   }
@@ -96,7 +104,7 @@ const toFailure = (message: string): AuthResult => {
 }
 
 const persistAuthPayload = (payload: AuthPayload): AuthResult => {
-  const session: AuthSession = { token: payload.token, user: payload.user }
+  const session: AuthSession = { token: payload.token, user: withMonthPoints(payload.user) }
   saveStoredSession(session)
   return { ok: true, session }
 }
@@ -247,16 +255,19 @@ export const getCurrentSession = async (): Promise<AuthSession | null> => {
       clearStoredSession()
       return null
     }
-    if (!response.ok) return stored
+    if (!response.ok) return { token: stored.token, user: withMonthPoints(stored.user) }
 
     const body = (await response.json()) as { user?: unknown }
-    if (!isUserProfile(body.user)) return stored
+    if (!isUserProfile(body.user)) return { token: stored.token, user: withMonthPoints(stored.user) }
 
-    const session: AuthSession = { token: stored.token, user: body.user }
+    const session: AuthSession = {
+      token: stored.token,
+      user: withMonthPoints(body.user, monthPointsOf(stored.user)),
+    }
     saveStoredSession(session)
     return session
   } catch {
-    return stored
+    return { token: stored.token, user: withMonthPoints(stored.user) }
   }
 }
 
@@ -269,7 +280,17 @@ export const updateUserBalance = async (userId: string, balance: number): Promis
   const stored = loadStoredSession()
   if (!stored || stored.user.id !== userId) return null
 
-  const user: UserProfile = { ...stored.user, balance }
+  const user: UserProfile = { ...stored.user, balance, monthPoints: monthPointsOf(stored.user) }
+  saveStoredSession({ token: stored.token, user })
+  return user
+}
+
+/** Guarda los puntos del mes en la sesión local. El servidor aún no los envía. */
+export const updateUserMonthPoints = async (userId: string, monthPoints: number): Promise<UserProfile | null> => {
+  const stored = loadStoredSession()
+  if (!stored || stored.user.id !== userId) return null
+
+  const user: UserProfile = { ...stored.user, monthPoints: Math.max(0, monthPoints) }
   saveStoredSession({ token: stored.token, user })
   return user
 }

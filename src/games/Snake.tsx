@@ -38,6 +38,7 @@ type SnakeUnit = {
   pendingGrow: number;
   wantsBoost: boolean;
   growPulse: number;
+  turnPulse: number;
 };
 
 type WormPalette = {
@@ -146,9 +147,30 @@ const paintTempleBackdrop = (ctx: Ctx) => {
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
   ctx.fillStyle = '#f8fafc';
-  [[48, 18], [140, 40], [820, 22], [900, 48], [760, 16], [70, 50], [300, 12], [620, 30], [440, 8], [510, 36]].forEach(([x, y]) => {
+  [[48, 18], [140, 40], [820, 22], [900, 48], [760, 16], [70, 50], [300, 12], [620, 30], [440, 8], [510, 36], [210, 28], [580, 14], [860, 38]].forEach(([x, y]) => {
     ctx.fillRect(x, y, 2, 2);
   });
+  ctx.fillStyle = '#d8e6f4';
+  ctx.fillRect(86, 22, 18, 18);
+  ctx.fillRect(80, 28, 30, 12);
+  ctx.fillStyle = '#9bb4cc';
+  ctx.fillRect(92, 28, 6, 6);
+
+  ctx.fillStyle = '#12081c';
+  ctx.fillRect(24, 86, 52, 90);
+  ctx.fillRect(884, 86, 52, 90);
+  ctx.fillStyle = '#2a1844';
+  ctx.fillRect(32, 70, 36, 28);
+  ctx.fillRect(892, 70, 36, 28);
+  ctx.fillStyle = '#3ad46a';
+  ctx.fillRect(44, 78, 12, 8);
+  ctx.fillRect(904, 78, 12, 8);
+  ctx.fillStyle = '#f0d48a';
+  ctx.fillRect(38, 64, 24, 8);
+  ctx.fillRect(898, 64, 24, 8);
+  ctx.fillStyle = '#1a0e28';
+  ctx.fillRect(40, 176, 20, 36);
+  ctx.fillRect(900, 176, 20, 36);
 
   const wallX = OX - 18;
   const wallY = OY - 18;
@@ -199,12 +221,18 @@ const paintTempleBackdrop = (ctx: Ctx) => {
         ctx.fillStyle = 'rgba(230, 197, 106, 0.12)';
         ctx.fillRect(px + 7, py + 7, 6, 6);
       }
+      if ((x === 0 || x === GRID_W - 1) && noise % 3 === 0) {
+        ctx.fillStyle = 'rgba(58, 212, 106, 0.18)';
+        ctx.fillRect(px + (x === 0 ? 1 : 14), py + 2, 4, 12);
+      }
     }
   }
 
   ctx.fillStyle = 'rgba(230, 197, 106, 0.18)';
   ctx.fillRect(OX + 13 * CELL, OY, 2, FIELD_H);
   ctx.fillRect(OX, OY + 7 * CELL + 9, FIELD_W, 2);
+  drawDiamond(ctx, OX + FIELD_W / 2, OY + FIELD_H / 2, 10, 'rgba(240, 212, 138, 0.16)');
+  drawDiamond(ctx, OX + FIELD_W / 2, OY + FIELD_H / 2, 5, 'rgba(126, 224, 168, 0.12)');
 
   const vignette = ctx.createRadialGradient(OX + FIELD_W / 2, OY + FIELD_H / 2, FIELD_H * 0.35, OX + FIELD_W / 2, OY + FIELD_H / 2, FIELD_W * 0.72);
   vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
@@ -219,6 +247,14 @@ const paintTempleBackdrop = (ctx: Ctx) => {
     ctx.fillRect(x - 5, y - 3, 10, 4);
     ctx.fillStyle = '#e6c56a';
     ctx.fillRect(x - 4, y - 2, 8, 2);
+  });
+
+  [OX + 28, OX + 150, OX + FIELD_W - 40, OX + FIELD_W - 162].forEach((x, i) => {
+    ctx.fillStyle = '#1d5a38';
+    ctx.fillRect(x, wallY + 16, 3, 18 + i * 2);
+    ctx.fillStyle = '#2e8a54';
+    ctx.fillRect(x - 4, wallY + 28 + i * 2, 10, 4);
+    ctx.fillRect(x + 2, wallY + 22, 6, 3);
   });
 };
 
@@ -286,19 +322,21 @@ const drawGem = (ctx: Ctx, x: number, y: number, color: string, now: number) => 
   const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, 18);
   glow.addColorStop(0, color);
   glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.globalAlpha = 0.4;
+  ctx.globalAlpha = 0.45;
   ctx.fillStyle = glow;
   ctx.fillRect(cx - 18, cy - 18, 36, 36);
   ctx.globalAlpha = 1;
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-  ctx.fillRect(cx - 5, cy + 8, 10, 3);
-  drawDiamond(ctx, cx, cy + bob, 9, '#140c1c');
-  drawDiamond(ctx, cx, cy + bob, 7, color);
-  drawDiamond(ctx, cx - 1, cy + bob - 1, 3, '#ffffff');
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.fillRect(cx - 6, cy + 8, 12, 3);
+  drawDiamond(ctx, cx, cy + bob, 10, '#0a0612');
+  drawDiamond(ctx, cx, cy + bob, 8, color);
+  drawDiamond(ctx, cx - 1, cy + bob - 2, 4, '#ffffff');
   ctx.fillStyle = color;
-  ctx.fillRect(cx - 1, cy + bob + 2, 2, 4);
+  ctx.fillRect(cx - 1, cy + bob + 1, 2, 5);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.fillRect(cx - 3, cy + bob - 3, 2, 2);
   const twinkle = (now / 380 + x) % 1;
-  if (twinkle < 0.35) drawSparkle(ctx, cx + 7, cy + bob - 6, 3, 'rgba(255, 255, 255, 0.9)');
+  if (twinkle < 0.4) drawSparkle(ctx, cx + 8, cy + bob - 7, 3, 'rgba(255, 255, 255, 0.95)');
 };
 
 const drawRareGem = (ctx: Ctx, x: number, y: number, now: number, remaining: number) => {
@@ -326,37 +364,44 @@ const drawBug = (ctx: Ctx, x: number, y: number, now: number) => {
   const px = OX + x * CELL + 3;
   const py = OY + y * CELL + 5;
   const wiggle = Math.floor(now / 120 + x) % 2;
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-  ctx.fillRect(px + 2, py + 12, 12, 2);
-  ctx.fillStyle = '#5a1c08';
-  ctx.fillRect(px - 1 + wiggle, py + 4, 3, 2);
-  ctx.fillRect(px + 13 - wiggle, py + 4, 3, 2);
-  ctx.fillRect(px - 1 + (1 - wiggle), py + 8, 3, 2);
-  ctx.fillRect(px + 13 - (1 - wiggle), py + 8, 3, 2);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  ctx.fillRect(px + 2, py + 12, 12, 3);
+  ctx.fillStyle = '#4a1408';
+  ctx.fillRect(px - 2 + wiggle, py + 4, 4, 2);
+  ctx.fillRect(px + 13 - wiggle, py + 4, 4, 2);
+  ctx.fillRect(px - 2 + (1 - wiggle), py + 8, 4, 2);
+  ctx.fillRect(px + 13 - (1 - wiggle), py + 8, 4, 2);
   ctx.fillStyle = '#7a2e10';
-  ctx.fillRect(px + 3, py - 2 + wiggle, 1, 4);
-  ctx.fillRect(px + 11, py - 2 + (1 - wiggle), 1, 4);
+  ctx.fillRect(px + 3, py - 3 + wiggle, 2, 5);
+  ctx.fillRect(px + 11, py - 3 + (1 - wiggle), 2, 5);
   ctx.fillStyle = '#ff8a3d';
   ctx.fillRect(px + 2, py + 2, 12, 9);
-  ctx.fillStyle = '#ffb06a';
-  ctx.fillRect(px + 3, py + 3, 4, 3);
+  ctx.fillStyle = '#ffd08a';
+  ctx.fillRect(px + 3, py + 3, 5, 3);
   ctx.fillStyle = '#c85a1c';
   ctx.fillRect(px + 7, py + 2, 2, 9);
   ctx.fillStyle = '#2a0c04';
   ctx.fillRect(px + 4, py + 6, 2, 2);
   ctx.fillRect(px + 10, py + 6, 2, 2);
+  ctx.fillStyle = '#ffe08a';
+  ctx.fillRect(px + 5, py + 6, 1, 1);
+  ctx.fillRect(px + 11, py + 6, 1, 1);
 };
 
 const drawKey = (ctx: Ctx, x: number, y: number, now: number) => {
   const px = OX + x * CELL + 3;
   const py = OY + y * CELL + 4;
   const bob = Math.round(Math.sin(now / 260 + y) * 1);
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-  ctx.fillRect(px + 1, py + 13, 14, 2);
+  ctx.fillStyle = 'rgba(255, 210, 90, 0.2)';
+  ctx.fillRect(px - 2, py - 2 + bob, 20, 18);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+  ctx.fillRect(px + 1, py + 13, 14, 3);
   ctx.fillStyle = '#c9a24a';
   ctx.fillRect(px + 1, py + 1 + bob, 9, 9);
   ctx.fillStyle = '#ffe08a';
   ctx.fillRect(px + 2, py + 2 + bob, 7, 7);
+  ctx.fillStyle = '#fff6d0';
+  ctx.fillRect(px + 3, py + 3 + bob, 3, 2);
   ctx.fillStyle = '#3a1860';
   ctx.fillRect(px + 4, py + 4 + bob, 3, 3);
   ctx.fillStyle = '#ffe08a';
@@ -383,25 +428,6 @@ const smoothBody = (snake: SnakeUnit, now: number, interval: number) => {
   });
 };
 
-const strokeWorm = (ctx: Ctx, points: { x: number; y: number }[], widthAt: (index: number) => number, color: string) => {
-  ctx.strokeStyle = color;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  for (let i = 0; i < points.length - 1; i += 1) {
-    ctx.lineWidth = widthAt(i);
-    ctx.beginPath();
-    ctx.moveTo(points[i].x, points[i].y);
-    ctx.lineTo(points[i + 1].x, points[i + 1].y);
-    ctx.stroke();
-  }
-  if (points.length === 1) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(points[0].x, points[0].y, widthAt(0) / 2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-};
-
 const paintDisk = (ctx: Ctx, cx: number, cy: number, radius: number, color: string) => {
   ctx.fillStyle = color;
   for (let y = -radius; y <= radius; y += 1) {
@@ -419,40 +445,65 @@ const drawWormHead = (
   palette: WormPalette,
   now: number,
   biting: boolean,
+  turning: boolean,
 ) => {
   const hx = Math.round(cx);
   const hy = Math.round(cy);
   const px = -dy;
   const py = dx;
-  paintDisk(ctx, hx, hy, 10, '#0a0710');
+  const lean = turning ? 1 : 0;
+  paintDisk(ctx, hx - dx * 3, hy - dy * 3, 13, '#0a0710');
+  paintDisk(ctx, hx - dx * 3, hy - dy * 3, 11, palette.dark);
+  [1, -1].forEach((side) => {
+    paintDisk(ctx, hx + px * (9 + lean) * side - dx * 4, hy + py * (9 + lean) * side - dy * 4, 7, palette.dark);
+    paintDisk(ctx, hx + px * (9 + lean) * side - dx * 4, hy + py * (9 + lean) * side - dy * 4, 5, palette.main);
+    ctx.fillStyle = palette.light;
+    ctx.fillRect(hx + px * 11 * side - 1, hy + py * 11 * side - 1, 2, 2);
+    ctx.fillStyle = '#f0d48a';
+    ctx.fillRect(hx + px * 12 * side - dx * 2, hy + py * 12 * side - dy * 2, 2, 2);
+  });
   paintDisk(ctx, hx, hy, 8, palette.dark);
   paintDisk(ctx, hx, hy, 7, palette.main);
+  paintDisk(ctx, hx + dx * 3, hy + dy * 3, 5, palette.main);
   paintDisk(ctx, hx - dx * 2 - px, hy - dy * 2 - py, 3, palette.light);
   ctx.fillStyle = '#f0d48a';
-  ctx.fillRect(hx - px * 2 - 1, hy - py * 2 - dy * 8, dx === 0 ? 5 : 3, dy === 0 ? 5 : 3);
-  ctx.fillRect(hx - 1 - dx, hy - 1 - dy * 9, 3, 3);
+  ctx.fillRect(hx - px * 2 - 1, hy - py * 2 - dy * 9, dx === 0 ? 6 : 3, dy === 0 ? 6 : 3);
+  ctx.fillRect(hx - 1 - dx, hy - 1 - dy * 10, 3, 3);
+  ctx.fillStyle = palette.light;
+  ctx.fillRect(hx + dx * 5 - 1, hy + dy * 5 - 1, 3, 3);
 
-  const tongueOut = Math.floor(now / 160) % 5 !== 1;
+  const blink = Math.floor(now / 140) % 22 === 0;
+  const tongueOut = Math.floor(now / 150) % 5 !== 1;
   if (tongueOut || biting) {
-    const reach = biting ? 7 : 5;
+    const reach = biting ? 8 : 5;
     ctx.fillStyle = '#ff4a5a';
     ctx.fillRect(hx + dx * 8, hy + dy * 8, Math.max(2, Math.abs(dx) * reach), Math.max(2, Math.abs(dy) * reach));
     ctx.fillRect(hx + dx * (8 + reach) + px * 2, hy + dy * (8 + reach) + py * 2, 3, 2);
     ctx.fillRect(hx + dx * (8 + reach) - px * 2, hy + dy * (8 + reach) - py * 2, 3, 2);
   }
+  if (biting) {
+    ctx.fillStyle = '#f4efe6';
+    ctx.fillRect(hx + dx * 7 + px * 3, hy + dy * 7 + py * 3, 2, 4);
+    ctx.fillRect(hx + dx * 7 - px * 3, hy + dy * 7 - py * 3, 2, 4);
+  }
 
   [1, -1].forEach((side) => {
     const ex = hx + dx * 2 + px * 4 * side;
     const ey = hy + dy * 2 + py * 4 * side;
+    if (blink) {
+      ctx.fillStyle = palette.dark;
+      ctx.fillRect(ex - 2, ey, 5, 2);
+      return;
+    }
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(ex - 2, ey - 2, 5, 5);
+    ctx.fillRect(ex - 2, ey - 2, 6, 6);
     ctx.fillStyle = '#111111';
     ctx.fillRect(ex + dx, ey + dy, 3, 3);
     ctx.fillStyle = '#7ad0ff';
-    ctx.fillRect(ex + 1 + dx, ey + 1 + dy, 1, 1);
+    ctx.fillRect(ex + 1 + dx, ey + 1 + dy, 2, 2);
     if (biting) {
       ctx.fillStyle = palette.dark;
-      ctx.fillRect(ex - 2, ey - 4 - dy, 5, 2);
+      ctx.fillRect(ex - 2, ey - 4 - dy, 6, 2);
     }
   });
 };
@@ -464,63 +515,70 @@ const drawWorm = (
   now: number,
   interval: number,
   biting: boolean,
+  fading: number,
 ) => {
   const points = smoothBody(snake, now, interval);
   const count = points.length;
-  const popping = now - snake.growPulse < 220;
+  const growAge = now - snake.growPulse;
+  const popping = growAge < 380;
+  const turning = now - snake.turnPulse < 180;
   const widthAt = (index: number) => {
     const fromTail = count - 1 - index;
-    const taper = Math.min(1, fromTail / 4);
-    const pulse = popping ? 1.15 : 1;
-    return (8 + taper * 8) * pulse;
+    const taper = Math.min(1, fromTail / 5);
+    const wave = popping ? 1 + Math.max(0, 1 - Math.abs(index - growAge / 28) / 3) * 0.28 : 1;
+    const turn = turning && index < 3 ? 1.12 : 1;
+    return (8 + taper * 9) * wave * turn;
   };
+
+  ctx.save();
+  if (fading < 1) ctx.globalAlpha = fading;
 
   if (snake.wantsBoost && snake.boost > 8) {
     ctx.fillStyle = palette.glow;
     points.forEach((point, index) => {
-      const r = widthAt(index) / 2 + 4;
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, r, 0, Math.PI * 2);
-      ctx.fill();
+      paintDisk(ctx, Math.round(point.x), Math.round(point.y), Math.round(widthAt(index) / 2) + 4, palette.glow);
     });
   }
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
   points.forEach((point, index) => {
-    ctx.beginPath();
-    ctx.arc(point.x + 2, point.y + 5, widthAt(index) / 2, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  strokeWorm(ctx, points, (index) => widthAt(index) + 5, '#0a0710');
-  strokeWorm(ctx, points, widthAt, palette.main);
-  points.forEach((point, index) => {
+    const hx = Math.round(point.x);
+    const hy = Math.round(point.y);
+    const r = Math.max(3, Math.round(widthAt(index) / 2));
+    paintDisk(ctx, hx + 2, hy + 4, r, 'rgba(0, 0, 0, 0.32)');
     if (index === 0) return;
-    const w = widthAt(index);
     const ring = index % 2 === 1;
-    ctx.fillStyle = ring ? palette.dark : palette.main;
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, w / 2 - 1, 0, Math.PI * 2);
-    ctx.fill();
+    paintDisk(ctx, hx, hy, r + 1, '#0a0710');
+    paintDisk(ctx, hx, hy, r, ring ? palette.dark : palette.main);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
-    ctx.beginPath();
-    ctx.arc(point.x - 2, point.y - 3, Math.max(1.5, w / 6), 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(hx - 3, hy - r + 2, Math.max(2, r - 2), 2);
     if (ring) {
       ctx.fillStyle = palette.light;
-      ctx.fillRect(Math.round(point.x) - 1, Math.round(point.y) - 1, 2, 2);
+      ctx.fillRect(hx - 1, hy - 1, 3, 3);
+    }
+    if (index % 3 === 0) {
+      ctx.fillStyle = '#f0d48a';
+      ctx.fillRect(hx - 1, hy - r + 1, 2, 2);
     }
   });
 
+  const tail = points[count - 1];
+  const before = points[count - 2] ?? tail;
+  const tx = Math.round(tail.x);
+  const ty = Math.round(tail.y);
+  const tdx = Math.sign(tail.x - before.x) || snake.dx;
+  const tdy = Math.sign(tail.y - before.y) || snake.dy;
+  ctx.fillStyle = palette.dark;
+  ctx.fillRect(tx + tdx * 6 - 1, ty + tdy * 6 - 1, 4, 4);
+  ctx.fillStyle = palette.light;
+  ctx.fillRect(tx + tdx * 8, ty + tdy * 8, 2, 2);
+
   const head = points[0];
-  drawWormHead(ctx, head.x, head.y, snake.dx, snake.dy, palette, now, biting);
+  drawWormHead(ctx, head.x, head.y, snake.dx, snake.dy, palette, now, biting, turning);
 
   if (snake.shieldUntil > now) {
     const pulse = 0.6 + Math.sin(now / 80) * 0.3;
     ctx.fillStyle = `rgba(126, 224, 255, ${0.16 * pulse})`;
-    ctx.beginPath();
-    ctx.arc(head.x, head.y, 16, 0, Math.PI * 2);
-    ctx.fill();
+    paintDisk(ctx, Math.round(head.x), Math.round(head.y), 16, `rgba(126, 224, 255, ${0.16 * pulse})`);
     ctx.strokeStyle = `rgba(126, 224, 255, ${pulse})`;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -539,6 +597,7 @@ const drawWorm = (
     ctx.stroke();
     ctx.restore();
   }
+  ctx.restore();
 };
 
 const drawMeter = (ctx: Ctx, x: number, y: number, w: number, h: number, value: number, color: string) => {
@@ -601,9 +660,11 @@ const drawHud = (
   ctx.fillText(`MAX ${String(hi).padStart(4, '0')}`, WIDTH / 2 + 150, 28);
   ctx.font = `8px ${PIX}`;
   ctx.fillStyle = '#7ee0a8';
-  ctx.fillText('TU', 118, 46);
+  ctx.fillText('TU', 90, 46);
   ctx.font = `14px ${PIX}`;
-  ctx.fillText(`${p1.gems}/${GEM_GOAL}`, 210, 50);
+  ctx.fillText(`${p1.gems}/${GEM_GOAL}`, 168, 50);
+  ctx.font = `7px ${PIX}`;
+  ctx.fillText(`TAM ${p1.body.length}`, 248, 48);
   ctx.fillStyle = '#f4efe6';
   ctx.font = `8px ${PIX}`;
   ctx.fillText('TIEMPO', WIDTH / 2, 44);
@@ -611,9 +672,11 @@ const drawHud = (
   ctx.fillText(formatTime(elapsed), WIDTH / 2, 60);
   ctx.fillStyle = '#d7b4ff';
   ctx.font = `8px ${PIX}`;
-  ctx.fillText('RIVAL', WIDTH - 118, 46);
+  ctx.fillText('RIVAL', WIDTH - 90, 46);
   ctx.font = `14px ${PIX}`;
-  ctx.fillText(`${p2.gems}/${GEM_GOAL}`, WIDTH - 210, 50);
+  ctx.fillText(`${p2.gems}/${GEM_GOAL}`, WIDTH - 168, 50);
+  ctx.font = `7px ${PIX}`;
+  ctx.fillText(`TAM ${p2.body.length}`, WIDTH - 248, 48);
 
   drawPanel(ctx, 10, OY, 170, FIELD_H);
   const left = 95;
@@ -626,28 +689,31 @@ const drawHud = (
   ctx.save();
   ctx.translate(left, OY + 46);
   ctx.scale(2, 2);
-  drawWormHead(ctx, 0, 0, 1, 0, WORM_P1, now, false);
+  drawWormHead(ctx, 0, 0, 1, 0, WORM_P1, now, false, false);
   ctx.restore();
   ctx.fillStyle = '#7ee0a8';
   ctx.font = `8px ${PIX}`;
   ctx.fillText('NAGA', left, OY + 96);
   ctx.fillStyle = '#f4efe6';
-  ctx.fillText('NIVEL', left, OY + 118);
+  ctx.fillText('NIVEL', left, OY + 114);
   ctx.font = `20px ${PIX}`;
-  ctx.fillText(String(level), left, OY + 146);
+  ctx.fillText(String(level), left, OY + 140);
+  ctx.font = `8px ${PIX}`;
+  ctx.fillStyle = '#9aa6b8';
+  ctx.fillText(`LARGO ${p1.body.length}`, left, OY + 158);
   ctx.font = `8px ${PIX}`;
   ctx.fillStyle = '#7ee0a8';
-  ctx.fillText('ACELERON', left, OY + 172);
-  drawMeter(ctx, 24, OY + 182, 142, 14, p1.boost, '#3dce4a');
+  ctx.fillText('ACELERON', left, OY + 180);
+  drawMeter(ctx, 24, OY + 190, 142, 14, p1.boost, '#3dce4a');
   ctx.fillStyle = '#f4efe6';
-  ctx.fillText(`${Math.round(p1.boost)}%`, left, OY + 214);
+  ctx.fillText(`${Math.round(p1.boost)}%`, left, OY + 222);
   ctx.fillStyle = '#d7b4ff';
-  ctx.fillText('RIVAL', left, OY + 242);
-  drawMeter(ctx, 24, OY + 252, 142, 12, p2.boost, '#b07adf');
+  ctx.fillText('RIVAL', left, OY + 248);
+  drawMeter(ctx, 24, OY + 258, 142, 12, p2.boost, '#b07adf');
   ctx.font = `8px ${PIX}`;
   ctx.fillStyle = '#f4efe6';
-  ctx.fillText(`K ${abilityLabel(p2.shield)}`, left, OY + 286);
-  ctx.fillText(`L ${abilityLabel(p2.bite)}`, left, OY + 306);
+  ctx.fillText(`K ${abilityLabel(p2.shield)}`, left, OY + 292);
+  ctx.fillText(`L ${abilityLabel(p2.bite)}`, left, OY + 312);
 
   drawPanel(ctx, 768, OY, 182, FIELD_H);
   const right = 859;
@@ -710,38 +776,49 @@ const drawIntro = (ctx: Ctx, elapsed: number) => {
   const rise = Math.min(1, elapsed / 300);
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = 'rgba(8, 4, 16, 0.62)';
+  ctx.fillStyle = 'rgba(8, 4, 16, 0.7)';
   ctx.fillRect(OX, OY, FIELD_W, FIELD_H);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f0d48a';
   ctx.font = `26px ${PIX}`;
-  ctx.fillText('WORM CLASH', OX + FIELD_W / 2, OY + FIELD_H / 2 - 18 + (1 - rise) * 20);
+  ctx.fillText('WORM CLASH', OX + FIELD_W / 2, OY + FIELD_H / 2 - 28 + (1 - rise) * 20);
+  ctx.save();
+  ctx.translate(OX + FIELD_W / 2 - 70, OY + FIELD_H / 2 + 8);
+  drawWormHead(ctx, 0, 0, 1, 0, WORM_P1, elapsed, false, false);
+  ctx.restore();
+  ctx.save();
+  ctx.translate(OX + FIELD_W / 2 + 70, OY + FIELD_H / 2 + 8);
+  drawWormHead(ctx, 0, 0, -1, 0, WORM_P2, elapsed, false, false);
+  ctx.restore();
   ctx.fillStyle = '#f4efe6';
   ctx.font = `10px ${PIX}`;
-  ctx.fillText(`PRIMERO EN ${GEM_GOAL} GEMAS`, OX + FIELD_W / 2, OY + FIELD_H / 2 + 14);
+  ctx.fillText(`PRIMERO EN ${GEM_GOAL} GEMAS`, OX + FIELD_W / 2, OY + FIELD_H / 2 + 44);
   ctx.fillStyle = '#9aa6b8';
   ctx.font = `8px ${PIX}`;
-  ctx.fillText('COME, CRECE, NO CHOQUES', OX + FIELD_W / 2, OY + FIELD_H / 2 + 38);
+  ctx.fillText('COME, CRECE, NO CHOQUES', OX + FIELD_W / 2, OY + FIELD_H / 2 + 66);
   ctx.restore();
 };
 
-const drawOutro = (ctx: Ctx, winner: 'p1' | 'p2', elapsed: number) => {
+const drawOutro = (ctx: Ctx, winner: 'p1' | 'p2', elapsed: number, p1Gems: number, p2Gems: number) => {
   const alpha = Math.min(1, elapsed / 250);
   const scale = 1 + Math.max(0, 1 - elapsed / 250) * 0.6;
   const won = winner === 'p1';
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = 'rgba(8, 4, 16, 0.68)';
+  ctx.fillStyle = 'rgba(8, 4, 16, 0.72)';
   ctx.fillRect(OX, OY, FIELD_W, FIELD_H);
   ctx.translate(OX + FIELD_W / 2, OY + FIELD_H / 2);
   ctx.scale(scale, scale);
   ctx.textAlign = 'center';
   ctx.fillStyle = won ? '#8af2b0' : '#dcbcff';
   ctx.font = `24px ${PIX}`;
-  ctx.fillText(won ? 'VICTORIA' : 'GANA EL RIVAL', 0, -10);
+  ctx.fillText(won ? 'VICTORIA' : 'GANA EL RIVAL', 0, -18);
   ctx.fillStyle = '#f0d48a';
   ctx.font = `10px ${PIX}`;
-  ctx.fillText(won ? 'EL TEMPLO ES TUYO' : 'LA PROXIMA CAE', 0, 22);
+  ctx.fillText(won ? 'EL TEMPLO ES TUYO' : 'LA PROXIMA CAE', 0, 12);
+  ctx.fillStyle = '#f4efe6';
+  ctx.font = `8px ${PIX}`;
+  ctx.fillText(`${p1Gems}  -  ${p2Gems}`, 0, 36);
   ctx.restore();
 };
 
@@ -803,6 +880,7 @@ export default function Snake({
       pendingGrow: 0,
       wantsBoost: false,
       growPulse: 0,
+      turnPulse: 0,
     });
 
     const state = {
@@ -827,6 +905,8 @@ export default function Snake({
       biteFlash: { p1: 0, p2: 0 },
       outro: null as { winner: 'p1' | 'p2'; at: number } | null,
       lastFrame: startedAt,
+      shake: 0,
+      eatFlash: 0,
     };
 
     const pillarAt = (x: number, y: number) => state.pillars.some(([px, py]) => px === x && py === y);
@@ -870,6 +950,7 @@ export default function Snake({
       });
       const winnerHead = cellCenter(state[winner].body[0]);
       spawnBurst(state.particles, winnerHead.x, winnerHead.y, 24, '#ffd76a', 0.14);
+      state.shake = 14;
     };
 
     const useShield = (snake: SnakeUnit, now: number) => {
@@ -932,18 +1013,18 @@ export default function Snake({
       const key = letter(event);
       const now = performance.now();
       if (event.key.startsWith('Arrow') || event.key === ' ') event.preventDefault();
-      if (key === 'w' && state.p1.dy === 0) { state.p1.dx = 0; state.p1.dy = -1; }
-      if (key === 's' && state.p1.dy === 0) { state.p1.dx = 0; state.p1.dy = 1; }
-      if (key === 'a' && state.p1.dx === 0) { state.p1.dx = -1; state.p1.dy = 0; }
-      if (key === 'd' && state.p1.dx === 0) { state.p1.dx = 1; state.p1.dy = 0; }
+      if (key === 'w' && state.p1.dy === 0) { state.p1.dx = 0; state.p1.dy = -1; state.p1.turnPulse = now; }
+      if (key === 's' && state.p1.dy === 0) { state.p1.dx = 0; state.p1.dy = 1; state.p1.turnPulse = now; }
+      if (key === 'a' && state.p1.dx === 0) { state.p1.dx = -1; state.p1.dy = 0; state.p1.turnPulse = now; }
+      if (key === 'd' && state.p1.dx === 0) { state.p1.dx = 1; state.p1.dy = 0; state.p1.turnPulse = now; }
       if (key === 'q') useShield(state.p1, now);
       if (key === 'e') useBite(state.p1, state.p2, now, 'p1');
       if (key === 'Shift') state.p1.wantsBoost = true;
       if (!botEnabled) {
-        if (event.key === 'ArrowUp' && state.p2.dy === 0) { state.p2.dx = 0; state.p2.dy = -1; }
-        if (event.key === 'ArrowDown' && state.p2.dy === 0) { state.p2.dx = 0; state.p2.dy = 1; }
-        if (event.key === 'ArrowLeft' && state.p2.dx === 0) { state.p2.dx = -1; state.p2.dy = 0; }
-        if (event.key === 'ArrowRight' && state.p2.dx === 0) { state.p2.dx = 1; state.p2.dy = 0; }
+        if (event.key === 'ArrowUp' && state.p2.dy === 0) { state.p2.dx = 0; state.p2.dy = -1; state.p2.turnPulse = now; }
+        if (event.key === 'ArrowDown' && state.p2.dy === 0) { state.p2.dx = 0; state.p2.dy = 1; state.p2.turnPulse = now; }
+        if (event.key === 'ArrowLeft' && state.p2.dx === 0) { state.p2.dx = -1; state.p2.dy = 0; state.p2.turnPulse = now; }
+        if (event.key === 'ArrowRight' && state.p2.dx === 0) { state.p2.dx = 1; state.p2.dy = 0; state.p2.turnPulse = now; }
         if (key === 'k') useShield(state.p2, now);
         if (key === 'l') useBite(state.p2, state.p1, now, 'p2');
         if (key === 'm') state.p2.wantsBoost = true;
@@ -994,6 +1075,7 @@ export default function Snake({
       let picked = scored.find((dir) => isSafe(dir.nx, dir.ny, growing) && !state.bugs.some((bug) => bug.x === dir.nx && bug.y === dir.ny));
       if (!picked) picked = scored.find((dir) => isSafe(dir.nx, dir.ny, growing));
       if (picked) {
+        if (picked.dx !== state.p2.dx || picked.dy !== state.p2.dy) state.p2.turnPulse = now;
         state.p2.dx = picked.dx;
         state.p2.dy = picked.dy;
       } else if (state.p2.shield >= 100) {
@@ -1053,16 +1135,20 @@ export default function Snake({
         snake.growPulse = now;
         grew = true;
         const { x, y } = cellCenter(next);
-        spawnBurst(state.particles, x, y, 14, gemColor, 0.12);
+        spawnBurst(state.particles, x, y, 18, gemColor, 0.13);
         state.floaters.push({ x, y: y - 10, text: '+1', life: 700, color: palette.light });
+        state.shake = Math.max(state.shake, 5);
+        state.eatFlash = now + 160;
         placeFood();
       } else if (state.rare && sameCell(next, state.rare)) {
         applyRare(snake, other, now);
         snake.growPulse = now;
         grew = true;
         const { x, y } = cellCenter(next);
-        spawnBurst(state.particles, x, y, 22, '#ff5a3c', 0.16);
+        spawnBurst(state.particles, x, y, 26, '#ff5a3c', 0.16);
         state.floaters.push({ x, y: y - 10, text: '+1', life: 700, color: '#ffd76a' });
+        state.shake = Math.max(state.shake, 8);
+        state.eatFlash = now + 200;
       }
       const bugIndex = state.bugs.findIndex((bug) => sameCell(bug, next));
       if (bugIndex >= 0) {
@@ -1161,6 +1247,7 @@ export default function Snake({
         floater.life -= dt;
         return floater.life > 0;
       });
+      if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 0.035);
     };
 
     const drawEffects = () => {
@@ -1184,6 +1271,10 @@ export default function Snake({
     };
 
     const drawScene = (time: number, gemColor: string) => {
+      const ox = state.shake > 0 ? Math.round((Math.random() - 0.5) * state.shake) : 0;
+      const oy = state.shake > 0 ? Math.round((Math.random() - 0.5) * state.shake) : 0;
+      ctx.save();
+      ctx.translate(ox, oy);
       ctx.drawImage(backdrop, 0, 0);
       ctx.save();
       ctx.beginPath();
@@ -1202,9 +1293,16 @@ export default function Snake({
       ctx.beginPath();
       ctx.rect(OX - 2, OY - 2, FIELD_W + 4, FIELD_H + 4);
       ctx.clip();
-      drawWorm(ctx, state.p2, WORM_P2, time, intervalFor(state.p2, time), state.biteFlash.p2 > time);
-      drawWorm(ctx, state.p1, WORM_P1, time, intervalFor(state.p1, time), state.biteFlash.p1 > time);
+      const p1Fade = state.outro && state.outro.winner === 'p2' ? Math.max(0.2, 1 - (time - state.outro.at) / 500) : 1;
+      const p2Fade = state.outro && state.outro.winner === 'p1' ? Math.max(0.2, 1 - (time - state.outro.at) / 500) : 1;
+      drawWorm(ctx, state.p2, WORM_P2, time, intervalFor(state.p2, time), state.biteFlash.p2 > time, p2Fade);
+      drawWorm(ctx, state.p1, WORM_P1, time, intervalFor(state.p1, time), state.biteFlash.p1 > time, p1Fade);
       drawEffects();
+      ctx.restore();
+      if (state.eatFlash > time) {
+        ctx.fillStyle = 'rgba(255, 245, 200, 0.12)';
+        ctx.fillRect(OX, OY, FIELD_W, FIELD_H);
+      }
       ctx.restore();
       drawHud(ctx, state.p1, state.p2, state.hi, time - startedAt, time);
       if (state.noteUntil > time && !state.outro) drawNote(ctx, state.note, state.noteUntil - time);
@@ -1221,7 +1319,7 @@ export default function Snake({
       if (state.outro) {
         updateEffects(dt);
         drawScene(time, gemColor);
-        drawOutro(ctx, state.outro.winner, time - state.outro.at);
+        drawOutro(ctx, state.outro.winner, time - state.outro.at, state.p1.gems, state.p2.gems);
         if (time - state.outro.at >= OUTRO_MS) {
           ended = true;
           cancelAnimationFrame(animationFrameId);
@@ -1252,7 +1350,7 @@ export default function Snake({
       }
 
       drawScene(time, gemColor);
-      if (state.outro) drawOutro(ctx, state.outro.winner, 0);
+      if (state.outro) drawOutro(ctx, state.outro.winner, 0, state.p1.gems, state.p2.gems);
     };
 
     animationFrameId = requestAnimationFrame(update);

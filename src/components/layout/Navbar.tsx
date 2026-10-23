@@ -165,11 +165,11 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
           {user && (
             <>
               <div
-                className="hidden sm:flex items-center gap-2 text-[#f5c518] text-sm font-bold"
-                aria-label={`${formatPoints(user.balance)} puntos`}
+                className="flex items-center gap-2 text-[#f5c518] text-[10px] sm:text-sm font-bold"
+                aria-label={`${formatPoints(user.balance)} fichas para jugar`}
               >
                 <Wallet className="w-4 h-4" aria-hidden="true" />
-                <span>{formatPoints(user.balance)} pts</span>
+                <span>{formatPoints(user.balance)} fichas</span>
               </div>
               <button
                 type="button"

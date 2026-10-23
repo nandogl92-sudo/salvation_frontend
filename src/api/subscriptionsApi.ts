@@ -1,7 +1,7 @@
-// Suscripción mensual: al pagarla, la cuenta recibe 10 puntos para jugar.
+// Suscripción mensual: al pagarla, la cuenta recibe 10 fichas para jugar.
 //   POST /purchases   { euros: 10 }
 //
-// Los puntos solo cambian si la sesión del servidor los refleja.
+// Las fichas solo cambian si la sesión del servidor las refleja.
 // Si la ruta no existe o el saldo no sube, la cuenta local no se toca.
 
 import { API_URL } from './config'
@@ -21,6 +21,16 @@ export const isCurrentSubscriptionMonth = (subscriptionMonth: string | null | un
   return subscriptionMonth === currentSubscriptionMonth()
 }
 
+/** Nombre del mes en curso, por ejemplo "octubre 2026". */
+export const currentMonthLabel = (): string => {
+  const key = currentSubscriptionMonth()
+  const year = Number(key.slice(0, 4))
+  const month = Number(key.slice(5, 7))
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return key
+  const monthName = new Date(year, month - 1, 1).toLocaleDateString('es-ES', { month: 'long' })
+  return `${monthName} ${year}`
+}
+
 export type SubscriptionResult =
   | { ok: true; balance: number }
   | { ok: false; message: string }
@@ -33,9 +43,9 @@ const readErrorMessage = async (response: Response): Promise<string> => {
     // HTML de una ruta inexistente, o cuerpo vacío.
   }
   if (response.status === 404) {
-    return 'El servidor todavía no permite la suscripción mensual. Tus puntos no han cambiado.'
+    return 'El servidor todavía no permite la suscripción mensual. Tus fichas no han cambiado.'
   }
-  return 'No se pudo activar la suscripción. Tus puntos no han cambiado.'
+  return 'No se pudo activar la suscripción. Tus fichas no han cambiado.'
 }
 
 const readBalance = (value: unknown): number | null => {
@@ -54,7 +64,7 @@ export const subscribeMonthly = async (
   subscriptionMonth: string | null | undefined,
 ): Promise<SubscriptionResult> => {
   if (isCurrentSubscriptionMonth(subscriptionMonth)) {
-    return { ok: false, message: 'La suscripción de este mes ya está pagada. Tus puntos no han cambiado.' }
+    return { ok: false, message: 'La suscripción de este mes ya está pagada. Tus fichas no han cambiado.' }
   }
 
   const token = getAccessToken()
@@ -77,11 +87,11 @@ export const subscribeMonthly = async (
     const balance = typeof confirmed === 'number' ? confirmed : fromBody
 
     if (typeof balance !== 'number' || balance < balanceBefore + SUBSCRIPTION_POINTS) {
-      return { ok: false, message: 'La suscripción no se guardó en la cuenta. Tus puntos no han cambiado.' }
+      return { ok: false, message: 'La suscripción no se guardó en la cuenta. Tus fichas no han cambiado.' }
     }
     return { ok: true, balance }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo conectar con el servidor.'
-    return { ok: false, message: `${message} Tus puntos no han cambiado.` }
+    return { ok: false, message: `${message} Tus fichas no han cambiado.` }
   }
 }

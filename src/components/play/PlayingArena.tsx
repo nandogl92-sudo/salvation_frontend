@@ -7,12 +7,13 @@ type PlayingArenaProps = {
   username: string
   opponent: MatchPlayer | null
   betAmount: number
+  isRanked?: boolean
   gameId?: string
   children: ReactNode
   controlsHint?: string
 }
 
-const PlayingArena = ({ username, opponent, betAmount, gameId, children, controlsHint }: PlayingArenaProps) => {
+const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, children, controlsHint }: PlayingArenaProps) => {
   const opponentName = opponent?.username ?? 'Rival'
   const opponentLabel = opponent?.username === 'Bot de prueba (modo prueba)'
     ? 'Bot de prueba (modo prueba)'
@@ -35,11 +36,12 @@ const PlayingArena = ({ username, opponent, betAmount, gameId, children, control
         </div>
 
         <div className="flex flex-col items-center">
-          <span className="text-xs font-bold text-text-200 uppercase tracking-widest">Puntos en juego</span>
-          <span className="text-xl font-bold text-accent-100">{formatPoints(betAmount * 2)} pts</span>
-          <span className="mt-1 text-xs text-text-200 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-accent-100" aria-hidden="true" />
-            Ping: 24ms
+          <span className="text-xs font-bold text-text-200 uppercase tracking-widest">
+            {isRanked ? 'Ranqueada' : 'Amistoso'}
+          </span>
+          <span className="text-xl font-bold text-accent-100">{formatPoints(betAmount * 2)} fichas</span>
+          <span className="mt-1 text-xs text-text-200">
+            {isRanked ? 'Si ganas, +1 punto del mes' : 'No suma al premio'}
           </span>
         </div>
 

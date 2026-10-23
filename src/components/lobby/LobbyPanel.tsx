@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { AlertCircle, WifiOff } from 'lucide-react'
-import type { Game, QueueStatus, UserProfile } from '../../types'
+import { isCurrentSubscriptionMonth } from '../../api/subscriptionsApi'
+import {
+  RANKED_PER_DAY,
+  RANKED_PER_RIVAL_WEEK,
+  canRankedVsRival,
+  rankedLeftToday,
+  rankedVsRivalThisWeek,
+} from '../../matchmaking/rankedLimits'
+import type { Game, PlayMode, QueueStatus, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
 import { usePointsRanking } from '../home/usePointsRanking'
@@ -16,7 +24,7 @@ type LobbyPanelProps = {
   queueError: string | null
   currentUser: UserProfile
   lastRivalId: string | null
-  onPlayRival: (rival: UserProfile) => void
+  onPlayRival: (rival: UserProfile, isRanked: boolean) => void
 }
 
 const LobbyPanel = ({
@@ -36,23 +44,58 @@ const LobbyPanel = ({
   const isInvalidBet = hasInsufficientBalance || betAmount <= 0
   const isSearching = queueStatus === 'searching'
   const isTimeout = queueStatus === 'timeout'
+  const canRanked = isCurrentSubscriptionMonth(currentUser.subscriptionMonth)
+  const [playMode, setPlayMode] = useState<PlayMode>(canRanked ? 'ranked' : 'friendly')
   const [selectedRivalId, setSelectedRivalId] = useState<string | null>(null)
   const { status: rivalsStatus, ranking, error: rivalsError, retry } = usePointsRanking(currentUser)
-  const rivals = ranking.filter((user) => user.id !== currentUser.id)
-  const selectedRival = rivals.find((user) => user.id === selectedRivalId) ?? null
+  const allRivals = ranking.filter((user) => user.id !== currentUser.id)
+  const rankedRivals = allRivals.filter((user) => isCurrentSubscriptionMonth(user.subscriptionMonth))
+  const eligibleRanked = rankedRivals.filter((user) => canRankedVsRival(currentUser.id, user.id))
+  const leftToday = rankedLeftToday(currentUser.id)
+  const isRanked = playMode === 'ranked'
+  const selectedRival = allRivals.find((user) => user.id === selectedRivalId) ?? null
+  const weekBlockedCount = rankedRivals.filter((user) => {
+    return rankedVsRivalThisWeek(currentUser.id, user.id) >= RANKED_PER_RIVAL_WEEK
+  }).length
+
+  const handleSelectRanked = () => {
+    if (!canRanked) return
+    setPlayMode('ranked')
+    setSelectedRivalId(null)
+  }
+
+  const handleSelectFriendly = () => {
+    setPlayMode('friendly')
+  }
+
+  const pickRankedRival = (): UserProfile | null => {
+    if (eligibleRanked.length === 0) return null
+    const unseen = eligibleRanked.filter((user) => user.id !== lastRivalId)
+    const pool = unseen.length > 0 ? unseen : eligibleRanked
+    const index = Math.floor(Math.random() * pool.length)
+    return pool[index] ?? null
+  }
 
   const handlePlay = () => {
-    if (isInvalidBet || rivals.length === 0) return
-    if (selectedRival) {
-      onPlayRival(selectedRival)
+    if (isInvalidBet) return
+    if (isRanked) {
+      if (!canRanked || leftToday <= 0) return
+      const picked = pickRankedRival()
+      if (!picked) return
+      onPlayRival(picked, true)
       return
     }
-    const unseen = rivals.filter((user) => user.id !== lastRivalId)
-    const pool = unseen.length > 0 ? unseen : rivals
+    if (allRivals.length === 0) return
+    if (selectedRival) {
+      onPlayRival(selectedRival, false)
+      return
+    }
+    const unseen = allRivals.filter((user) => user.id !== lastRivalId)
+    const pool = unseen.length > 0 ? unseen : allRivals
     const index = Math.floor(Math.random() * pool.length)
     const picked = pool[index]
     if (!picked) return
-    onPlayRival(picked)
+    onPlayRival(picked, false)
   }
 
   const handleRetryRivals = () => {
@@ -64,6 +107,24 @@ const LobbyPanel = ({
     onRetry()
   }
 
+  const rankedClass = isRanked
+    ? 'bg-accent-100 text-white'
+    : 'bg-bg-200 text-text-100'
+  const friendlyClass = !isRanked
+    ? 'bg-accent-100 text-white'
+    : 'bg-bg-200 text-text-100'
+
+  const rankedBlocked = !canRanked || leftToday <= 0 || eligibleRanked.length === 0
+  const playDisabled = isInvalidBet || isSearching || (isRanked
+    ? rankedBlocked
+    : allRivals.length === 0)
+
+  const playLabel = isRanked
+    ? 'Buscar ranqueada'
+    : selectedRival
+      ? `Jugar amistoso contra ${selectedRival.username}`
+      : 'Jugar amistoso contra un rival al azar'
+
   return (
     <div className="max-w-md mx-auto bg-bg-100 rounded-3xl shadow-sm border border-bg-300 p-8 animate-fade-in">
       <div className="text-center mb-8">
@@ -71,21 +132,91 @@ const LobbyPanel = ({
           {selectedGame.icon}
         </div>
         <h2 className="text-2xl font-bold">{selectedGame.name}</h2>
-        <p className="text-text-200 text-sm mt-2">Elige rival. Cada partida se juega por 1 punto. Si no eliges, toca uno al azar.</p>
+        <p className="text-text-200 text-sm mt-2">
+          Ranking suma al premio. Amistoso y bot no. Cada partida se juega por 1 ficha.
+        </p>
       </div>
 
       <div className="space-y-6">
-        <div className="bg-bg-200 p-4 rounded-xl">
-          <p className="block text-sm font-bold text-text-100 mb-2">Puntos en juego</p>
-          <p className="text-2xl font-bold text-text-100" aria-label="Cantidad de puntos">
-            {formatPoints(betAmount)} punto
+        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Tipo de partida">
+          <button
+            type="button"
+            aria-label="Elegir partida de ranking"
+            aria-pressed={isRanked}
+            tabIndex={0}
+            onClick={handleSelectRanked}
+            onKeyDown={(event) => handleActivateKey(event, handleSelectRanked)}
+            disabled={!canRanked}
+            className={`py-3 rounded-xl text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed ${rankedClass}`}
+          >
+            Ranking
+          </button>
+          <button
+            type="button"
+            aria-label="Elegir partida amistosa"
+            aria-pressed={!isRanked}
+            tabIndex={0}
+            onClick={handleSelectFriendly}
+            onKeyDown={(event) => handleActivateKey(event, handleSelectFriendly)}
+            className={`py-3 rounded-xl text-sm font-bold ${friendlyClass}`}
+          >
+            Amistoso
+          </button>
+        </div>
+
+        {isRanked ? (
+          <div className="space-y-2">
+            <p className="text-xs text-text-200">
+              Ranqueada: la cola elige rival. No puedes elegir a alguien a dedo.
+            </p>
+            <p className="text-sm font-bold text-text-100" aria-label={`${leftToday} ranqueadas restantes de ${RANKED_PER_DAY} hoy`}>
+              Te quedan {leftToday} de {RANKED_PER_DAY} ranqueadas hoy
+            </p>
+          </div>
+        ) : (
+          <p className="text-xs text-text-200">
+            Amistoso: se juega con fichas. No cambia los puntos del mes ni el puesto del premio.
           </p>
+        )}
+
+        {!canRanked && (
+          <p className="text-xs text-text-200">
+            Paga la inscripción de este mes para una ranqueada.
+          </p>
+        )}
+
+        {isRanked && canRanked && leftToday <= 0 && (
+          <p className="text-sm text-text-200" role="status">Hoy ya usaste las {RANKED_PER_DAY} ranqueadas. Juega amistoso.</p>
+        )}
+
+        {isRanked && canRanked && leftToday > 0 && eligibleRanked.length === 0 && rankedRivals.length > 0 && (
+          <p className="text-sm text-text-200" role="status">
+            Contra esos rivales ya no suma esta semana (máximo {RANKED_PER_RIVAL_WEEK}). Juega amistoso.
+          </p>
+        )}
+
+        {isRanked && canRanked && leftToday > 0 && rankedRivals.length === 0 && rivalsStatus === 'success' && (
+          <p className="text-sm text-text-200">No hay otros inscritos este mes para una ranqueada.</p>
+        )}
+
+        {isRanked && weekBlockedCount > 0 && leftToday > 0 && eligibleRanked.length > 0 && (
+          <p className="text-xs text-text-200">
+            Hay rivales con los que ya no suma esta semana. Esos duelos solo salen en amistoso.
+          </p>
+        )}
+
+        <div className="bg-bg-200 p-4 rounded-xl">
+          <p className="block text-sm font-bold text-text-100 mb-2">Fichas en juego</p>
+          <p className="text-2xl font-bold text-text-100" aria-label={`${formatPoints(betAmount)} fichas en juego`}>
+            {formatPoints(betAmount)} ficha
+          </p>
+          <p className="text-xs text-text-200 mt-2">Tienes {formatPoints(balance)} fichas. No son puntos del premio.</p>
         </div>
 
         {hasInsufficientBalance && (
           <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 p-3 rounded-lg" role="alert">
             <AlertCircle className="w-4 h-4" aria-hidden="true" />
-            <span>Puntos insuficientes. Tienes {formatPoints(balance)}</span>
+            <span>Fichas insuficientes. Tienes {formatPoints(balance)} fichas</span>
           </div>
         )}
 
@@ -101,19 +232,23 @@ const LobbyPanel = ({
             <div className="flex items-center gap-2 text-text-200 text-sm bg-bg-200 p-3 rounded-lg" role="status">
               <WifiOff className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <span>
-                No hay otro jugador con {formatPoints(betAmount)} puntos en {selectedGame.name}. Puedes jugar contra el bot de prueba. Esa partida no cambia tus puntos.
+                {isRanked
+                  ? 'No hay rival para la ranqueada. El bot no se ofrece en ranking. Cambia a Amistoso si quieres jugar contra el bot de prueba.'
+                  : `No hay otro jugador con ${formatPoints(betAmount)} fichas en ${selectedGame.name}. Puedes jugar contra el bot de prueba. Esa partida no cambia tus fichas ni los puntos del mes.`}
               </span>
             </div>
-            <button
-              type="button"
-              aria-label="Jugar contra bot de prueba"
-              tabIndex={0}
-              onClick={onPlayBot}
-              onKeyDown={(event) => handleActivateKey(event, onPlayBot)}
-              className="w-full py-4 rounded-xl font-bold text-lg bg-accent-100 hover:bg-accent-200 text-white shadow-md hover:shadow-lg transition-all"
-            >
-              Jugar contra el bot
-            </button>
+            {!isRanked && (
+              <button
+                type="button"
+                aria-label="Jugar amistoso contra bot de prueba"
+                tabIndex={0}
+                onClick={onPlayBot}
+                onKeyDown={(event) => handleActivateKey(event, onPlayBot)}
+                className="w-full py-4 rounded-xl font-bold text-lg bg-accent-100 hover:bg-accent-200 text-white shadow-md hover:shadow-lg transition-all"
+              >
+                Jugar contra el bot
+              </button>
+            )}
             <button
               type="button"
               aria-label="Seguir buscando rival"
@@ -128,11 +263,69 @@ const LobbyPanel = ({
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm font-bold text-text-100">Rival</p>
-            {rivalsStatus === 'loading' && rivals.length === 0 && (
-              <p className="text-sm text-text-200" role="status">Cargando jugadores...</p>
+            {!isRanked && (
+              <>
+                <p className="text-sm font-bold text-text-100">Rival</p>
+                {rivalsStatus === 'loading' && allRivals.length === 0 && (
+                  <p className="text-sm text-text-200" role="status">Cargando jugadores...</p>
+                )}
+                {rivalsStatus === 'error' && (
+                  <div className="space-y-2" role="alert">
+                    <p className="text-sm text-red-500">{rivalsError}</p>
+                    <button
+                      type="button"
+                      aria-label="Reintentar cargar jugadores"
+                      tabIndex={0}
+                      onClick={handleRetryRivals}
+                      onKeyDown={(event) => handleActivateKey(event, handleRetryRivals)}
+                      className="text-sm font-bold underline"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                )}
+                {allRivals.length === 0 && rivalsStatus === 'success' && (
+                  <p className="text-sm text-text-200">No hay otros jugadores registrados.</p>
+                )}
+                {allRivals.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto space-y-2" role="listbox" aria-label="Jugadores para amistoso">
+                    {allRivals.map((user) => {
+                      const isSelected = user.id === selectedRivalId
+                      const weekUsed = rankedVsRivalThisWeek(currentUser.id, user.id)
+                      const noMoreRanked = weekUsed >= RANKED_PER_RIVAL_WEEK
+                      const rowClass = isSelected
+                        ? 'border-accent-100 bg-accent-100/10'
+                        : 'border-bg-300 bg-bg-200'
+                      const handleSelectRival = () => {
+                        setSelectedRivalId(user.id)
+                      }
+                      return (
+                        <button
+                          key={user.id}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          aria-label={noMoreRanked ? `Elegir a ${user.username}, ya no suma esta semana` : `Elegir a ${user.username}`}
+                          tabIndex={0}
+                          onClick={handleSelectRival}
+                          onKeyDown={(event) => handleActivateKey(event, handleSelectRival)}
+                          className={`w-full flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left ${rowClass}`}
+                        >
+                          <span className="font-bold text-sm text-text-100 truncate">{user.username}</span>
+                          <span className="text-xs text-text-200 shrink-0">
+                            {noMoreRanked ? 'Ya no suma esta semana' : `${formatPoints(user.balance)} fichas`}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
             )}
-            {rivalsStatus === 'error' && (
+            {isRanked && rivalsStatus === 'loading' && rankedRivals.length === 0 && (
+              <p className="text-sm text-text-200" role="status">Buscando inscritos...</p>
+            )}
+            {isRanked && rivalsStatus === 'error' && (
               <div className="space-y-2" role="alert">
                 <p className="text-sm text-red-500">{rivalsError}</p>
                 <button
@@ -147,48 +340,16 @@ const LobbyPanel = ({
                 </button>
               </div>
             )}
-            {rivals.length === 0 && rivalsStatus === 'success' && (
-              <p className="text-sm text-text-200">No hay otros jugadores registrados.</p>
-            )}
-            {rivals.length > 0 && (
-              <div className="max-h-48 overflow-y-auto space-y-2" role="listbox" aria-label="Jugadores registrados">
-                {rivals.map((user) => {
-                  const isSelected = user.id === selectedRivalId
-                  const rowClass = isSelected
-                    ? 'border-accent-100 bg-accent-100/10'
-                    : 'border-bg-300 bg-bg-200'
-                  const handleSelectRival = () => {
-                    setSelectedRivalId(user.id)
-                  }
-                  return (
-                    <button
-                      key={user.id}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      aria-label={`Elegir a ${user.username}`}
-                      tabIndex={0}
-                      onClick={handleSelectRival}
-                      onKeyDown={(event) => handleActivateKey(event, handleSelectRival)}
-                      className={`w-full flex items-center justify-between rounded-xl border px-3 py-2 text-left ${rowClass}`}
-                    >
-                      <span className="font-bold text-sm text-text-100">{user.username}</span>
-                      <span className="text-xs text-text-200">{formatPoints(user.balance)} pts</span>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
             <button
               type="button"
-              aria-label={selectedRival ? `Jugar contra ${selectedRival.username}` : 'Jugar contra un rival al azar'}
+              aria-label={playLabel}
               tabIndex={0}
               onClick={handlePlay}
               onKeyDown={(event) => handleActivateKey(event, handlePlay)}
-              disabled={isInvalidBet || rivals.length === 0 || isSearching}
+              disabled={playDisabled}
               className="w-full py-4 rounded-xl font-bold text-lg bg-accent-100 hover:bg-accent-200 text-white shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isSearching ? 'Entrando...' : selectedRival ? `Jugar contra ${selectedRival.username}` : 'Jugar'}
+              {isSearching ? 'Entrando...' : isRanked ? 'Buscar ranqueada' : selectedRival ? `Amistoso vs ${selectedRival.username}` : 'Jugar amistoso'}
             </button>
           </div>
         )}

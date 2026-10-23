@@ -147,10 +147,10 @@ const SubscriptionPayDialog = ({ onClose, onPaid }: SubscriptionPayDialogProps) 
           Paga la suscripción
         </h2>
         <p className="mt-3 text-sm text-[#f4f6fb]">
-          Sin la suscripción no puedes competir por el premio. El primero del mes en el ranking elige el premio.
+          Sin la suscripción no puedes competir por el premio. El primero del mes por puntos del mes elige el premio. Las fichas no dan puesto.
         </p>
         <p className="mt-2 text-sm text-[#b7c0d4]">
-          La suscripción mensual cuesta {SUBSCRIPTION_EUROS} € e incluye {SUBSCRIPTION_POINTS} puntos para jugar.
+          La suscripción mensual cuesta {SUBSCRIPTION_EUROS} € e incluye {SUBSCRIPTION_POINTS} fichas para jugar.
         </p>
         <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-3">
           <fieldset className="flex flex-col gap-2">
@@ -292,7 +292,7 @@ const SubscriptionPayDialog = ({ onClose, onPaid }: SubscriptionPayDialogProps) 
 
           {method === 'transfer' && (
             <p className="text-sm text-[#b7c0d4]">
-              Confirmas el pago de {SUBSCRIPTION_EUROS} € por transferencia. Al completar, recibes los {SUBSCRIPTION_POINTS} puntos.
+              Confirmas el pago de {SUBSCRIPTION_EUROS} € por transferencia. Al completar, recibes las {SUBSCRIPTION_POINTS} fichas.
             </p>
           )}
 

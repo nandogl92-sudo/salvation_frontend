@@ -273,7 +273,7 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
 
       <p className="text-xs text-text-200 mt-4 text-center">
         {mode === 'register'
-          ? 'Al registrarte, recibes 100 puntos para jugar.'
+          ? 'Al registrarte, recibes 100 fichas para jugar.'
           : isRecovering
             ? 'El enlace llega al correo. La contraseña no cambia hasta que lo abras.'
             : '¿No tienes cuenta? Cambia a la pestaña Registrarse.'}

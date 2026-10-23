@@ -12,11 +12,14 @@ import { cancelQueue, createBotMatch, joinQueue, startDirectMatch, tryMatch } fr
 import { cancelMatch, submitMatchResult } from './api/matchesApi';
 import { getCurrentSession } from './api/authApi';
 import type { Game, MatchPlayer, MatchTicket, QueueStatus, UserProfile } from './types';
+import { monthPointsOf } from './components/utils/monthPointsOf';
+import { monthTotalOf, recordRankedWin } from './matchmaking/rankedWeeks';
 import ProfilePanel from './profile/ProfilePanel';
 import Navbar from './components/layout/Navbar';
 import HomeLanding from './components/home/HomeLanding';
 import SubscriptionPayDialog from './components/home/SubscriptionPayDialog';
 import { isCurrentSubscriptionMonth } from './api/subscriptionsApi';
+import { canRankedVsRival, rankedLeftToday, recordRankedPlay } from './matchmaking/rankedLimits';
 import LobbyPanel from './components/lobby/LobbyPanel';
 import GameResultPanel, { type GameResult } from './components/play/GameResultPanel';
 import PlayingArena from './components/play/PlayingArena';
@@ -44,7 +47,7 @@ export default function App() {
   // ==========================================
   // AUTH — provisto por AuthContext (mock). Ver src/auth/README.md
   // ==========================================
-  const { user: currentUser, isReady: isAuthReady, logout, setBalance } = useAuth();
+  const { user: currentUser, isReady: isAuthReady, logout, setBalance, setMonthPoints } = useAuth();
 
   // ==========================================
   // ESTADOS PRINCIPALES
@@ -65,7 +68,7 @@ export default function App() {
   const [ticket, setTicket] = useState<MatchTicket | null>(null);
   const [lastRivalId, setLastRivalId] = useState<string | null>(null);
   const [opponent, setOpponent] = useState<MatchPlayer | null>(null);
-  const [activeMatch, setActiveMatch] = useState<{ id: string; isBot: boolean } | null>(null);
+  const [activeMatch, setActiveMatch] = useState<{ id: string; isBot: boolean; isRanked: boolean } | null>(null);
   const [matchError, setMatchError] = useState<string | null>(null);
 
   // ==========================================
@@ -94,6 +97,14 @@ export default function App() {
   }, [userId, isChoosingPassword, currentUser?.subscriptionMonth]);
 
   useEffect(() => {
+    if (!userId) return;
+    const total = monthTotalOf(userId);
+    if (total === monthPointsOf(currentUser)) return;
+    void setMonthPoints(total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar de cuenta; el total sale de las 3 mejores semanas locales.
+  }, [userId]);
+
+  useEffect(() => {
     if (view !== 'home' || !scrollTarget) return;
     const section = scrollTarget;
     const frame = window.requestAnimationFrame(() => {
@@ -114,7 +125,6 @@ export default function App() {
   // ==========================================
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const settlingRef = useRef(false);
-  const botStartRef = useRef(false);
 
   /** Vuelve a home y limpia el estado de resultado de partida. */
   const goHome = () => {
@@ -185,7 +195,6 @@ export default function App() {
     if (!currentUser || !selectedGame || betAmount > currentUser.balance || betAmount <= 0) return;
 
     setQueueError(null);
-    botStartRef.current = false;
     const result = await joinQueue({ gameId: selectedGame.id, betAmount });
     if (!result.ok) {
       setQueueError(result.message);
@@ -215,9 +224,22 @@ export default function App() {
     startMatchmaking();
   };
 
-  const startAgainstRival = async (rival: UserProfile) => {
+  const startAgainstRival = async (rival: UserProfile, isRanked: boolean) => {
     if (!currentUser || !selectedGame || betAmount > currentUser.balance || betAmount <= 0) return;
     if (queueStatus === 'searching') return;
+    const wantsRanked =
+      isRanked &&
+      isCurrentSubscriptionMonth(currentUser.subscriptionMonth) &&
+      isCurrentSubscriptionMonth(rival.subscriptionMonth);
+    if (wantsRanked && rankedLeftToday(currentUser.id) <= 0) {
+      setQueueError('Hoy ya usaste las 8 ranqueadas. Juega amistoso.');
+      return;
+    }
+    if (wantsRanked && !canRankedVsRival(currentUser.id, rival.id)) {
+      setQueueError('Contra ese rival ya no suma esta semana. Juega amistoso.');
+      return;
+    }
+    const ranked = wantsRanked && canRankedVsRival(currentUser.id, rival.id);
     setQueueStatus('searching');
     setQueueError(null);
     const result = await startDirectMatch({
@@ -230,9 +252,10 @@ export default function App() {
       setQueueStatus('idle');
       return;
     }
+    if (ranked) recordRankedPlay(currentUser.id, rival.id);
     setLastRivalId(rival.id);
-    setOpponent({ ...result.opponent, isBot: true });
-    setActiveMatch({ id: result.match.id, isBot: false });
+    setOpponent({ ...result.opponent, isBot: false });
+    setActiveMatch({ id: result.match.id, isBot: false, isRanked: ranked });
     setQueueStatus('idle');
     setView('playing');
     await syncBalanceFromServer();
@@ -246,7 +269,7 @@ export default function App() {
       return;
     }
     setOpponent(result.opponent);
-    setActiveMatch({ id: result.match.id, isBot: true });
+    setActiveMatch({ id: result.match.id, isBot: true, isRanked: false });
     setTicket(null);
     setQueueStatus('idle');
     setQueueError(null);
@@ -269,8 +292,9 @@ export default function App() {
       if (stopped) return;
 
       if (result.status === 'matched') {
+        const matchedBot = Boolean(result.opponent.isBot);
         setOpponent(result.opponent);
-        setActiveMatch({ id: result.match.id, isBot: Boolean(result.opponent.isBot) });
+        setActiveMatch({ id: result.match.id, isBot: matchedBot, isRanked: false });
         setTicket(null);
         setQueueStatus('idle');
         setView('playing');
@@ -278,23 +302,7 @@ export default function App() {
       }
 
       if (result.status === 'expired') {
-        if (botStartRef.current) return;
-        botStartRef.current = true;
-        const bot = await createBotMatch(ticket);
-        if (stopped) return;
-        if (!bot.ok) {
-          botStartRef.current = false;
-          setQueueError(bot.message);
-          setQueueStatus('timeout');
-          await syncBalanceFromServer();
-          return;
-        }
-        setOpponent(bot.opponent);
-        setActiveMatch({ id: bot.match.id, isBot: true });
-        setTicket(null);
-        setQueueStatus('idle');
-        setQueueError(null);
-        setView('playing');
+        setQueueStatus('timeout');
         await syncBalanceFromServer();
         return;
       }
@@ -321,6 +329,17 @@ export default function App() {
     };
   }, [queueStatus, ticket]);
 
+  const applyRankedMonthPoints = async (isRanked: boolean, won: boolean, isRefund: boolean) => {
+    const before = currentUser ? monthTotalOf(currentUser.id) : 0;
+    if (!currentUser || !isRanked || isRefund || !won) {
+      return { monthPoints: before, monthPointsDelta: 0 };
+    }
+    recordRankedWin(currentUser.id);
+    const next = monthTotalOf(currentUser.id);
+    await setMonthPoints(next);
+    return { monthPoints: next, monthPointsDelta: next - before };
+  };
+
   const handleGameEnd = async (won: boolean, reason?: string) => {
     if (settlingRef.current) return;
     if (!currentUser || !activeMatch) {
@@ -330,9 +349,12 @@ export default function App() {
 
     settlingRef.current = true;
     setMatchError(null);
+    const isRefund = reason === 'platform_error';
+    const isRanked = activeMatch.isRanked && !activeMatch.isBot;
 
     if (activeMatch.isBot) {
-      setGameResult({ won, profit: 0, isRefund: false });
+      const month = await applyRankedMonthPoints(false, won, false);
+      setGameResult({ won, profit: 0, isRefund: false, isRanked: false, ...month });
       setOpponent(null);
       setActiveMatch(null);
       settlingRef.current = false;
@@ -340,13 +362,13 @@ export default function App() {
     }
 
     const winnerUserId = won ? currentUser.id : opponent?.userId;
-    if (!winnerUserId && reason !== 'platform_error') {
+    if (!winnerUserId && !isRefund) {
       setMatchError('No se pudo identificar al ganador.');
       settlingRef.current = false;
       return;
     }
 
-    const settlement = reason === 'platform_error'
+    const settlement = isRefund
       ? await cancelMatch(activeMatch.id)
       : await submitMatchResult(activeMatch.id, winnerUserId ?? '');
 
@@ -358,17 +380,20 @@ export default function App() {
 
     const me = settlement.players.find((player) => player.id === currentUser.id);
     if (!me) {
-      setMatchError('La respuesta no incluye tus puntos.');
+      setMatchError('La respuesta no incluye tus fichas.');
       settlingRef.current = false;
       return;
     }
 
-    const profit = reason === 'platform_error' ? 0 : me.balance - (currentUser.balance + betAmount);
+    const profit = isRefund ? 0 : me.balance - (currentUser.balance + betAmount);
     await setBalance(me.balance);
+    const month = await applyRankedMonthPoints(isRanked, won, isRefund);
     setGameResult({
-      won: reason === 'platform_error' ? false : won,
+      won: isRefund ? false : won,
       profit,
-      isRefund: reason === 'platform_error',
+      isRefund,
+      isRanked,
+      ...month,
     });
     setOpponent(null);
     setActiveMatch(null);
@@ -381,9 +406,8 @@ export default function App() {
       handleGameEnd(winner === 'p1');
     };
 
-    // El bot de P2 se activa cuando el rival es un bot (partida vs bot) o cuando
-    // no hay rival real (sesión local sin matchmaking real).
-    const botEnabled = opponent?.isBot ?? false;
+    // P2 usa IA local: el bot de prueba o un rival que no está en este teclado.
+    const botEnabled = Boolean(opponent);
 
     switch(selectedGame?.id) {
       case 'pong': return <Pong onGameEnd={handleEnd} botEnabled={botEnabled} />;
@@ -482,6 +506,7 @@ export default function App() {
                 username={currentUser.username}
                 opponent={opponent}
                 betAmount={betAmount}
+                isRanked={Boolean(activeMatch?.isRanked)}
                 gameId={selectedGame.id}
                 controlsHint={selectedGame.id === 'combat'
                   ? 'Controles — P1: WASD, Shift (esquiva), S (escudo), Espacio (combo de 3, súper con barra llena), F (arco) | P2: Flechas, L (esquiva), Abajo (escudo), Enter (combo), K (arco)'

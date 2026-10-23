@@ -12,7 +12,7 @@ const CARD_BORDER: Record<string, string> = {
 }
 
 const NOTES = [
-  { text: 'Por puntos', Icon: Gamepad2 },
+  { text: 'Juega con fichas', Icon: Gamepad2 },
   { text: 'Sin descargas', Icon: Zap },
   { text: 'Juega desde cualquier dispositivo', Icon: Heart },
   { text: 'Los clásicos siempre contigo', Icon: Star },
@@ -31,11 +31,13 @@ const scrollToGames = () => {
 const GameArt = ({ gameId }: { gameId: string }) => {
   if (gameId === 'snake') {
     return (
-      <div className="h-28 bg-[#06120c] relative">
-        <div className="absolute left-6 top-8 w-4 h-4 bg-emerald-400" />
-        <div className="absolute left-10 top-8 w-4 h-4 bg-emerald-500" />
-        <div className="absolute left-14 top-8 w-4 h-4 bg-emerald-300" />
-        <div className="absolute left-14 top-12 w-4 h-4 bg-emerald-400" />
+      <div className="h-28 bg-[#12081c] relative overflow-hidden">
+        <div className="absolute left-5 top-10 w-3 h-3 rounded-sm bg-emerald-800" />
+        <div className="absolute left-8 top-9 w-4 h-4 rounded-sm bg-emerald-600" />
+        <div className="absolute left-12 top-8 w-5 h-5 rounded-sm bg-emerald-400" />
+        <div className="absolute left-[4.2rem] top-7 w-6 h-6 rounded-sm bg-emerald-300" />
+        <div className="absolute left-[5.6rem] top-8 w-2 h-2 bg-white" />
+        <div className="absolute right-10 top-10 w-3 h-3 bg-cyan-300 rotate-45" />
       </div>
     )
   }
@@ -144,7 +146,9 @@ const HomeLanding = ({
                 ? `Hola, ${currentUser.username}. Elige un juego para entrar al lobby.`
                 : 'Crea una cuenta o inicia sesión para jugar.'}
             </p>
-            <p className="text-xs sm:text-sm font-bold text-[#f5c518] drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">El primero del mes en el ranking elige un premio.</p>
+            <p className="text-xs sm:text-sm font-bold text-[#f5c518] drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
+              Cuentan tus 3 mejores semanas. El 1.º aún se puede alcanzar.
+            </p>
             <button
               type="button"
               aria-label="Empezar a jugar"
@@ -184,9 +188,21 @@ const HomeLanding = ({
       <section id="info" className="max-w-3xl mx-auto px-4 pb-16 space-y-6 scroll-mt-20">
         <div className="bg-bg-100 border border-bg-300 rounded-2xl p-6 space-y-2">
           <h2 className="font-pixel text-[10px] text-[#f5c518]">Info</h2>
-          <p className="text-sm text-text-200">El ganador recibe los puntos del pozo menos el 5% de comisión.</p>
+          <p className="text-sm text-text-200">El ganador recibe las fichas del pozo menos el 5% de comisión.</p>
           <p className="text-sm text-text-200">Desconexión o abandono cuenta como derrota.</p>
-          <p className="text-sm text-text-200">Error de plataforma: los puntos de esa partida se devuelven.</p>
+          <p className="text-sm text-text-200">Error de plataforma: las fichas de esa partida se devuelven.</p>
+          <h3 className="font-pixel text-[10px] text-[#f5c518] pt-3">Premio del mes</h3>
+          <p className="text-sm text-text-200">Hace falta inscripción de este mes para competir.</p>
+          <p className="text-sm text-text-200">Ranqueada: humano vs humano, ambos inscritos.</p>
+          <p className="text-sm text-text-200">Una victoria ranqueada suma 1 punto a esa semana.</p>
+          <p className="text-sm text-text-200">Una derrota no quita puntos.</p>
+          <p className="text-sm text-text-200">Máximo 8 ranqueadas al día.</p>
+          <p className="text-sm text-text-200">Contra la misma persona, 2 por semana. El resto, amistoso.</p>
+          <p className="text-sm text-text-200">El mes tiene 4 semanas. Cuentan las 3 mejores. Una semana ruin se descarta.</p>
+          <p className="text-sm text-text-200">Solo el 1.º gana. El premio no está cerrado: aún se le puede alcanzar.</p>
+          <p className="text-sm text-text-200">Una persona, una plaza.</p>
+          <p className="text-sm text-text-200">Bot y amistoso no cuentan.</p>
+          <p className="text-sm text-text-200">Las fichas sirven para jugar. No dan puesto en el premio.</p>
         </div>
       </section>
 

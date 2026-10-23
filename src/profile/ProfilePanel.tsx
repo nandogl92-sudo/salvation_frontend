@@ -1,6 +1,7 @@
 import { Trophy, AlertCircle, TrendingUp, TrendingDown, Gamepad2, RefreshCcw } from 'lucide-react';
 import type { MatchHistoryRecord, UserProfile } from '../types';
 import { formatPoints } from '../components/utils/formatPoints';
+import { monthPointsOf } from '../components/utils/monthPointsOf';
 import { usePlayerStats } from './usePlayerStats';
 
 const RESULT_LABELS: Record<MatchHistoryRecord['result'], string> = {
@@ -63,7 +64,7 @@ function HistoryRow({ record }: { record: MatchHistoryRecord }) {
         <div>
           <p className="text-sm font-bold text-text-100">{record.gameName}</p>
           <p className="text-xs text-text-200">
-            {RESULT_LABELS[record.result]} · {formatPoints(record.betAmount)} puntos
+            {RESULT_LABELS[record.result]} · {formatPoints(record.betAmount)} fichas
           </p>
         </div>
       </div>
@@ -75,7 +76,7 @@ function HistoryRow({ record }: { record: MatchHistoryRecord }) {
         >
           {isRefund
             ? 'Reembolsado'
-            : `${isWin ? '+' : ''}${formatPoints(record.profit)} pts`}
+            : `${isWin ? '+' : ''}${formatPoints(record.profit)} fichas`}
         </p>
         <p className="text-xs text-text-200">
           {new Date(record.playedAt).toLocaleDateString('es-ES', {
@@ -148,22 +149,29 @@ export default function ProfilePanel({
         <StatCard label="Derrotas" value={stats.losses.toString()} accent="red" />
         <StatCard
           label="Profit total"
-          value={`${stats.totalProfit >= 0 ? '+' : ''}${formatPoints(stats.totalProfit)} pts`}
+          value={`${stats.totalProfit >= 0 ? '+' : ''}${formatPoints(stats.totalProfit)} fichas`}
           accent={stats.totalProfit >= 0 ? 'green' : 'red'}
         />
       </div>
 
-      {/* Puntos actuales */}
-      <div className="bg-primary-300 rounded-2xl p-5 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-bold text-primary-100 uppercase tracking-widest">Puntos</p>
-          <p className="text-3xl font-bold text-primary-100">{formatPoints(user.balance)}</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-primary-300 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-primary-100 uppercase tracking-widest">Fichas para jugar</p>
+            <p className="text-3xl font-bold text-primary-100">{formatPoints(user.balance)}</p>
+            <p className="text-xs text-primary-100 mt-1">No dan puesto en el premio</p>
+          </div>
+          {stats.totalProfit >= 0 ? (
+            <TrendingUp className="w-8 h-8 text-primary-100 opacity-50" />
+          ) : (
+            <TrendingDown className="w-8 h-8 text-primary-100 opacity-50" />
+          )}
         </div>
-        {stats.totalProfit >= 0 ? (
-          <TrendingUp className="w-8 h-8 text-primary-100 opacity-50" />
-        ) : (
-          <TrendingDown className="w-8 h-8 text-primary-100 opacity-50" />
-        )}
+        <div className="bg-bg-100 rounded-2xl border border-bg-300 p-5">
+          <p className="text-xs font-bold text-text-200 uppercase tracking-widest">Puntos del mes</p>
+          <p className="text-3xl font-bold text-text-100">{formatPoints(monthPointsOf(user))}</p>
+          <p className="text-xs text-text-200 mt-1">Suma de tus 3 mejores semanas</p>
+        </div>
       </div>
 
       {/* Historial de partidas */}

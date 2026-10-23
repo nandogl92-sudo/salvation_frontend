@@ -9,7 +9,10 @@ export type UserProfile = {
   id: string;
   username: string;
   email: string;
+  /** Fichas para jugar partidas. No es el puesto del premio. */
   balance: number;
+  /** Puntos del mes para el premio. 0 si el servidor no los envía o aún no hay. */
+  monthPoints?: number;
   /** Mes ya cobrado, con la forma 2026-10. Ausente o null si este mes no está pagado. */
   subscriptionMonth?: string | null;
 };
@@ -89,6 +92,9 @@ export type MatchRecord = {
 /** Estado de la búsqueda desde el punto de vista de la pestaña que busca. */
 export type QueueStatus = 'idle' | 'searching' | 'matched' | 'timeout' | 'cancelled';
 
+/** Ranking suma al premio. Amistoso y bot no. */
+export type PlayMode = 'ranked' | 'friendly';
+
 // ==========================================
 // Historial de partidas (mock) — ver src/history/historyStorage.ts
 // ==========================================
@@ -101,7 +107,7 @@ export type MatchHistoryRecord = {
   gameName: string;
   betAmount: number;
   result: 'win' | 'loss' | 'refund';
-  /** Ganancia neta (positivo) o pérdida neta (negativo) en puntos. 0 si es reembolso. */
+  /** Ganancia neta (positivo) o pérdida neta (negativo) en fichas. 0 si es reembolso. */
   profit: number;
   playedAt: number;
 };

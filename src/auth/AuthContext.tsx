@@ -26,6 +26,8 @@ type AuthContextValue = {
   completePasswordReset: (input: PasswordChangeInput) => Promise<AuthResult>;
   /** Actualiza el saldo del usuario actual (en memoria + persistido en el mock). */
   setBalance: (balance: number) => Promise<void>;
+  /** Actualiza los puntos del mes en la sesión local (el servidor aún no los guarda). */
+  setMonthPoints: (monthPoints: number) => Promise<void>;
   clearError: () => void;
 };
 
@@ -104,9 +106,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (updated) setUser(updated);
   }, [user]);
 
+  const setMonthPoints = useCallback(async (monthPoints: number) => {
+    if (!user) return;
+    const updated = await authService.updateUserMonthPoints(user.id, monthPoints);
+    if (updated) setUser(updated);
+  }, [user]);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, clearError }),
-    [user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, clearError],
+    () => ({ user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, setMonthPoints, clearError }),
+    [user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, setMonthPoints, clearError],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

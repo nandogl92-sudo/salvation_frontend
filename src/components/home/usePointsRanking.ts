@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { listUsers } from '../../api/usersApi'
+import { monthTotalOf } from '../../matchmaking/rankedWeeks'
+import { monthPointsOf } from '../utils/monthPointsOf'
 import type { UserProfile } from '../../types'
 
 type RankingStatus = 'idle' | 'loading' | 'success' | 'error'
@@ -44,12 +46,19 @@ export const usePointsRanking = (currentUser: UserProfile | null) => {
   const ranking = users
     .map((user) => {
       if (currentUser && user.id === currentUser.id) {
-        return { ...user, balance: currentUser.balance }
+        return {
+          ...user,
+          balance: currentUser.balance,
+          monthPoints: monthTotalOf(currentUser.id),
+          subscriptionMonth: currentUser.subscriptionMonth,
+        }
       }
-      return user
+      return { ...user, monthPoints: monthPointsOf(user) }
     })
     .sort((left, right) => {
-      if (right.balance !== left.balance) return right.balance - left.balance
+      const leftMonth = monthPointsOf(left)
+      const rightMonth = monthPointsOf(right)
+      if (rightMonth !== leftMonth) return rightMonth - leftMonth
       return left.username.localeCompare(right.username, 'es')
     })
 
