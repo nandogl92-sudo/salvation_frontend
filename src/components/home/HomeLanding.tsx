@@ -124,26 +124,26 @@ const HomeLanding = ({
         <img
           src="/hero-sunset.jpg"
           alt=""
-          className="w-full h-[360px] object-cover object-center"
+          className="absolute inset-0 w-full h-full object-cover object-center"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#070b16]/70 via-transparent to-[#070b16]/30" aria-hidden="true" />
-        <div className="absolute inset-x-0 top-0 px-4 pt-5">
-          <div className="max-w-4xl mx-auto space-y-2">
-            <p className="text-xs font-bold tracking-[0.35em] text-white/90">CLÁSICOS QUE NUNCA ENVEJECEN</p>
-            <h1 className="font-pixel text-base sm:text-xl leading-relaxed text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#070b16]/80 via-[#070b16]/40 to-[#070b16]" aria-hidden="true" />
+        <div className="relative z-10 min-h-[calc(100svh-4rem)] landscape:min-h-[calc(100svh-4rem)] flex items-center px-4 py-6 landscape:py-3">
+          <div className="max-w-4xl mx-auto w-full space-y-3 landscape:space-y-2">
+            <p className="text-[10px] sm:text-xs font-bold tracking-[0.35em] text-white/90">CLÁSICOS QUE NUNCA ENVEJECEN</p>
+            <h1 className="font-pixel text-sm sm:text-xl landscape:text-base leading-relaxed text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
               5 JUEGOS <span className="text-[#f5c518]">LEGENDARIOS</span>
               <span className="block">EN UN SOLO LUGAR</span>
             </h1>
-            <p className="text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">Revive la magia de los clásicos. Juega, recuerda, disfruta.</p>
-            <p className="text-sm text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">Crea una cuenta o inicia sesión para jugar.</p>
-            <p className="text-sm font-bold text-[#f5c518] drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">El primero del mes en el ranking elige un premio.</p>
+            <p className="text-sm sm:text-base landscape:text-sm text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">Revive la magia de los clásicos. Juega, recuerda, disfruta.</p>
+            <p className="text-xs sm:text-sm text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">Crea una cuenta o inicia sesión para jugar.</p>
+            <p className="text-xs sm:text-sm font-bold text-[#f5c518] drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">El primero del mes en el ranking elige un premio.</p>
             <button
               type="button"
               aria-label="Empezar a jugar"
               tabIndex={0}
               onClick={handleStart}
               onKeyDown={(event) => handleActivateKey(event, handleStart)}
-              className="inline-flex items-center gap-2 bg-[#f5c518] text-[#1a1403] font-bold px-6 py-3 rounded-lg"
+              className="inline-flex items-center gap-2 bg-[#f5c518] text-[#1a1403] font-bold px-6 py-3 landscape:py-2 rounded-lg"
             >
               <Play className="w-4 h-4" aria-hidden="true" />
               Empezar a jugar
@@ -153,7 +153,7 @@ const HomeLanding = ({
       </section>
 
       <section id="juegos" className="max-w-6xl mx-auto px-4 pt-6 relative scroll-mt-20">
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 landscape:grid-cols-2 sm:grid-cols-2 xl:grid-cols-5 gap-4">
           {games.map((game) => (
             <GameCard key={game.id} game={game} onSelectGame={onSelectGame} />
           ))}

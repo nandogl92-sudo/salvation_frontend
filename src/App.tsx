@@ -482,6 +482,7 @@ export default function App() {
                 username={currentUser.username}
                 opponent={opponent}
                 betAmount={betAmount}
+                gameId={selectedGame.id}
                 controlsHint={selectedGame.id === 'combat'
                   ? 'Controles — P1: WASD, Shift (esquiva), S (escudo, aguanta 10 golpes), Espacio (espada, pulsa otra vez para el combo), F (arco, 5 flechas) | P2: Flechas, L (esquiva), Abajo (escudo), Enter (espada), K (arco)'
                   : selectedGame.id === 'snake'

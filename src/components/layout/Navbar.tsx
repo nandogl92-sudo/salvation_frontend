@@ -143,9 +143,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
                 tabIndex={0}
                 onClick={handleOpenRegister}
                 onKeyDown={(event) => handleActivateKey(event, handleOpenRegister)}
-                className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide ${registerClass}`}
+                className={`px-2 sm:px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide ${registerClass}`}
               >
-                Crear usuario
+                <span className="sm:hidden">Crear</span>
+                <span className="hidden sm:inline">Crear usuario</span>
               </button>
               <button
                 type="button"
@@ -154,9 +155,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
                 tabIndex={0}
                 onClick={handleOpenLogin}
                 onKeyDown={(event) => handleActivateKey(event, handleOpenLogin)}
-                className={`px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide ${loginClass}`}
+                className={`px-2 sm:px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide ${loginClass}`}
               >
-                Iniciar sesión
+                <span className="sm:hidden">Entrar</span>
+                <span className="hidden sm:inline">Iniciar sesión</span>
               </button>
             </>
           )}

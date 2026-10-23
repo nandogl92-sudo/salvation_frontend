@@ -1,16 +1,18 @@
 import type { ReactNode } from 'react'
 import type { MatchPlayer } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
+import TouchControls from './TouchControls'
 
 type PlayingArenaProps = {
   username: string
   opponent: MatchPlayer | null
   betAmount: number
+  gameId?: string
   children: ReactNode
   controlsHint?: string
 }
 
-const PlayingArena = ({ username, opponent, betAmount, children, controlsHint }: PlayingArenaProps) => {
+const PlayingArena = ({ username, opponent, betAmount, gameId, children, controlsHint }: PlayingArenaProps) => {
   const opponentName = opponent?.username ?? 'Rival'
   const opponentLabel = opponent?.username === 'Bot de prueba (modo prueba)'
     ? 'Bot de prueba (modo prueba)'
@@ -18,7 +20,7 @@ const PlayingArena = ({ username, opponent, betAmount, children, controlsHint }:
 
   return (
     <>
-      <div className="bg-bg-100 rounded-2xl shadow-sm border border-bg-300 p-4 flex justify-between items-center">
+      <div className="bg-bg-100 rounded-2xl shadow-sm border border-bg-300 p-3 sm:p-4 flex justify-between items-center gap-2">
         <div className="flex items-center gap-3">
           <div
             className="w-10 h-10 bg-primary-300 text-primary-100 rounded-full flex items-center justify-center font-bold"
@@ -55,8 +57,9 @@ const PlayingArena = ({ username, opponent, betAmount, children, controlsHint }:
         </div>
       </div>
 
-      <div className="w-full relative overflow-hidden flex flex-col items-center justify-center border-4 border-bg-100 rounded-xl bg-black">
+      <div className="w-full relative overflow-hidden flex flex-col items-center justify-center border-4 border-bg-100 rounded-xl bg-black [touch-action:none]">
         {children}
+        {gameId ? <TouchControls gameId={gameId} /> : null}
       </div>
       <p className="text-center text-xs text-text-200">
         {controlsHint ?? (
