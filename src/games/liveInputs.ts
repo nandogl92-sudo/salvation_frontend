@@ -1,13 +1,19 @@
-import { getMatchInputs, putMatchInputs } from '../api/playInputsApi'
+import { getMatchInputs, putMatchInputs, type RemotePad, type RemotePose } from '../api/playInputsApi'
 
 /** Latido si no cambia el pad. Un toque se envía al momento. */
-const HEARTBEAT_MS = 33
-const POLL_MS = 33
+const HEARTBEAT_MS = 50
+const POLL_MS = 50
+
+export type WorldSnap = RemotePose & {
+  y: number
+  receivedAt: number
+}
 
 export type LiveInputLink = {
-  setLocalKeys: (keys: Record<string, boolean>, y?: number) => void
+  setLocalKeys: (keys: Record<string, boolean>, y?: number, pose?: RemotePose | null) => void
   readRivalKeys: () => Record<string, boolean>
   readRivalY: () => number | null
+  readRivalSnap: () => WorldSnap | null
   stop: () => void
 }
 
@@ -56,8 +62,10 @@ export const otherSide = (side: 'p1' | 'p2'): 'p1' | 'p2' => (side === 'p1' ? 'p
 export const startLiveInputs = (matchId: string, localUserId: string): LiveInputLink => {
   let localKeys: Record<string, boolean> = {}
   let localY: number | null = null
+  let localPose: RemotePose | null = null
   let rivalKeys: Record<string, boolean> = {}
   let rivalY: number | null = null
+  let rivalSnap: WorldSnap | null = null
   let pendingPulses: string[] = []
   let stopped = false
   let inFlight = false
@@ -66,11 +74,14 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   let timer = 0
   let pollTimer = 0
 
-  const applyPads = (pads: { userId: string; keys: string[]; at: number; y: number | null }[]) => {
+  const applyPads = (pads: RemotePad[]) => {
     const rival = pads.find((pad) => pad.userId !== localUserId)
     if (!rival || rival.at <= 0) return
     rivalKeys = unpackKeys(rival.keys)
     if (typeof rival.y === 'number') rivalY = rival.y
+    if (rival.pose && typeof rival.y === 'number') {
+      rivalSnap = { ...rival.pose, y: rival.y, receivedAt: performance.now() }
+    }
   }
 
   const flush = async () => {
@@ -84,7 +95,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     const keys = mergeKeys(held, pendingPulses)
     pendingPulses = []
     lastHeldSig = signatureOf(held)
-    const pads = await putMatchInputs(matchId, keys, localY)
+    const pads = await putMatchInputs(matchId, keys, localY, localPose)
     inFlight = false
     if (stopped) return
     applyPads(pads)
@@ -112,9 +123,10 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   void pull()
 
   return {
-    setLocalKeys: (keys, y) => {
+    setLocalKeys: (keys, y, pose) => {
       localKeys = keys
       if (typeof y === 'number') localY = y
+      if (pose) localPose = pose
       const held = packKeys(keys)
       const sig = signatureOf(held)
       if (sig === lastHeldSig) return
@@ -123,11 +135,12 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     },
     readRivalKeys: () => rivalKeys,
     readRivalY: () => rivalY,
+    readRivalSnap: () => rivalSnap,
     stop: () => {
       stopped = true
       window.clearTimeout(timer)
       window.clearTimeout(pollTimer)
-      void putMatchInputs(matchId, [], null)
+      void putMatchInputs(matchId, packKeys(localKeys), localY, localPose)
     },
   }
 }

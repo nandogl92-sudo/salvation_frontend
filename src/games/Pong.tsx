@@ -525,56 +525,20 @@ export default function Pong({
       if (down) state[side].y = Math.min(maxPaddle, state[side].y + 7);
     };
 
+    const chaseY = (from: number, to: number) => {
+      const delta = to - from;
+      if (Math.abs(delta) <= 0.5) return to;
+      const cap = Math.abs(delta) > 48 ? 20 : 8;
+      return Math.max(minPaddle, Math.min(maxPaddle, from + Math.sign(delta) * Math.min(Math.abs(delta), cap)));
+    };
+
     const FRAME_MS = 1000 / 60;
+    const isHost = !world || you === 'p1';
     let lastStamp = performance.now();
     let acc = 0;
     let ended = false;
 
-    const step = () => {
-      state.frames += 1;
-      const rankedWait = world ? rankedCountdown(world.startAt) : null;
-      const p1Before = state.p1.y;
-      const p2Before = state.p2.y;
-
-      if (!rankedWait) {
-        if (world) {
-          movePaddle(
-            you,
-            keyHeld(state.keys, 'w', 'W', 'ArrowUp'),
-            keyHeld(state.keys, 's', 'S', 'ArrowDown'),
-          );
-          link?.setLocalKeys(state.keys, state[you].y);
-          const rivalY = link?.readRivalY();
-          if (typeof rivalY === 'number') {
-            const next = state[them].y + (rivalY - state[them].y) * 0.8;
-            state[them].y = Math.max(minPaddle, Math.min(maxPaddle, next));
-          } else {
-            const rival = link?.readRivalKeys() ?? {};
-            movePaddle(
-              them,
-              keyHeld(rival, 'w', 'W', 'ArrowUp'),
-              keyHeld(rival, 's', 'S', 'ArrowDown'),
-            );
-          }
-        } else {
-          movePaddle('p1', Boolean(state.keys['w'] || state.keys['W']), Boolean(state.keys['s'] || state.keys['S']));
-          if (botEnabled) {
-            const paddleCenter = state.p2.y + PADDLE_H / 2;
-            if (state.ball.y > paddleCenter) state.p2.y = Math.min(maxPaddle, state.p2.y + BOT_SPEED);
-            else if (state.ball.y < paddleCenter) state.p2.y = Math.max(minPaddle, state.p2.y - BOT_SPEED);
-          } else {
-            movePaddle('p2', Boolean(state.keys['ArrowUp']), Boolean(state.keys['ArrowDown']));
-          }
-        }
-      }
-
-      state.p1.moving = state.p1.y !== p1Before ? Math.floor(state.frames / 6) : -1;
-      state.p2.moving = state.p2.y !== p2Before ? Math.floor(state.frames / 6) : -1;
-      if (state.p1.swing > 0) state.p1.swing -= 1;
-      if (state.p2.swing > 0) state.p2.swing -= 1;
-      if (state.shake > 0) state.shake -= 1;
-
-      if (!rankedWait) {
+    const stepBall = () => {
       state.trail.push({ x: state.ball.x, y: state.ball.y });
       if (state.trail.length > 8) state.trail.shift();
 
@@ -621,6 +585,88 @@ export default function Pong({
 
       if (state.ball.x < 0) scorePoint('p2');
       if (state.ball.x > WIDTH) scorePoint('p1');
+    };
+
+    const followHost = () => {
+      const snap = link?.readRivalSnap();
+      if (!snap) return;
+      const frames = Math.min(8, Math.max(0, (performance.now() - snap.receivedAt) / FRAME_MS));
+      if (snap.p1 !== state.p1.score || snap.p2 !== state.p2.score) {
+        state.shake = SHAKE_FRAMES;
+        const scored = snap.p1 > state.p1.score ? 'p1' : 'p2';
+        const exitX = scored === 'p1' ? WIDTH - 24 : 24;
+        spawnSparks(state.sparks, exitX, state.ball.y, 14, scored === 'p1' ? CYAN : ORANGE);
+        state.trail = [];
+      }
+      state.p1.score = snap.p1;
+      state.p2.score = snap.p2;
+      state[them].y = chaseY(state[them].y, snap.y);
+      state.ball.x = snap.ballX + snap.ballVx * frames;
+      state.ball.y = Math.max(
+        PLAY_TOP + BALL_R,
+        Math.min(PLAY_BOTTOM - BALL_R, snap.ballY + snap.ballVy * frames),
+      );
+      state.ball.vx = snap.ballVx;
+      state.ball.vy = snap.ballVy;
+      state.trail.push({ x: state.ball.x, y: state.ball.y });
+      if (state.trail.length > 8) state.trail.shift();
+    };
+
+    const step = () => {
+      state.frames += 1;
+      const rankedWait = world ? rankedCountdown(world.startAt) : null;
+      const p1Before = state.p1.y;
+      const p2Before = state.p2.y;
+
+      if (!rankedWait) {
+        if (world) {
+          movePaddle(
+            you,
+            keyHeld(state.keys, 'w', 'W', 'ArrowUp'),
+            keyHeld(state.keys, 's', 'S', 'ArrowDown'),
+          );
+          if (isHost) {
+            const rivalY = link?.readRivalY();
+            if (typeof rivalY === 'number') state[them].y = chaseY(state[them].y, rivalY);
+          }
+        } else {
+          movePaddle('p1', Boolean(state.keys['w'] || state.keys['W']), Boolean(state.keys['s'] || state.keys['S']));
+          if (botEnabled) {
+            const paddleCenter = state.p2.y + PADDLE_H / 2;
+            if (state.ball.y > paddleCenter) state.p2.y = Math.min(maxPaddle, state.p2.y + BOT_SPEED);
+            else if (state.ball.y < paddleCenter) state.p2.y = Math.max(minPaddle, state.p2.y - BOT_SPEED);
+          } else {
+            movePaddle('p2', Boolean(state.keys['ArrowUp']), Boolean(state.keys['ArrowDown']));
+          }
+        }
+      }
+
+      state.p1.moving = state.p1.y !== p1Before ? Math.floor(state.frames / 6) : -1;
+      state.p2.moving = state.p2.y !== p2Before ? Math.floor(state.frames / 6) : -1;
+      if (state.p1.swing > 0) state.p1.swing -= 1;
+      if (state.p2.swing > 0) state.p2.swing -= 1;
+      if (state.shake > 0) state.shake -= 1;
+
+      if (!rankedWait) {
+        if (world && !isHost) followHost();
+        else stepBall();
+      }
+
+      if (world) {
+        link?.setLocalKeys(
+          state.keys,
+          state[you].y,
+          isHost
+            ? {
+                ballX: state.ball.x,
+                ballY: state.ball.y,
+                ballVx: state.ball.vx,
+                ballVy: state.ball.vy,
+                p1: state.p1.score,
+                p2: state.p2.score,
+              }
+            : null,
+        );
       }
 
       state.sparks = state.sparks.filter((spark) => {
