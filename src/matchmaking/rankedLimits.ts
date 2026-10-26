@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'betplay.ranked.plays.v2'
 
-export const RANKED_PER_DAY = 8
+export const RANKED_PER_DAY = 9999
 export const RANKED_PER_RIVAL_WEEK = 2
 
 type RankedPlay = {

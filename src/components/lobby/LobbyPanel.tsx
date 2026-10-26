@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { AlertCircle, WifiOff } from 'lucide-react'
 import { isCurrentSubscriptionMonth } from '../../api/subscriptionsApi'
 import {
-  RANKED_PER_DAY,
   RANKED_PER_RIVAL_WEEK,
   canRankedVsRival,
   rankedLeftToday,
@@ -165,8 +164,8 @@ const LobbyPanel = ({
             <p className="text-xs text-text-200">
               Ranking: otra persona. El bot no se usa. La cola elige rival.
             </p>
-            <p className="text-sm font-bold text-text-100" aria-label={`${leftToday} ranqueadas restantes de ${RANKED_PER_DAY} hoy`}>
-              Te quedan {leftToday} de {RANKED_PER_DAY} ranqueadas hoy
+            <p className="text-sm font-bold text-text-100">
+              Pruebas: sin tope diario de ranqueadas.
             </p>
           </div>
         ) : (
@@ -178,12 +177,6 @@ const LobbyPanel = ({
         {!canRanked && (
           <p className="text-xs text-text-200">
             Paga la inscripción de este mes para una ranqueada.
-          </p>
-        )}
-
-        {isRanked && canRanked && leftToday <= 0 && (
-          <p className="text-sm text-text-200" role="status">
-            El servidor corta al llegar a {RANKED_PER_DAY} ranqueadas terminadas hoy.
           </p>
         )}
 
