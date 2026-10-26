@@ -19,7 +19,7 @@ import Navbar from './components/layout/Navbar';
 import HomeLanding from './components/home/HomeLanding';
 import SubscriptionPayDialog from './components/home/SubscriptionPayDialog';
 import { isCurrentSubscriptionMonth } from './api/subscriptionsApi';
-import { rankedLeftToday, recordRankedPlay } from './matchmaking/rankedLimits';
+import { recordRankedPlay } from './matchmaking/rankedLimits';
 import LobbyPanel from './components/lobby/LobbyPanel';
 import GameResultPanel, { type GameResult } from './components/play/GameResultPanel';
 import PlayingArena from './components/play/PlayingArena';
@@ -238,9 +238,6 @@ export default function App() {
       return;
     }
     const ranked = rankedSearch && !matchedBot;
-    if (ranked) {
-      recordRankedPlay(currentTicket.userId, result.opponent.userId);
-    }
     setQueueHold(null);
     setLastRivalId(result.opponent.userId);
     setOpponent(result.opponent);
@@ -323,10 +320,6 @@ export default function App() {
     if (!currentUser || !selectedGame || betAmount > currentUser.balance || betAmount <= 0) return;
     if (queueStatus === 'searching') return;
     if (isRanked) {
-      if (rankedLeftToday(currentUser.id) <= 0) {
-        setQueueError('Hoy ya usaste las 8 ranqueadas. Juega amistoso.');
-        return;
-      }
       await startMatchmaking(true);
       return;
     }
@@ -454,6 +447,8 @@ export default function App() {
     settledMatchIdRef.current = input.matchId;
     settlingRef.current = true;
     const won = input.winnerUserId === currentUser.id;
+    const rivalUserId = rankedPlayRef.current.rivalUserId;
+    if (!input.isRefund && rivalUserId) recordRankedPlay(currentUser.id, rivalUserId);
     const me = input.players.find((player) => player.id === currentUser.id);
     if (me) await setBalance(me.balance);
     const profit = input.isRefund || !me ? 0 : me.balance - (currentUser.balance + betAmount);

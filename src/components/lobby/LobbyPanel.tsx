@@ -76,7 +76,7 @@ const LobbyPanel = ({
   const handlePlay = () => {
     if (isInvalidBet) return
     if (isRanked) {
-      if (!canRanked || leftToday <= 0) return
+      if (!canRanked) return
       onRetry(true)
       return
     }
@@ -109,7 +109,7 @@ const LobbyPanel = ({
     ? 'bg-accent-100 text-white'
     : 'bg-bg-200 text-text-100'
 
-  const rankedBlocked = !canRanked || leftToday <= 0
+  const rankedBlocked = !canRanked
   const playDisabled = isInvalidBet || isSearching || (isRanked
     ? rankedBlocked
     : allRivals.length === 0)
@@ -182,7 +182,9 @@ const LobbyPanel = ({
         )}
 
         {isRanked && canRanked && leftToday <= 0 && (
-          <p className="text-sm text-text-200" role="status">Hoy ya usaste las {RANKED_PER_DAY} ranqueadas. Juega amistoso.</p>
+          <p className="text-sm text-text-200" role="status">
+            El servidor corta al llegar a {RANKED_PER_DAY} ranqueadas terminadas hoy.
+          </p>
         )}
 
         {isRanked && canRanked && leftToday > 0 && eligibleRanked.length === 0 && rankedRivals.length > 0 && (
