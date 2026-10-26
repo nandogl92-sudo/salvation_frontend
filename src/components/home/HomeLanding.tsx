@@ -5,7 +5,7 @@ import PointsRanking from './PointsRanking'
 
 const CARD_BORDER: Record<string, string> = {
   pong: 'border-yellow-400',
-  snake: 'border-cyan-400',
+  snake: 'border-sky-400',
   tetris: 'border-red-400',
   combat: 'border-sky-400',
   shooter: 'border-purple-400',
@@ -31,13 +31,11 @@ const scrollToGames = () => {
 const GameArt = ({ gameId }: { gameId: string }) => {
   if (gameId === 'snake') {
     return (
-      <div className="h-28 bg-[#12081c] relative overflow-hidden">
-        <div className="absolute left-5 top-10 w-3 h-3 rounded-sm bg-emerald-800" />
-        <div className="absolute left-8 top-9 w-4 h-4 rounded-sm bg-emerald-600" />
-        <div className="absolute left-12 top-8 w-5 h-5 rounded-sm bg-emerald-400" />
-        <div className="absolute left-[4.2rem] top-7 w-6 h-6 rounded-sm bg-emerald-300" />
-        <div className="absolute left-[5.6rem] top-8 w-2 h-2 bg-white" />
-        <div className="absolute right-10 top-10 w-3 h-3 bg-cyan-300 rotate-45" />
+      <div className="h-28 bg-[#7ec8ea] relative overflow-hidden">
+        <div className="absolute left-8 top-10 w-10 h-4 bg-[#fdba74] rounded-sm" />
+        <div className="absolute left-12 top-7 w-5 h-4 bg-[#c2410c]" />
+        <div className="absolute right-10 top-6 w-16 h-16 rounded-full border-8 border-[#f5c518]" />
+        <div className="absolute inset-x-0 bottom-0 h-4 bg-[#65a30d]" />
       </div>
     )
   }

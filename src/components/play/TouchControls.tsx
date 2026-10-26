@@ -21,16 +21,9 @@ const PADS: Record<string, GamePad> = {
   },
   snake: {
     dirs: [
-      { key: 'w', label: '▲', ariaLabel: 'Arriba' },
-      { key: 'a', label: '◀', ariaLabel: 'Izquierda' },
-      { key: 's', label: '▼', ariaLabel: 'Abajo' },
-      { key: 'd', label: '▶', ariaLabel: 'Derecha' },
+      { key: ' ', label: 'IMPULSO', ariaLabel: 'Impulso hacia arriba' },
     ],
-    actions: [
-      { key: 'Shift', label: 'TURBO', ariaLabel: 'Acelerón' },
-      { key: 'q', label: 'Q', ariaLabel: 'Escudo' },
-      { key: 'e', label: 'E', ariaLabel: 'Mordisco' },
-    ],
+    actions: [],
   },
   tetris: {
     dirs: [
