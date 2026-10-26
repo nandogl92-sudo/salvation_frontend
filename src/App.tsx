@@ -337,13 +337,10 @@ export default function App() {
           return;
         }
         const ranked = queueIsRanked && !matchedBot;
-        if (ranked && !result.world) {
-          setQueueHold(result.opponent.username);
-          return;
-        }
         if (ranked) {
           recordRankedPlay(ticket.userId, result.opponent.userId);
         }
+        setQueueHold(null);
         setLastRivalId(result.opponent.userId);
         setOpponent(result.opponent);
         settledMatchIdRef.current = null;

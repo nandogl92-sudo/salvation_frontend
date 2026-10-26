@@ -21,7 +21,7 @@ export type JoinQueueResult =
 export type RankedWorld = {
   seed: number
   startAt: number
-  localSide: 'p1' | 'p2'
+  localSide?: 'p1' | 'p2'
 }
 
 export type QueuePoll =
@@ -121,14 +121,20 @@ const toPlayer = (rival: ApiRival, isBot: boolean): MatchPlayer => {
 
 const isSide = (value: unknown): value is 'p1' | 'p2' => value === 'p1' || value === 'p2'
 
+const readStartAt = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') return Date.parse(value)
+  return Number.NaN
+}
+
 const readWorld = (value: unknown): RankedWorld | null => {
   if (!value || typeof value !== 'object') return null
   const world = value as ApiWorld
   if (typeof world.seed !== 'number' || !Number.isFinite(world.seed)) return null
-  const startAt = typeof world.startsAt === 'string' ? Date.parse(world.startsAt) : Number.NaN
+  const startAt = readStartAt(world.startsAt)
   if (!Number.isFinite(startAt)) return null
-  if (!world.you || !isSide(world.you.side)) return null
-  return { seed: world.seed, startAt, localSide: world.you.side }
+  const localSide = world.you && isSide(world.you.side) ? world.you.side : undefined
+  return { seed: world.seed, startAt, localSide }
 }
 
 const toMatchRecord = (match: ApiMatch, self: MatchPlayer): MatchRecord | null => {
