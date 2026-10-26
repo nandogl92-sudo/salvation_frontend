@@ -254,13 +254,12 @@ export default function App() {
         ? buildSharedWorld({
             matchId: result.match.id,
             createdAt: result.match.createdAt,
-            localUserId: currentTicket.userId,
+            localUserId: currentUser?.id ?? currentTicket.userId,
             rivalUserId: result.opponent.userId,
             youName: currentTicket.username,
             rivalName: result.opponent.username,
             seed: result.world?.seed,
             startAt: result.world?.startAt,
-            localSide: result.world?.localSide,
           })
         : null,
     });

@@ -42,11 +42,14 @@ export const buildSharedWorld = (input: {
 }): SharedWorld => {
   const createdAt = Number.isFinite(input.createdAt) ? (input.createdAt as number) : Date.now()
   const startAt = Number.isFinite(input.startAt) ? (input.startAt as number) : createdAt + COUNTDOWN_MS
-  const localSide = input.localSide === 'p1' || input.localSide === 'p2'
-    ? input.localSide
-    : input.rivalUserId && input.localUserId < input.rivalUserId
-      ? 'p1'
-      : 'p2'
+  const localSide =
+    input.localUserId && input.rivalUserId
+      ? input.localUserId < input.rivalUserId
+        ? 'p1'
+        : 'p2'
+      : input.localSide === 'p1' || input.localSide === 'p2'
+        ? input.localSide
+        : 'p1'
   const seed = Number.isFinite(input.seed) ? (input.seed as number) : hashSeed(input.matchId)
   return {
     matchId: input.matchId,
