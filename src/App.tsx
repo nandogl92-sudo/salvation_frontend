@@ -387,7 +387,11 @@ export default function App() {
         return;
       }
 
-      if (result.status === 'error') setQueueError(result.message);
+      if (result.status === 'error') {
+        const message = result.message.toLowerCase();
+        if (message.includes('abort') || message.includes('timed out')) return;
+        setQueueError(result.message);
+      }
     };
 
     void poll();

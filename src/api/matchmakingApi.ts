@@ -105,11 +105,7 @@ const request = async (path: string, init: RequestInit): Promise<Response> => {
 
   const startedAt = performance.now()
   const endpoint = `${init.method ?? 'GET'} ${path}`
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers,
-    signal: init.signal ?? AbortSignal.timeout(10_000),
-  })
+  const response = await fetch(`${API_URL}${path}`, { ...init, headers })
   logCall(endpoint, response.status, startedAt)
   return response
 }
@@ -240,10 +236,18 @@ const readPoll = async (ticket: MatchTicket): Promise<QueuePoll> => {
   }
 }
 
+const isAbortError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false
+  const name = error.name.toLowerCase()
+  const message = error.message.toLowerCase()
+  return name === 'aborterror' || message.includes('abort') || message.includes('timed out')
+}
+
 export const tryMatch = async (ticket: MatchTicket): Promise<QueuePoll> => {
   try {
     return await readPoll(ticket)
   } catch (error) {
+    if (isAbortError(error)) return { status: 'waiting' }
     const message = error instanceof Error ? error.message : 'No se pudo consultar la búsqueda.'
     return { status: 'error', message }
   }
