@@ -525,7 +525,12 @@ export default function Pong({
       if (down) state[side].y = Math.min(maxPaddle, state[side].y + 7);
     };
 
-    const update = () => {
+    const FRAME_MS = 1000 / 60;
+    let lastStamp = performance.now();
+    let acc = 0;
+    let ended = false;
+
+    const step = () => {
       state.frames += 1;
       const rankedWait = world ? rankedCountdown(world.startAt) : null;
       const p1Before = state.p1.y;
@@ -620,9 +625,11 @@ export default function Pong({
         return spark.life > 0;
       });
 
-      if (state.p1.score >= 10) { onGameEnd('p1'); return; }
-      if (state.p2.score >= 10) { onGameEnd('p2'); return; }
+      if (state.p1.score >= 10) { ended = true; onGameEnd('p1'); return; }
+      if (state.p2.score >= 10) { ended = true; onGameEnd('p2'); return; }
+    };
 
+    const paint = (rankedWait: string | null) => {
       ctx.fillStyle = '#05070f';
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
       ctx.save();
@@ -655,12 +662,23 @@ export default function Pong({
         sideLabel(world, 'p2', 'P2'),
       );
       if (rankedWait) drawCountBanner(ctx, rankedWait);
+    };
 
-      animationFrameId = requestAnimationFrame(update);
+    const tick = (now: number) => {
+      if (ended) return;
+      acc += Math.min(50, now - lastStamp);
+      lastStamp = now;
+      while (acc >= FRAME_MS) {
+        acc -= FRAME_MS;
+        step();
+        if (ended) return;
+      }
+      paint(world ? rankedCountdown(world.startAt) : null);
+      animationFrameId = requestAnimationFrame(tick);
     };
 
     if (world) resetBall();
-    animationFrameId = requestAnimationFrame(update);
+    animationFrameId = requestAnimationFrame(tick);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);

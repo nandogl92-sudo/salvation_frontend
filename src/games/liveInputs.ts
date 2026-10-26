@@ -1,7 +1,7 @@
-import { getMatchInputs, putMatchInputs } from '../api/playInputsApi'
+import { putMatchInputs } from '../api/playInputsApi'
 
 /** Latido si no cambia el pad. Un toque se envía al momento. */
-const HEARTBEAT_MS = 80
+const HEARTBEAT_MS = 50
 
 export type LiveInputLink = {
   setLocalKeys: (keys: Record<string, boolean>) => void
@@ -72,11 +72,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     const keys = mergeKeys(held, pendingPulses)
     pendingPulses = []
     lastHeldSig = signatureOf(held)
-    let pads = await putMatchInputs(matchId, keys)
-    if (pads.length <= 1) {
-      const extra = await getMatchInputs(matchId)
-      if (extra.length > pads.length) pads = extra
-    }
+    const pads = await putMatchInputs(matchId, keys)
     inFlight = false
     if (stopped) return
     const rival = pads.find((pad) => pad.userId !== localUserId)
