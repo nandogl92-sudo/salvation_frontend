@@ -1,6 +1,7 @@
-import { getMatchInputs, putMatchInputs } from '../api/playInputsApi'
+import { putMatchInputs } from '../api/playInputsApi'
 
-const POLL_MS = 120
+/** Latido si no cambia el pad. Un toque se envía al momento. */
+const HEARTBEAT_MS = 180
 
 export type LiveInputLink = {
   setLocalKeys: (keys: Record<string, boolean>) => void
@@ -23,6 +24,19 @@ const packKeys = (keys: Record<string, boolean>): string[] => {
   return out
 }
 
+const mergeKeys = (held: string[], extra: string[]): string[] => {
+  const seen = new Set(held)
+  const out = [...held]
+  extra.forEach((key) => {
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(key)
+  })
+  return out
+}
+
+const signatureOf = (keys: string[]): string => [...keys].sort().join('\0')
+
 const unpackKeys = (keys: string[]): Record<string, boolean> => {
   const held: Record<string, boolean> = {}
   keys.forEach((key) => {
@@ -40,33 +54,57 @@ export const otherSide = (side: 'p1' | 'p2'): 'p1' | 'p2' => (side === 'p1' ? 'p
 export const startLiveInputs = (matchId: string, localUserId: string): LiveInputLink => {
   let localKeys: Record<string, boolean> = {}
   let rivalKeys: Record<string, boolean> = {}
+  let pendingPulses: string[] = []
   let stopped = false
   let inFlight = false
+  let dirty = false
+  let lastHeldSig = ''
+  let timer = 0
 
-  const tick = async () => {
-    if (stopped || inFlight) return
+  const flush = async () => {
+    if (stopped || inFlight) {
+      dirty = true
+      return
+    }
     inFlight = true
-    const pads = await putMatchInputs(matchId, packKeys(localKeys))
-    const extra = pads.length > 0 ? pads : await getMatchInputs(matchId)
+    window.clearTimeout(timer)
+    const held = packKeys(localKeys)
+    const keys = mergeKeys(held, pendingPulses)
+    pendingPulses = []
+    lastHeldSig = signatureOf(held)
+    const pads = await putMatchInputs(matchId, keys)
     inFlight = false
     if (stopped) return
-    const rival = extra.find((pad) => pad.userId !== localUserId)
-    rivalKeys = rival ? unpackKeys(rival.keys) : {}
+    if (pads.length > 0) {
+      const rival = pads.find((pad) => pad.userId !== localUserId)
+      rivalKeys = rival ? unpackKeys(rival.keys) : {}
+    }
+    const heldNow = signatureOf(packKeys(localKeys))
+    if (dirty || pendingPulses.length > 0 || heldNow !== lastHeldSig) {
+      dirty = false
+      void flush()
+      return
+    }
+    timer = window.setTimeout(() => {
+      void flush()
+    }, HEARTBEAT_MS)
   }
 
-  const intervalId = window.setInterval(() => {
-    void tick()
-  }, POLL_MS)
-  void tick()
+  void flush()
 
   return {
     setLocalKeys: (keys) => {
       localKeys = keys
+      const held = packKeys(keys)
+      const sig = signatureOf(held)
+      if (sig === lastHeldSig) return
+      pendingPulses = mergeKeys(pendingPulses, held)
+      void flush()
     },
     readRivalKeys: () => rivalKeys,
     stop: () => {
       stopped = true
-      window.clearInterval(intervalId)
+      window.clearTimeout(timer)
       void putMatchInputs(matchId, [])
     },
   }

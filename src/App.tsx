@@ -27,8 +27,8 @@ import { buildSharedWorld, type SharedWorld } from './games/sharedWorld';
 
 /** El siguiente GET de cola va cuando acaba el anterior. En móvil el setInterval se pausa. */
 const QUEUE_POLL_INTERVAL_MS = 700;
-/** Consulta del cierre compartido mientras dura la ranqueada. */
-const MATCH_STATUS_POLL_MS = 400;
+/** Consulta del cierre compartido. Más lento que el pad para no saturar el móvil. */
+const MATCH_STATUS_POLL_MS = 1500;
 /** Comisión de la plataforma sobre el pozo total (en porcentaje). */
 const PLATFORM_FEE_PERCENT = 5;
 
