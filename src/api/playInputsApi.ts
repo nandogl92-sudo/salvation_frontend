@@ -90,10 +90,11 @@ export const putMatchInputs = async (
   keys: string[],
   y: number | null = null,
   pose: RemotePose | null = null,
+  seq = 0,
 ): Promise<void> => {
   await request(`/matches/${matchId}/inputs`, {
     method: 'PUT',
-    body: JSON.stringify({ keys, y, pose }),
+    body: JSON.stringify({ keys, y, pose, seq }),
   })
 }
 

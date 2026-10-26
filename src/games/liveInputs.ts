@@ -1,8 +1,6 @@
 import { getMatchInputs, openMatchLive, putMatchInputs, type RemotePad, type RemotePose } from '../api/playInputsApi'
 
-const HEARTBEAT_MS = 16
-const MAX_PREDICT_MS = 80
-const MAX_PADDLE_VY = 0.55
+const HEARTBEAT_MS = 30
 
 export type WorldSnap = RemotePose & {
   y: number
@@ -43,8 +41,7 @@ const mergeKeys = (held: string[], extra: string[]): string[] => {
   return out
 }
 
-const signatureOf = (keys: string[], y: number | null): string =>
-  `${[...keys].sort().join('\0')}:${Math.round((y ?? 0) / 2)}`
+const signatureOf = (keys: string[]): string => [...keys].sort().join('\0')
 
 const unpackKeys = (keys: string[]): Record<string, boolean> => {
   const held: Record<string, boolean> = {}
@@ -66,12 +63,11 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   let localPose: RemotePose | null = null
   let rivalKeys: Record<string, boolean> = {}
   let rivalY: number | null = null
-  let rivalYAt = 0
-  let rivalVy = 0
   let rivalSnap: WorldSnap | null = null
   let lastRivalAt = 0
   let pendingPulses: string[] = []
   let stopped = false
+  let seq = 0
   let inFlight = 0
   let dirty = false
   let lastHeldSig = ''
@@ -85,25 +81,12 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     if (!rival || rival.at <= 0 || rival.at <= lastRivalAt) return
     lastRivalAt = rival.at
     rivalKeys = unpackKeys(rival.keys)
-    const now = performance.now()
-    if (typeof rival.y === 'number') {
-      if (rivalY !== null) {
-        const dt = now - rivalYAt
-        if (dt > 0) {
-          const nextVy = (rival.y - rivalY) / dt
-          rivalVy = Math.max(-MAX_PADDLE_VY, Math.min(MAX_PADDLE_VY, nextVy))
-        }
-      }
-      rivalY = rival.y
-      rivalYAt = now
-    }
-    if (rival.pose && typeof rival.y === 'number') {
-      rivalSnap = { ...rival.pose, y: rival.y, receivedAt: now }
-    }
+    if (typeof rival.y === 'number') rivalY = rival.y
+    if (rival.pose) rivalSnap = { ...rival.pose, y: rival.y ?? 0, receivedAt: performance.now() }
   }
 
   const flush = () => {
-    if (stopped || inFlight >= 2) {
+    if (stopped || inFlight >= 3) {
       dirty = true
       return
     }
@@ -111,12 +94,14 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     const held = packKeys(localKeys)
     const keys = mergeKeys(held, pendingPulses)
     pendingPulses = []
-    lastHeldSig = signatureOf(held, localY)
+    lastHeldSig = signatureOf(held)
+    seq += 1
+    const sentSeq = seq
     inFlight += 1
-    void putMatchInputs(matchId, keys, localY, localPose).finally(() => {
+    void putMatchInputs(matchId, keys, localY, localPose, sentSeq).finally(() => {
       inFlight -= 1
       if (stopped) return
-      const heldNow = signatureOf(packKeys(localKeys), localY)
+      const heldNow = signatureOf(packKeys(localKeys))
       if (dirty || pendingPulses.length > 0 || heldNow !== lastHeldSig) {
         dirty = false
         flush()
@@ -133,12 +118,12 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   }, liveAbort.signal)
 
   const poll = async () => {
-    if (stopped || liveReady) return
+    if (stopped) return
     applyPads(await getMatchInputs(matchId))
-    if (stopped || liveReady) return
+    if (stopped) return
     pollTimer = window.setTimeout(() => {
       void poll()
-    }, 40)
+    }, liveReady ? 40 : 16)
   }
   void poll()
 
@@ -150,24 +135,21 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
       if (typeof y === 'number') localY = y
       if (pose) localPose = pose
       const held = packKeys(keys)
-      const sig = signatureOf(held, localY)
+      const sig = signatureOf(held)
       if (sig === lastHeldSig) return
       pendingPulses = mergeKeys(pendingPulses, held)
       flush()
     },
     readRivalKeys: () => rivalKeys,
-    readRivalY: () => {
-      if (rivalY === null) return null
-      const extra = Math.min(MAX_PREDICT_MS, Math.max(0, performance.now() - rivalYAt))
-      return rivalY + rivalVy * extra
-    },
+    readRivalY: () => rivalY,
     readRivalSnap: () => rivalSnap,
     stop: () => {
       stopped = true
       window.clearTimeout(timer)
       window.clearTimeout(pollTimer)
       liveAbort.abort()
-      void putMatchInputs(matchId, packKeys(localKeys), localY, localPose)
+      seq += 1
+      void putMatchInputs(matchId, packKeys(localKeys), localY, localPose, seq)
     },
   }
 }

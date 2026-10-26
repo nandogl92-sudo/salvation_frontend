@@ -601,15 +601,12 @@ export default function Pong({
       }
       const dx = snap.ballX - state.ball.x;
       const dy = snap.ballY - state.ball.y;
-      if (Math.abs(dx) > 90 || Math.abs(dy) > 70) {
+      if (Math.abs(dx) > 180 || Math.abs(dy) > 140) {
         state.ball.x = snap.ballX;
         state.ball.y = snap.ballY;
         state.ball.vx = snap.ballVx;
         state.ball.vy = snap.ballVy;
-        return;
       }
-      state.ball.x += dx * 0.08;
-      state.ball.y += dy * 0.08;
     };
 
     const step = () => {
@@ -625,8 +622,15 @@ export default function Pong({
             keyHeld(state.keys, 'w', 'W', 'ArrowUp'),
             keyHeld(state.keys, 's', 'S', 'ArrowDown'),
           );
+          const rival = link?.readRivalKeys() ?? {};
+          const rivalUp = keyHeld(rival, 'w', 'W', 'ArrowUp');
+          const rivalDown = keyHeld(rival, 's', 'S', 'ArrowDown');
+          movePaddle(them, rivalUp, rivalDown);
           const rivalY = link?.readRivalY();
-          if (typeof rivalY === 'number') state[them].y = clampPaddle(rivalY);
+          if (typeof rivalY === 'number' && !rivalUp && !rivalDown) {
+            const drift = rivalY - state[them].y;
+            if (Math.abs(drift) > 2) state[them].y = clampPaddle(state[them].y + drift * 0.45);
+          }
         } else {
           movePaddle('p1', Boolean(state.keys['w'] || state.keys['W']), Boolean(state.keys['s'] || state.keys['S']));
           if (botEnabled) {
