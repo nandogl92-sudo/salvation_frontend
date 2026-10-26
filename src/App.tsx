@@ -25,8 +25,8 @@ import GameResultPanel, { type GameResult } from './components/play/GameResultPa
 import PlayingArena from './components/play/PlayingArena';
 import { buildSharedWorld, type SharedWorld } from './games/sharedWorld';
 
-/** Frecuencia de consulta de la cola. El servidor marca el ticket como expired a los 120 s. */
-const QUEUE_POLL_INTERVAL_MS = 800;
+/** El siguiente GET de cola va cuando acaba el anterior. En móvil el setInterval se pausa. */
+const QUEUE_POLL_INTERVAL_MS = 700;
 /** Consulta del cierre compartido mientras dura la ranqueada. */
 const MATCH_STATUS_POLL_MS = 400;
 /** Comisión de la plataforma sobre el pozo total (en porcentaje). */
@@ -225,6 +225,49 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe reaccionar a cambios de sesión/vista.
   }, [currentUser, view]);
 
+  const enterMatchedQueue = (
+    currentTicket: MatchTicket,
+    result: Extract<Awaited<ReturnType<typeof tryMatch>>, { status: 'matched' }>,
+    rankedSearch: boolean,
+  ) => {
+    const matchedBot = Boolean(result.opponent.isBot);
+    if (matchedBot && rankedSearch) {
+      setQueueStatus('timeout');
+      void syncBalanceFromServer();
+      return;
+    }
+    const ranked = rankedSearch && !matchedBot;
+    if (ranked) {
+      recordRankedPlay(currentTicket.userId, result.opponent.userId);
+    }
+    setQueueHold(null);
+    setLastRivalId(result.opponent.userId);
+    setOpponent(result.opponent);
+    settledMatchIdRef.current = null;
+    settlingRef.current = false;
+    setActiveMatch({
+      id: result.match.id,
+      isBot: matchedBot,
+      isRanked: ranked,
+      world: ranked
+        ? buildSharedWorld({
+            matchId: result.match.id,
+            createdAt: result.match.createdAt,
+            localUserId: currentTicket.userId,
+            rivalUserId: result.opponent.userId,
+            youName: currentTicket.username,
+            rivalName: result.opponent.username,
+            seed: result.world?.seed,
+            startAt: result.world?.startAt,
+            localSide: result.world?.localSide,
+          })
+        : null,
+    });
+    setTicket(null);
+    setQueueStatus('idle');
+    setView('playing');
+  };
+
   // El backend descuenta la apuesta al crear el ticket y la devuelve al cancelar o al expirar.
   const startMatchmaking = async (isRanked = false) => {
     if (!currentUser || !selectedGame || betAmount > currentUser.balance || betAmount <= 0) return;
@@ -236,6 +279,13 @@ export default function App() {
     const result = await joinQueue({ gameId: selectedGame.id, betAmount, ranked: isRanked });
     if (!result.ok) {
       setQueueError(result.message);
+      return;
+    }
+
+    const already = await tryMatch(result.ticket);
+    if (already.status === 'matched') {
+      enterMatchedQueue(result.ticket, already, isRanked);
+      await syncBalanceFromServer();
       return;
     }
 
@@ -312,78 +362,20 @@ export default function App() {
     await syncBalanceFromServer();
   };
 
-  // El servidor empareja al consultar el ticket y lo marca expired a los 60 s.
+  // El servidor empareja al crear el ticket y al consultar. En móvil no usamos setInterval: se pausa.
   useEffect(() => {
     if (queueStatus !== 'searching' || !ticket) return;
 
     let stopped = false;
-    let inFlight = false;
-    let lastJoinAt = 0;
+    let timer = 0;
 
     const poll = async () => {
-      if (stopped || inFlight) return;
-      inFlight = true;
-      let result: Awaited<ReturnType<typeof tryMatch>>;
-      try {
-        result = await tryMatch(ticket);
-        const shouldRejoin =
-          queueIsRanked &&
-          selectedGame &&
-          Date.now() - lastJoinAt > 2000 &&
-          (result.status === 'waiting' || result.status === 'error');
-        if (shouldRejoin) {
-          lastJoinAt = Date.now();
-          const again = await joinQueue({ gameId: selectedGame.id, betAmount, ranked: true });
-          if (again.ok) {
-            result = await tryMatch(again.ticket);
-            if (result.status !== 'matched' && again.ticket.id !== ticket.id) {
-              setTicket(again.ticket);
-              return;
-            }
-          }
-        }
-      } finally {
-        inFlight = false;
-      }
+      if (stopped) return;
+      const result = await tryMatch(ticket);
       if (stopped) return;
 
       if (result.status === 'matched') {
-        const matchedBot = Boolean(result.opponent.isBot);
-        if (matchedBot && queueIsRanked) {
-          setQueueStatus('timeout');
-          await syncBalanceFromServer();
-          return;
-        }
-        const ranked = queueIsRanked && !matchedBot;
-        if (ranked) {
-          recordRankedPlay(ticket.userId, result.opponent.userId);
-        }
-        setQueueHold(null);
-        setLastRivalId(result.opponent.userId);
-        setOpponent(result.opponent);
-        settledMatchIdRef.current = null;
-        settlingRef.current = false;
-        setActiveMatch({
-          id: result.match.id,
-          isBot: matchedBot,
-          isRanked: ranked,
-          world: ranked
-            ? buildSharedWorld({
-                matchId: result.match.id,
-                createdAt: result.match.createdAt,
-                localUserId: ticket.userId,
-                rivalUserId: result.opponent.userId,
-                youName: ticket.username,
-                rivalName: result.opponent.username,
-                seed: result.world?.seed,
-                startAt: result.world?.startAt,
-                localSide: result.world?.localSide,
-              })
-            : null,
-        });
-        setTicket(null);
-        setQueueStatus('idle');
-        setView('playing');
+        enterMatchedQueue(ticket, result, queueIsRanked);
         return;
       }
 
@@ -404,21 +396,33 @@ export default function App() {
 
       if (result.status === 'error') {
         const message = result.message.toLowerCase();
-        if (message.includes('abort') || message.includes('timed out')) return;
-        setQueueError(result.message);
+        if (!message.includes('abort') && !message.includes('timed out')) {
+          setQueueError(result.message);
+        }
       }
+
+      timer = window.setTimeout(() => {
+        void poll();
+      }, QUEUE_POLL_INTERVAL_MS);
+    };
+
+    const handleWake = () => {
+      if (document.visibilityState === 'hidden') return;
+      window.clearTimeout(timer);
+      void poll();
     };
 
     void poll();
-    const intervalId = window.setInterval(() => {
-      void poll();
-    }, QUEUE_POLL_INTERVAL_MS);
+    document.addEventListener('visibilitychange', handleWake);
+    window.addEventListener('pageshow', handleWake);
 
     return () => {
       stopped = true;
-      window.clearInterval(intervalId);
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', handleWake);
+      window.removeEventListener('pageshow', handleWake);
     };
-  }, [queueStatus, ticket, queueIsRanked, selectedGame, betAmount]);
+  }, [queueStatus, ticket, queueIsRanked]);
 
   const applyRankedMonthPoints = async (isRanked: boolean, won: boolean, isRefund: boolean) => {
     const before = currentUser ? monthTotalOf(currentUser.id) : 0;
