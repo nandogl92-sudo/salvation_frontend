@@ -321,8 +321,12 @@ export default function App() {
     const poll = async () => {
       if (stopped || inFlight) return;
       inFlight = true;
-      const result = await tryMatch(ticket);
-      inFlight = false;
+      let result: Awaited<ReturnType<typeof tryMatch>>;
+      try {
+        result = await tryMatch(ticket);
+      } finally {
+        inFlight = false;
+      }
       if (stopped) return;
 
       if (result.status === 'matched') {
@@ -333,7 +337,7 @@ export default function App() {
           return;
         }
         const ranked = queueIsRanked && !matchedBot;
-        if (ranked && (!result.arenaOpen || !result.world)) {
+        if (ranked && !result.world) {
           setQueueHold(result.opponent.username);
           return;
         }

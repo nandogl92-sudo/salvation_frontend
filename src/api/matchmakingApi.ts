@@ -105,7 +105,11 @@ const request = async (path: string, init: RequestInit): Promise<Response> => {
 
   const startedAt = performance.now()
   const endpoint = `${init.method ?? 'GET'} ${path}`
-  const response = await fetch(`${API_URL}${path}`, { ...init, headers })
+  const response = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers,
+    signal: init.signal ?? AbortSignal.timeout(10_000),
+  })
   logCall(endpoint, response.status, startedAt)
   return response
 }
