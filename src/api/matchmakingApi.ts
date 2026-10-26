@@ -18,9 +18,15 @@ export type JoinQueueResult =
   | { ok: true; ticket: MatchTicket }
   | { ok: false; message: string }
 
+export type RankedWorld = {
+  seed: number
+  startAt: number
+  localSide: 'p1' | 'p2'
+}
+
 export type QueuePoll =
   | { status: 'waiting' }
-  | { status: 'matched'; match: MatchRecord; opponent: MatchPlayer }
+  | { status: 'matched'; match: MatchRecord; opponent: MatchPlayer; arenaOpen: boolean; world: RankedWorld | null }
   | { status: 'expired' }
   | { status: 'cancelled' }
   | { status: 'error'; message: string }
@@ -52,10 +58,25 @@ type ApiTicket = {
   createdAt: string
 }
 
+type ApiWorldPlayer = {
+  userId: string
+  username: string
+  side: 'p1' | 'p2'
+}
+
+type ApiWorld = {
+  seed: number
+  startsAt: string
+  you: ApiWorldPlayer
+  rival: ApiWorldPlayer
+}
+
 type ApiPoll = {
   status: string
   match: ApiMatch | null
   rival: ApiRival | null
+  arenaOpen?: boolean
+  world?: ApiWorld | null
 }
 
 const logCall = (endpoint: string, status: number, startedAt: number) => {
@@ -96,6 +117,18 @@ const toPlayer = (rival: ApiRival, isBot: boolean): MatchPlayer => {
     username: rival.username,
     isBot,
   }
+}
+
+const isSide = (value: unknown): value is 'p1' | 'p2' => value === 'p1' || value === 'p2'
+
+const readWorld = (value: unknown): RankedWorld | null => {
+  if (!value || typeof value !== 'object') return null
+  const world = value as ApiWorld
+  if (typeof world.seed !== 'number' || !Number.isFinite(world.seed)) return null
+  const startAt = typeof world.startsAt === 'string' ? Date.parse(world.startsAt) : Number.NaN
+  if (!Number.isFinite(startAt)) return null
+  if (!world.you || !isSide(world.you.side)) return null
+  return { seed: world.seed, startAt, localSide: world.you.side }
 }
 
 const toMatchRecord = (match: ApiMatch, self: MatchPlayer): MatchRecord | null => {
@@ -193,10 +226,13 @@ const readPoll = async (ticket: MatchTicket): Promise<QueuePoll> => {
   const match = toMatchRecord(body.match, self)
   if (!match) return { status: 'error', message: 'La partida no incluye a los dos jugadores.' }
 
+  const world = readWorld(body.world)
   return {
     status: 'matched',
     match,
     opponent: toPlayer(body.rival, Boolean(body.match.isBotMatch)),
+    arenaOpen: body.arenaOpen === true || world !== null,
+    world,
   }
 }
 

@@ -54,8 +54,14 @@ const PADS: Record<string, GamePad> = {
   },
 }
 
+const keyCode = (key: string): string => {
+  if (key === ' ') return 'Space'
+  if (key.length === 1) return `Key${key.toUpperCase()}`
+  return key
+}
+
 const sendKey = (type: 'keydown' | 'keyup', key: string) => {
-  window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true }))
+  window.dispatchEvent(new KeyboardEvent(type, { key, code: keyCode(key), bubbles: true }))
 }
 
 const PadButton = ({ padKey }: { padKey: PadKey }) => {

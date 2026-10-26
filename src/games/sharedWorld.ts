@@ -31,19 +31,28 @@ export const makeRng = (seed: number): (() => number) => {
 
 export const buildSharedWorld = (input: {
   matchId: string
-  createdAt: number
   localUserId: string
-  rivalUserId: string
   youName: string
   rivalName: string
+  seed?: number
+  startAt?: number
+  localSide?: 'p1' | 'p2'
+  rivalUserId?: string
+  createdAt?: number
 }): SharedWorld => {
-  const createdAt = Number.isFinite(input.createdAt) ? input.createdAt : Date.now()
-  const localSide = input.localUserId < input.rivalUserId ? 'p1' : 'p2'
+  const createdAt = Number.isFinite(input.createdAt) ? (input.createdAt as number) : Date.now()
+  const startAt = Number.isFinite(input.startAt) ? (input.startAt as number) : createdAt + COUNTDOWN_MS
+  const localSide = input.localSide === 'p1' || input.localSide === 'p2'
+    ? input.localSide
+    : input.rivalUserId && input.localUserId < input.rivalUserId
+      ? 'p1'
+      : 'p2'
+  const seed = Number.isFinite(input.seed) ? (input.seed as number) : hashSeed(input.matchId)
   return {
     matchId: input.matchId,
     localUserId: input.localUserId,
-    seed: hashSeed(input.matchId),
-    startAt: createdAt + COUNTDOWN_MS,
+    seed,
+    startAt,
     localSide,
     youName: input.youName,
     rivalName: input.rivalName,

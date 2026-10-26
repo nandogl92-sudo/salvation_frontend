@@ -330,6 +330,7 @@ export default function App() {
           return;
         }
         const ranked = queueIsRanked && !matchedBot;
+        if (ranked && (!result.arenaOpen || !result.world)) return;
         if (ranked) {
           recordRankedPlay(ticket.userId, result.opponent.userId);
         }
@@ -349,6 +350,9 @@ export default function App() {
                 rivalUserId: result.opponent.userId,
                 youName: ticket.username,
                 rivalName: result.opponent.username,
+                seed: result.world?.seed,
+                startAt: result.world?.startAt,
+                localSide: result.world?.localSide,
               })
             : null,
         });
