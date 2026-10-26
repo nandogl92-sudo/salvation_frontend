@@ -22,6 +22,7 @@ type LobbyPanelProps = {
   onRetry: (isRanked: boolean) => void
   onPlayBot: () => void
   queueError: string | null
+  queueHold: string | null
   currentUser: UserProfile
   lastRivalId: string | null
   onPlayRival: (rival: UserProfile, isRanked: boolean) => void
@@ -36,6 +37,7 @@ const LobbyPanel = ({
   onRetry,
   onPlayBot,
   queueError,
+  queueHold,
   currentUser,
   lastRivalId,
   onPlayRival,
@@ -47,7 +49,10 @@ const LobbyPanel = ({
   const canRanked = isCurrentSubscriptionMonth(currentUser.subscriptionMonth)
   const [playMode, setPlayMode] = useState<PlayMode>(canRanked ? 'ranked' : 'friendly')
   const [selectedRivalId, setSelectedRivalId] = useState<string | null>(null)
-  const { status: rivalsStatus, ranking, error: rivalsError, retry } = usePointsRanking(currentUser)
+  const { status: rivalsStatus, ranking, error: rivalsError, retry } = usePointsRanking(
+    currentUser,
+    !isSearching && playMode === 'friendly',
+  )
   const allRivals = ranking.filter((user) => user.id !== currentUser.id)
   const rankedRivals = allRivals.filter((user) => isCurrentSubscriptionMonth(user.subscriptionMonth))
   const eligibleRanked = rankedRivals.filter((user) => canRankedVsRival(currentUser.id, user.id))
@@ -223,8 +228,10 @@ const LobbyPanel = ({
             <div className="flex items-center gap-2 text-text-200 text-sm bg-bg-200 p-3 rounded-lg" role="status">
               <WifiOff className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <span>
-                {isRanked
-                  ? 'Esperando a otra persona. El bot no se usa. No entramos al juego hasta que el rival también busque.'
+                {queueHold
+                  ? `Encontrado: ${queueHold}. Esperando a que entre en la misma partida.`
+                  : isRanked
+                  ? 'Esperando a otra persona. El bot no se usa. Buscad los dos a la vez; el móvil puede tardar un poco más.'
                   : 'Buscando rival...'}
               </span>
             </div>
@@ -235,7 +242,7 @@ const LobbyPanel = ({
               <WifiOff className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <span>
                 {isRanked
-                  ? 'No hay otra persona para la ranqueada. El bot no se usa en ranking. Cambia a Amistoso para el bot de prueba.'
+                  ? 'No coincidió la búsqueda. Pulsa Seguir buscando los dos a la vez. El móvil tarda más; tened Ranking y el mismo juego.'
                   : `No hay otra persona en ${selectedGame.name}. Puedes jugar contra el bot de prueba. No suma al premio.`}
               </span>
             </div>

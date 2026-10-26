@@ -1,6 +1,6 @@
 import { getMatchInputs, putMatchInputs } from '../api/playInputsApi'
 
-const POLL_MS = 80
+const POLL_MS = 120
 
 export type LiveInputLink = {
   setLocalKeys: (keys: Record<string, boolean>) => void

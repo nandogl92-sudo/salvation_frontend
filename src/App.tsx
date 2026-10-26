@@ -25,8 +25,8 @@ import GameResultPanel, { type GameResult } from './components/play/GameResultPa
 import PlayingArena from './components/play/PlayingArena';
 import { buildSharedWorld, type SharedWorld } from './games/sharedWorld';
 
-/** Frecuencia de consulta de la cola. El servidor marca el ticket como expired a los 60 s. */
-const QUEUE_POLL_INTERVAL_MS = 1000;
+/** Frecuencia de consulta de la cola. El servidor marca el ticket como expired a los 120 s. */
+const QUEUE_POLL_INTERVAL_MS = 400;
 /** Consulta del cierre compartido mientras dura la ranqueada. */
 const MATCH_STATUS_POLL_MS = 400;
 /** Comisión de la plataforma sobre el pozo total (en porcentaje). */
@@ -68,6 +68,7 @@ export default function App() {
   // ==========================================
   const [queueStatus, setQueueStatus] = useState<QueueStatus>('idle');
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [queueHold, setQueueHold] = useState<string | null>(null);
   const [queueIsRanked, setQueueIsRanked] = useState(false);
   const [ticket, setTicket] = useState<MatchTicket | null>(null);
   const [lastRivalId, setLastRivalId] = useState<string | null>(null);
@@ -230,6 +231,7 @@ export default function App() {
 
     setQueueIsRanked(isRanked);
     setQueueError(null);
+    setQueueHold(null);
     const result = await joinQueue({ gameId: selectedGame.id, betAmount, ranked: isRanked });
     if (!result.ok) {
       setQueueError(result.message);
@@ -249,6 +251,7 @@ export default function App() {
     setTicket(null);
     setQueueStatus('idle');
     setQueueIsRanked(false);
+    setQueueHold(null);
     setView('home');
     setSelectedGame(null);
     await syncBalanceFromServer();
@@ -330,7 +333,10 @@ export default function App() {
           return;
         }
         const ranked = queueIsRanked && !matchedBot;
-        if (ranked && (!result.arenaOpen || !result.world)) return;
+        if (ranked && (!result.arenaOpen || !result.world)) {
+          setQueueHold(result.opponent.username);
+          return;
+        }
         if (ranked) {
           recordRankedPlay(ticket.userId, result.opponent.userId);
         }
@@ -363,6 +369,7 @@ export default function App() {
       }
 
       if (result.status === 'expired') {
+        setQueueHold(null);
         setQueueStatus('timeout');
         await syncBalanceFromServer();
         return;
@@ -648,6 +655,7 @@ export default function App() {
             onRetry={retrySearch}
             onPlayBot={playAgainstBot}
             queueError={queueError}
+            queueHold={queueHold}
             currentUser={currentUser}
             lastRivalId={lastRivalId}
             onPlayRival={startAgainstRival}

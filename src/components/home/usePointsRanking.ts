@@ -6,7 +6,7 @@ import type { UserProfile } from '../../types'
 
 type RankingStatus = 'idle' | 'loading' | 'success' | 'error'
 
-export const usePointsRanking = (currentUser: UserProfile | null) => {
+export const usePointsRanking = (currentUser: UserProfile | null, enabled = true) => {
   const [status, setStatus] = useState<RankingStatus>('idle')
   const [users, setUsers] = useState<UserProfile[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -16,7 +16,7 @@ export const usePointsRanking = (currentUser: UserProfile | null) => {
   const points = currentUser?.balance
 
   useEffect(() => {
-    if (!userId) {
+    if (!userId || !enabled) {
       setStatus('idle')
       setUsers([])
       setError(null)
@@ -41,7 +41,7 @@ export const usePointsRanking = (currentUser: UserProfile | null) => {
     return () => {
       cancelled = true
     }
-  }, [userId, points, attempt])
+  }, [userId, points, attempt, enabled])
 
   const ranking = users
     .map((user) => {
