@@ -453,6 +453,7 @@ export default function Plane({
 
         if (botEnabled) botFlap(state.p2, scroll, now);
         else if (world) {
+          link?.setLocalKeys(state.keys);
           const rival = link?.readRivalKeys() ?? {};
           const other = them === 'p1' ? state.p1 : state.p2;
           if (keyHeld(rival, ' ', 'Space', 'ArrowUp')) flap(other, now, true);

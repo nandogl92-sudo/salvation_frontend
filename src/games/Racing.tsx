@@ -625,6 +625,7 @@ export default function Racing({
               steer,
             );
           };
+          link?.setLocalKeys(state.keys);
           drivePad(you, state.keys);
           drivePad(them, link?.readRivalKeys() ?? {});
         } else {

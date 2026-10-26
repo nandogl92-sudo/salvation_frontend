@@ -525,6 +525,7 @@ export default function Shooter({
             clamp(state[side], side === 'p1' ? FIELD.left : 500, side === 'p1' ? 470 : FIELD.right);
             if (keyHeld(keys, ' ', 'Space', 'Enter')) shoot(side);
           };
+          link?.setLocalKeys(state.keys);
           padSteer(you, state.keys);
           padSteer(them, link?.readRivalKeys() ?? {});
           reload(state.p1);

@@ -375,6 +375,7 @@ export default function Skydive({
         }
 
         if (world) {
+          link?.setLocalKeys(state.keys);
           const padSteer = (keys: Record<string, boolean>) =>
             steerOf(keyHeld(keys, 'a', 'A', 'ArrowLeft'), keyHeld(keys, 'd', 'D', 'ArrowRight'));
           drive(you === 'p1' ? state.p1 : state.p2, padSteer(state.keys), dt);

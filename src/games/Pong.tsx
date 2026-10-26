@@ -533,6 +533,7 @@ export default function Pong({
 
       if (!rankedWait) {
         if (world) {
+          link?.setLocalKeys(state.keys);
           const rival = link?.readRivalKeys() ?? {};
           movePaddle(
             you,
