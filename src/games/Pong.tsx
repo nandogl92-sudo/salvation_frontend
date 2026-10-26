@@ -538,18 +538,24 @@ export default function Pong({
 
       if (!rankedWait) {
         if (world) {
-          link?.setLocalKeys(state.keys);
-          const rival = link?.readRivalKeys() ?? {};
           movePaddle(
             you,
             keyHeld(state.keys, 'w', 'W', 'ArrowUp'),
             keyHeld(state.keys, 's', 'S', 'ArrowDown'),
           );
-          movePaddle(
-            them,
-            keyHeld(rival, 'w', 'W', 'ArrowUp'),
-            keyHeld(rival, 's', 'S', 'ArrowDown'),
-          );
+          link?.setLocalKeys(state.keys, state[you].y);
+          const rivalY = link?.readRivalY();
+          if (typeof rivalY === 'number') {
+            const next = state[them].y + (rivalY - state[them].y) * 0.8;
+            state[them].y = Math.max(minPaddle, Math.min(maxPaddle, next));
+          } else {
+            const rival = link?.readRivalKeys() ?? {};
+            movePaddle(
+              them,
+              keyHeld(rival, 'w', 'W', 'ArrowUp'),
+              keyHeld(rival, 's', 'S', 'ArrowDown'),
+            );
+          }
         } else {
           movePaddle('p1', Boolean(state.keys['w'] || state.keys['W']), Boolean(state.keys['s'] || state.keys['S']));
           if (botEnabled) {

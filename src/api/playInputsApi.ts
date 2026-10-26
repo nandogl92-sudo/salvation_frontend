@@ -5,6 +5,7 @@ export type RemotePad = {
   userId: string
   keys: string[]
   at: number
+  y: number | null
 }
 
 const request = async (path: string, init: RequestInit): Promise<Response | null> => {
@@ -20,6 +21,11 @@ const request = async (path: string, init: RequestInit): Promise<Response | null
   }
 }
 
+const readY = (value: unknown): number | null => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  return value
+}
+
 const readPads = async (response: Response | null): Promise<RemotePad[]> => {
   if (!response || !response.ok) return []
   try {
@@ -29,17 +35,26 @@ const readPads = async (response: Response | null): Promise<RemotePad[]> => {
       if (!item || typeof item !== 'object') return []
       const pad = item as RemotePad
       if (typeof pad.userId !== 'string' || !Array.isArray(pad.keys) || typeof pad.at !== 'number') return []
-      return [{ userId: pad.userId, keys: pad.keys.filter((key) => typeof key === 'string'), at: pad.at }]
+      return [{
+        userId: pad.userId,
+        keys: pad.keys.filter((key) => typeof key === 'string'),
+        at: pad.at,
+        y: readY(pad.y),
+      }]
     })
   } catch {
     return []
   }
 }
 
-export const putMatchInputs = async (matchId: string, keys: string[]): Promise<RemotePad[]> => {
+export const putMatchInputs = async (
+  matchId: string,
+  keys: string[],
+  y: number | null = null,
+): Promise<RemotePad[]> => {
   const response = await request(`/matches/${matchId}/inputs`, {
     method: 'PUT',
-    body: JSON.stringify({ keys }),
+    body: JSON.stringify({ keys, y }),
   })
   return readPads(response)
 }
