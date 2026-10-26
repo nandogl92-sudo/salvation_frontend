@@ -16,6 +16,8 @@ export type RemotePad = {
   at: number
   y: number | null
   pose: RemotePose | null
+  seq: number
+  frame: number
 }
 
 const request = async (path: string, init: RequestInit): Promise<Response | null> => {
@@ -65,13 +67,16 @@ const padsFromUnknown = (value: unknown): RemotePad[] => {
     if (!item || typeof item !== 'object') return []
     const pad = item as RemotePad
     if (typeof pad.userId !== 'string' || !Array.isArray(pad.keys) || typeof pad.at !== 'number') return []
-    return [{
-      userId: pad.userId,
-      keys: pad.keys.filter((key) => typeof key === 'string'),
-      at: pad.at,
-      y: readY(pad.y),
-      pose: readPose(pad.pose),
-    }]
+      const raw = item as RemotePad & { frame?: unknown; seq?: unknown }
+      return [{
+        userId: pad.userId,
+        keys: pad.keys.filter((key) => typeof key === 'string'),
+        at: pad.at,
+        y: readY(pad.y),
+        pose: readPose(pad.pose),
+        seq: typeof raw.seq === 'number' ? raw.seq : 0,
+        frame: typeof raw.frame === 'number' ? raw.frame : 0,
+      }]
   })
 }
 
@@ -91,10 +96,11 @@ export const putMatchInputs = async (
   y: number | null = null,
   pose: RemotePose | null = null,
   seq = 0,
+  frame = 0,
 ): Promise<void> => {
   await request(`/matches/${matchId}/inputs`, {
     method: 'PUT',
-    body: JSON.stringify({ keys, y, pose, seq }),
+    body: JSON.stringify({ keys, y, pose, seq, frame }),
   })
 }
 

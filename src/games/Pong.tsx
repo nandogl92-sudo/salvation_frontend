@@ -497,6 +497,16 @@ export default function Pong({
 
     const resetBall = () => {
       state.trail = [];
+      if (world) {
+        const serve = state.p1.score + state.p2.score;
+        state.ball = {
+          x: WIDTH / 2,
+          y: (PLAY_TOP + PLAY_BOTTOM) / 2,
+          vx: serve % 2 === 0 ? 6 : -6,
+          vy: Math.floor(serve / 2) % 2 === 0 ? 4 : -4,
+        };
+        return;
+      }
       state.ball = {
         x: WIDTH / 2,
         y: (PLAY_TOP + PLAY_BOTTOM) / 2,
@@ -582,34 +592,116 @@ export default function Pong({
       if (state.ball.x > WIDTH) scorePoint('p1');
     };
 
-    const alignToHost = () => {
-      const snap = link?.readRivalSnap();
-      if (!snap) return;
-      if (snap.p1 !== state.p1.score || snap.p2 !== state.p2.score) {
-        state.shake = SHAKE_FRAMES;
-        const scored = snap.p1 > state.p1.score ? 'p1' : 'p2';
-        const exitX = scored === 'p1' ? WIDTH - 24 : 24;
-        spawnSparks(state.sparks, exitX, state.ball.y, 14, scored === 'p1' ? CYAN : ORANGE);
-        state.trail = [];
-        state.p1.score = snap.p1;
-        state.p2.score = snap.p2;
-        state.ball.x = snap.ballX;
-        state.ball.y = snap.ballY;
-        state.ball.vx = snap.ballVx;
-        state.ball.vy = snap.ballVy;
-        return;
+    type Hist = {
+      p1y: number;
+      p2y: number;
+      p1s: number;
+      p2s: number;
+      bx: number;
+      by: number;
+      vx: number;
+      vy: number;
+    };
+    const hist: Hist[] = [];
+    let simFrame = 0;
+    const INPUT_DELAY = 3;
+
+    const capture = (): Hist => ({
+      p1y: state.p1.y,
+      p2y: state.p2.y,
+      p1s: state.p1.score,
+      p2s: state.p2.score,
+      bx: state.ball.x,
+      by: state.ball.y,
+      vx: state.ball.vx,
+      vy: state.ball.vy,
+    });
+
+    const restore = (snap: Hist) => {
+      state.p1.y = snap.p1y;
+      state.p2.y = snap.p2y;
+      state.p1.score = snap.p1s;
+      state.p2.score = snap.p2s;
+      state.ball.x = snap.bx;
+      state.ball.y = snap.by;
+      state.ball.vx = snap.vx;
+      state.ball.vy = snap.vy;
+    };
+
+    const finish = () => {
+      if (state.p1.score >= 10) { ended = true; onGameEnd('p1'); return true; }
+      if (state.p2.score >= 10) { ended = true; onGameEnd('p2'); return true; }
+      return false;
+    };
+
+    const playFrame = (frame: number) => {
+      state.frames += 1;
+      const p1Before = state.p1.y;
+      const p2Before = state.p2.y;
+      const mine = link?.readMove(frame, 'local') ?? { up: false, down: false };
+      const theirs = link?.readMove(frame, 'rival') ?? { up: false, down: false };
+      movePaddle(you, mine.up, mine.down);
+      movePaddle(them, theirs.up, theirs.down);
+      state.p1.moving = state.p1.y !== p1Before ? Math.floor(state.frames / 6) : -1;
+      state.p2.moving = state.p2.y !== p2Before ? Math.floor(state.frames / 6) : -1;
+      if (state.p1.swing > 0) state.p1.swing -= 1;
+      if (state.p2.swing > 0) state.p2.swing -= 1;
+      if (state.shake > 0) state.shake -= 1;
+      stepBall();
+      hist[frame] = capture();
+      if (frame > 90) delete hist[frame - 90];
+    };
+
+    const replay = (from: number) => {
+      const snap = hist[from - 1];
+      if (!snap || from < 1) return;
+      restore(snap);
+      for (let frame = from; frame <= simFrame; frame += 1) {
+        playFrame(frame);
+        if (state.p1.score >= 10 || state.p2.score >= 10) {
+          simFrame = frame;
+          return;
+        }
       }
-      const dx = snap.ballX - state.ball.x;
-      const dy = snap.ballY - state.ball.y;
-      if (Math.abs(dx) > 180 || Math.abs(dy) > 140) {
-        state.ball.x = snap.ballX;
-        state.ball.y = snap.ballY;
-        state.ball.vx = snap.ballVx;
-        state.ball.vy = snap.ballVy;
+    };
+
+    const catchUp = () => {
+      if (!link || !world || ended) return;
+      const live = link.serverFrame(world.startAt);
+      link.setLocalKeys(
+        state.keys,
+        state[you].y,
+        isHost
+          ? {
+              ballX: state.ball.x,
+              ballY: state.ball.y,
+              ballVx: state.ball.vx,
+              ballVy: state.ball.vy,
+              p1: state.p1.score,
+              p2: state.p2.score,
+            }
+          : null,
+        live,
+      );
+      if (rankedCountdown(world.startAt)) return;
+      const rewind = link.pullRewind();
+      if (rewind !== null && rewind <= simFrame) replay(rewind);
+      if (finish()) return;
+      const target = Math.max(0, live - INPUT_DELAY);
+      let guard = 0;
+      while (simFrame < target && guard < 30) {
+        guard += 1;
+        simFrame += 1;
+        playFrame(simFrame);
+        if (finish()) return;
       }
     };
 
     const step = () => {
+      if (world) {
+        catchUp();
+        return;
+      }
       state.frames += 1;
       const rankedWait = world ? rankedCountdown(world.startAt) : null;
       const p1Before = state.p1.y;
@@ -649,10 +741,7 @@ export default function Pong({
       if (state.p2.swing > 0) state.p2.swing -= 1;
       if (state.shake > 0) state.shake -= 1;
 
-      if (!rankedWait) {
-        stepBall();
-        if (world && !isHost) alignToHost();
-      }
+      if (!rankedWait) stepBall();
 
       if (world) {
         link?.setLocalKeys(
@@ -737,7 +826,10 @@ export default function Pong({
       animationFrameId = requestAnimationFrame(tick);
     };
 
-    if (world) resetBall();
+    if (world) {
+      resetBall();
+      hist[0] = capture();
+    }
     animationFrameId = requestAnimationFrame(tick);
 
     return () => {
