@@ -20,7 +20,7 @@ export default defineConfig(() => {
         '/users': { target: apiProxy, changeOrigin: true },
         '/auth': { target: apiProxy, changeOrigin: true },
         '/matchmaking': { target: apiProxy, changeOrigin: true },
-        '/matches': { target: apiProxy, changeOrigin: true },
+        '/matches': { target: apiProxy, changeOrigin: true, timeout: 0, proxyTimeout: 0 },
         '/purchases': { target: apiProxy, changeOrigin: true },
       },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

@@ -59,23 +59,27 @@ const readPose = (value: unknown): RemotePose | null => {
   }
 }
 
+const padsFromUnknown = (value: unknown): RemotePad[] => {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const pad = item as RemotePad
+    if (typeof pad.userId !== 'string' || !Array.isArray(pad.keys) || typeof pad.at !== 'number') return []
+    return [{
+      userId: pad.userId,
+      keys: pad.keys.filter((key) => typeof key === 'string'),
+      at: pad.at,
+      y: readY(pad.y),
+      pose: readPose(pad.pose),
+    }]
+  })
+}
+
 const readPads = async (response: Response | null): Promise<RemotePad[]> => {
   if (!response || !response.ok) return []
   try {
     const body = (await response.json()) as { players?: unknown }
-    if (!Array.isArray(body.players)) return []
-    return body.players.flatMap((item) => {
-      if (!item || typeof item !== 'object') return []
-      const pad = item as RemotePad
-      if (typeof pad.userId !== 'string' || !Array.isArray(pad.keys) || typeof pad.at !== 'number') return []
-      return [{
-        userId: pad.userId,
-        keys: pad.keys.filter((key) => typeof key === 'string'),
-        at: pad.at,
-        y: readY(pad.y),
-        pose: readPose(pad.pose),
-      }]
-    })
+    return padsFromUnknown(body.players)
   } catch {
     return []
   }
@@ -86,15 +90,54 @@ export const putMatchInputs = async (
   keys: string[],
   y: number | null = null,
   pose: RemotePose | null = null,
-): Promise<RemotePad[]> => {
-  const response = await request(`/matches/${matchId}/inputs`, {
+): Promise<void> => {
+  await request(`/matches/${matchId}/inputs`, {
     method: 'PUT',
     body: JSON.stringify({ keys, y, pose }),
   })
-  return readPads(response)
 }
 
 export const getMatchInputs = async (matchId: string): Promise<RemotePad[]> => {
   const response = await request(`/matches/${matchId}/inputs`, { method: 'GET' })
   return readPads(response)
+}
+
+export const openMatchLive = async (
+  matchId: string,
+  onPads: (pads: RemotePad[]) => void,
+  signal: AbortSignal,
+): Promise<void> => {
+  const token = getAccessToken()
+  if (!token) return
+  const response = await fetch(`${API_URL}/matches/${matchId}/live`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'text/event-stream',
+    },
+    signal,
+  })
+  if (!response.ok || !response.body) return
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  while (!signal.aborted) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let gap = buffer.indexOf('\n\n')
+    while (gap >= 0) {
+      const block = buffer.slice(0, gap)
+      buffer = buffer.slice(gap + 2)
+      const line = block.split('\n').find((item) => item.startsWith('data: '))
+      if (line) {
+        try {
+          const body = JSON.parse(line.slice(6)) as { players?: unknown }
+          onPads(padsFromUnknown(body.players))
+        } catch {
+          // Evento incompleto o ping.
+        }
+      }
+      gap = buffer.indexOf('\n\n')
+    }
+  }
 }
