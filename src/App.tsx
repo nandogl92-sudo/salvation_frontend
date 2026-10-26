@@ -136,6 +136,7 @@ export default function App() {
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const settlingRef = useRef(false);
   const settledMatchIdRef = useRef<string | null>(null);
+  const searchLockRef = useRef(false);
   const rankedPlayRef = useRef({
     matchId: null as string | null,
     isRanked: false,
@@ -265,19 +266,22 @@ export default function App() {
     });
     setTicket(null);
     setQueueStatus('idle');
+    searchLockRef.current = false;
     setView('playing');
   };
 
   // El backend descuenta la apuesta al crear el ticket y la devuelve al cancelar o al expirar.
   const startMatchmaking = async (isRanked = false) => {
     if (!currentUser || !selectedGame || betAmount > currentUser.balance || betAmount <= 0) return;
-    if (queueStatus === 'searching') return;
+    if (searchLockRef.current || queueStatus === 'searching') return;
+    searchLockRef.current = true;
 
     setQueueIsRanked(isRanked);
     setQueueError(null);
     setQueueHold(null);
     const result = await joinQueue({ gameId: selectedGame.id, betAmount, ranked: isRanked });
     if (!result.ok) {
+      searchLockRef.current = false;
       setQueueError(result.message);
       return;
     }
@@ -295,6 +299,7 @@ export default function App() {
   };
 
   const cancelSearch = async () => {
+    searchLockRef.current = false;
     if (ticket) {
       const result = await cancelQueue(ticket.id);
       if (!result.ok && result.message) setQueueError(result.message);
@@ -310,6 +315,7 @@ export default function App() {
 
   // SRC-04 — Tras un timeout, permite reintentar con la misma apuesta.
   const retrySearch = (isRanked: boolean) => {
+    searchLockRef.current = false;
     setQueueStatus('idle');
     startMatchmaking(isRanked);
   };
@@ -380,6 +386,7 @@ export default function App() {
       }
 
       if (result.status === 'expired') {
+        searchLockRef.current = false;
         setQueueHold(null);
         setQueueStatus('timeout');
         await syncBalanceFromServer();
@@ -387,6 +394,7 @@ export default function App() {
       }
 
       if (result.status === 'cancelled') {
+        searchLockRef.current = false;
         setTicket(null);
         setQueueStatus('idle');
         setView('home');
