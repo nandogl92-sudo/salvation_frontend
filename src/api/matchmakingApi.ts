@@ -94,6 +94,15 @@ const readErrorMessage = async (response: Response): Promise<string> => {
   return 'No se pudo completar la búsqueda.'
 }
 
+const pollSignal = (ms: number): AbortSignal => {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(ms)
+  }
+  const controller = new AbortController()
+  window.setTimeout(() => controller.abort(), ms)
+  return controller.signal
+}
+
 const request = async (path: string, init: RequestInit): Promise<Response> => {
   const token = getAccessToken()
   if (!token) {
@@ -212,7 +221,10 @@ export const cancelQueue = async (ticketId: string): Promise<{ ok: boolean; mess
 }
 
 const readPoll = async (ticket: MatchTicket): Promise<QueuePoll> => {
-  const response = await request(`/matchmaking/tickets/${ticket.id}`, { method: 'GET' })
+  const response = await request(`/matchmaking/tickets/${ticket.id}`, {
+    method: 'GET',
+    signal: pollSignal(15_000),
+  })
   if (response.status === 404) return { status: 'error', message: 'No existe esa búsqueda.' }
   if (!response.ok) return { status: 'error', message: await readErrorMessage(response) }
 

@@ -26,7 +26,7 @@ import PlayingArena from './components/play/PlayingArena';
 import { buildSharedWorld, type SharedWorld } from './games/sharedWorld';
 
 /** Frecuencia de consulta de la cola. El servidor marca el ticket como expired a los 120 s. */
-const QUEUE_POLL_INTERVAL_MS = 400;
+const QUEUE_POLL_INTERVAL_MS = 800;
 /** Consulta del cierre compartido mientras dura la ranqueada. */
 const MATCH_STATUS_POLL_MS = 400;
 /** Comisión de la plataforma sobre el pozo total (en porcentaje). */
@@ -228,6 +228,7 @@ export default function App() {
   // El backend descuenta la apuesta al crear el ticket y la devuelve al cancelar o al expirar.
   const startMatchmaking = async (isRanked = false) => {
     if (!currentUser || !selectedGame || betAmount > currentUser.balance || betAmount <= 0) return;
+    if (queueStatus === 'searching') return;
 
     setQueueIsRanked(isRanked);
     setQueueError(null);
@@ -317,6 +318,7 @@ export default function App() {
 
     let stopped = false;
     let inFlight = false;
+    let lastJoinAt = 0;
 
     const poll = async () => {
       if (stopped || inFlight) return;
@@ -324,6 +326,22 @@ export default function App() {
       let result: Awaited<ReturnType<typeof tryMatch>>;
       try {
         result = await tryMatch(ticket);
+        const shouldRejoin =
+          queueIsRanked &&
+          selectedGame &&
+          Date.now() - lastJoinAt > 2000 &&
+          (result.status === 'waiting' || result.status === 'error');
+        if (shouldRejoin) {
+          lastJoinAt = Date.now();
+          const again = await joinQueue({ gameId: selectedGame.id, betAmount, ranked: true });
+          if (again.ok) {
+            result = await tryMatch(again.ticket);
+            if (result.status !== 'matched' && again.ticket.id !== ticket.id) {
+              setTicket(again.ticket);
+              return;
+            }
+          }
+        }
       } finally {
         inFlight = false;
       }
@@ -400,7 +418,7 @@ export default function App() {
       stopped = true;
       window.clearInterval(intervalId);
     };
-  }, [queueStatus, ticket, queueIsRanked]);
+  }, [queueStatus, ticket, queueIsRanked, selectedGame, betAmount]);
 
   const applyRankedMonthPoints = async (isRanked: boolean, won: boolean, isRefund: boolean) => {
     const before = currentUser ? monthTotalOf(currentUser.id) : 0;
