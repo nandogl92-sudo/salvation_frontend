@@ -525,12 +525,7 @@ export default function Pong({
       if (down) state[side].y = Math.min(maxPaddle, state[side].y + 7);
     };
 
-    const chaseY = (from: number, to: number) => {
-      const delta = to - from;
-      if (Math.abs(delta) <= 0.5) return to;
-      const cap = Math.abs(delta) > 48 ? 20 : 8;
-      return Math.max(minPaddle, Math.min(maxPaddle, from + Math.sign(delta) * Math.min(Math.abs(delta), cap)));
-    };
+    const clampPaddle = (y: number) => Math.max(minPaddle, Math.min(maxPaddle, y));
 
     const FRAME_MS = 1000 / 60;
     const isHost = !world || you === 'p1';
@@ -590,7 +585,6 @@ export default function Pong({
     const followHost = () => {
       const snap = link?.readRivalSnap();
       if (!snap) return;
-      const frames = Math.min(8, Math.max(0, (performance.now() - snap.receivedAt) / FRAME_MS));
       if (snap.p1 !== state.p1.score || snap.p2 !== state.p2.score) {
         state.shake = SHAKE_FRAMES;
         const scored = snap.p1 > state.p1.score ? 'p1' : 'p2';
@@ -600,12 +594,9 @@ export default function Pong({
       }
       state.p1.score = snap.p1;
       state.p2.score = snap.p2;
-      state[them].y = chaseY(state[them].y, snap.y);
-      state.ball.x = snap.ballX + snap.ballVx * frames;
-      state.ball.y = Math.max(
-        PLAY_TOP + BALL_R,
-        Math.min(PLAY_BOTTOM - BALL_R, snap.ballY + snap.ballVy * frames),
-      );
+      state[them].y = clampPaddle(snap.y);
+      state.ball.x = snap.ballX;
+      state.ball.y = Math.max(PLAY_TOP + BALL_R, Math.min(PLAY_BOTTOM - BALL_R, snap.ballY));
       state.ball.vx = snap.ballVx;
       state.ball.vy = snap.ballVy;
       state.trail.push({ x: state.ball.x, y: state.ball.y });
@@ -627,7 +618,7 @@ export default function Pong({
           );
           if (isHost) {
             const rivalY = link?.readRivalY();
-            if (typeof rivalY === 'number') state[them].y = chaseY(state[them].y, rivalY);
+            if (typeof rivalY === 'number') state[them].y = clampPaddle(rivalY);
           }
         } else {
           movePaddle('p1', Boolean(state.keys['w'] || state.keys['W']), Boolean(state.keys['s'] || state.keys['S']));
@@ -647,10 +638,7 @@ export default function Pong({
       if (state.p2.swing > 0) state.p2.swing -= 1;
       if (state.shake > 0) state.shake -= 1;
 
-      if (!rankedWait) {
-        if (world && !isHost) followHost();
-        else stepBall();
-      }
+      if (!rankedWait && isHost) stepBall();
 
       if (world) {
         link?.setLocalKeys(
@@ -677,8 +665,8 @@ export default function Pong({
         return spark.life > 0;
       });
 
-      if (state.p1.score >= 10) { ended = true; onGameEnd('p1'); return; }
-      if (state.p2.score >= 10) { ended = true; onGameEnd('p2'); return; }
+      if (isHost && state.p1.score >= 10) { ended = true; onGameEnd('p1'); return; }
+      if (isHost && state.p2.score >= 10) { ended = true; onGameEnd('p2'); return; }
     };
 
     const paint = (rankedWait: string | null) => {
@@ -725,7 +713,13 @@ export default function Pong({
         step();
         if (ended) return;
       }
-      paint(world ? rankedCountdown(world.startAt) : null);
+      const rankedWait = world ? rankedCountdown(world.startAt) : null;
+      if (world && !isHost && !rankedWait) {
+        followHost();
+        if (state.p1.score >= 10) { ended = true; onGameEnd('p1'); return; }
+        if (state.p2.score >= 10) { ended = true; onGameEnd('p2'); return; }
+      }
+      paint(rankedWait);
       animationFrameId = requestAnimationFrame(tick);
     };
 

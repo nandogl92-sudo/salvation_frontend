@@ -1,8 +1,11 @@
 import { getMatchInputs, putMatchInputs, type RemotePad, type RemotePose } from '../api/playInputsApi'
 
 /** Latido si no cambia el pad. Un toque se envía al momento. */
-const HEARTBEAT_MS = 50
-const POLL_MS = 50
+const HEARTBEAT_MS = 40
+const POLL_MS = 40
+const INTERP_DELAY_MS = 60
+const MAX_EXTRAPOLATE_MS = 50
+const FRAME_MS = 1000 / 60
 
 export type WorldSnap = RemotePose & {
   y: number
@@ -16,6 +19,8 @@ export type LiveInputLink = {
   readRivalSnap: () => WorldSnap | null
   stop: () => void
 }
+
+type TimedY = { at: number; y: number }
 
 const packKeys = (keys: Record<string, boolean>): string[] => {
   const out: string[] = []
@@ -43,7 +48,8 @@ const mergeKeys = (held: string[], extra: string[]): string[] => {
   return out
 }
 
-const signatureOf = (keys: string[]): string => [...keys].sort().join('\0')
+const signatureOf = (keys: string[], y: number | null): string =>
+  `${[...keys].sort().join('\0')}:${Math.round((y ?? 0) / 12)}`
 
 const unpackKeys = (keys: string[]): Record<string, boolean> => {
   const held: Record<string, boolean> = {}
@@ -52,6 +58,40 @@ const unpackKeys = (keys: string[]): Record<string, boolean> => {
     if (key === ' ') held.Space = true
   })
   return held
+}
+
+const lerp = (from: number, to: number, t: number): number => from + (to - from) * t
+
+const pushSample = <T extends { receivedAt?: number; at?: number }>(buffer: T[], item: T): void => {
+  const at = 'receivedAt' in item && typeof item.receivedAt === 'number' ? item.receivedAt : (item as { at: number }).at
+  const last = buffer[buffer.length - 1]
+  const lastAt = last
+    ? 'receivedAt' in last && typeof last.receivedAt === 'number'
+      ? last.receivedAt
+      : (last as { at: number }).at
+    : -1
+  if (at <= lastAt) return
+  buffer.push(item)
+  if (buffer.length > 10) buffer.shift()
+}
+
+const around = <T extends { receivedAt?: number; at?: number }>(
+  buffer: T[],
+  time: number,
+): { a: T; b: T | null; t: number } | null => {
+  if (buffer.length === 0) return null
+  const stamp = (item: T): number =>
+    'receivedAt' in item && typeof item.receivedAt === 'number' ? item.receivedAt : (item as { at: number }).at
+  if (time <= stamp(buffer[0])) return { a: buffer[0], b: buffer[1] ?? null, t: 0 }
+  for (let i = 0; i < buffer.length - 1; i += 1) {
+    const start = stamp(buffer[i])
+    const end = stamp(buffer[i + 1])
+    if (time >= start && time <= end) {
+      const span = end - start
+      return { a: buffer[i], b: buffer[i + 1], t: span <= 0 ? 1 : (time - start) / span }
+    }
+  }
+  return { a: buffer[buffer.length - 1], b: null, t: time - stamp(buffer[buffer.length - 1]) }
 }
 
 export const keyHeld = (keys: Record<string, boolean>, ...names: string[]): boolean =>
@@ -64,8 +104,9 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   let localY: number | null = null
   let localPose: RemotePose | null = null
   let rivalKeys: Record<string, boolean> = {}
-  let rivalY: number | null = null
-  let rivalSnap: WorldSnap | null = null
+  let lastRivalAt = 0
+  const rivalYs: TimedY[] = []
+  const rivalSnaps: WorldSnap[] = []
   let pendingPulses: string[] = []
   let stopped = false
   let inFlight = false
@@ -76,11 +117,13 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
 
   const applyPads = (pads: RemotePad[]) => {
     const rival = pads.find((pad) => pad.userId !== localUserId)
-    if (!rival || rival.at <= 0) return
+    if (!rival || rival.at <= 0 || rival.at <= lastRivalAt) return
+    lastRivalAt = rival.at
     rivalKeys = unpackKeys(rival.keys)
-    if (typeof rival.y === 'number') rivalY = rival.y
+    const receivedAt = performance.now()
+    if (typeof rival.y === 'number') pushSample(rivalYs, { at: receivedAt, y: rival.y })
     if (rival.pose && typeof rival.y === 'number') {
-      rivalSnap = { ...rival.pose, y: rival.y, receivedAt: performance.now() }
+      pushSample(rivalSnaps, { ...rival.pose, y: rival.y, receivedAt })
     }
   }
 
@@ -94,12 +137,12 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     const held = packKeys(localKeys)
     const keys = mergeKeys(held, pendingPulses)
     pendingPulses = []
-    lastHeldSig = signatureOf(held)
+    lastHeldSig = signatureOf(held, localY)
     const pads = await putMatchInputs(matchId, keys, localY, localPose)
     inFlight = false
-    if (stopped) return
     applyPads(pads)
-    const heldNow = signatureOf(packKeys(localKeys))
+    if (stopped) return
+    const heldNow = signatureOf(packKeys(localKeys), localY)
     if (dirty || pendingPulses.length > 0 || heldNow !== lastHeldSig) {
       dirty = false
       void flush()
@@ -128,14 +171,45 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
       if (typeof y === 'number') localY = y
       if (pose) localPose = pose
       const held = packKeys(keys)
-      const sig = signatureOf(held)
+      const sig = signatureOf(held, localY)
       if (sig === lastHeldSig) return
       pendingPulses = mergeKeys(pendingPulses, held)
       void flush()
     },
     readRivalKeys: () => rivalKeys,
-    readRivalY: () => rivalY,
-    readRivalSnap: () => rivalSnap,
+    readRivalY: () => {
+      const pair = around(rivalYs, performance.now() - INTERP_DELAY_MS)
+      if (!pair) return null
+      if (pair.b) return lerp(pair.a.y, pair.b.y, pair.t)
+      const prev = rivalYs[rivalYs.length - 2]
+      if (!prev) return pair.a.y
+      const span = pair.a.at - prev.at
+      if (span <= 0) return pair.a.y
+      const extra = Math.min(MAX_EXTRAPOLATE_MS, Math.max(0, pair.t))
+      return pair.a.y + ((pair.a.y - prev.y) / span) * extra
+    },
+    readRivalSnap: () => {
+      const pair = around(rivalSnaps, performance.now() - INTERP_DELAY_MS)
+      if (!pair) return null
+      if (pair.b) {
+        return {
+          y: lerp(pair.a.y, pair.b.y, pair.t),
+          ballX: lerp(pair.a.ballX, pair.b.ballX, pair.t),
+          ballY: lerp(pair.a.ballY, pair.b.ballY, pair.t),
+          ballVx: pair.b.ballVx,
+          ballVy: pair.b.ballVy,
+          p1: pair.b.p1,
+          p2: pair.b.p2,
+          receivedAt: pair.b.receivedAt,
+        }
+      }
+      const extra = Math.min(MAX_EXTRAPOLATE_MS, Math.max(0, pair.t)) / FRAME_MS
+      return {
+        ...pair.a,
+        ballX: pair.a.ballX + pair.a.ballVx * extra,
+        ballY: pair.a.ballY + pair.a.ballVy * extra,
+      }
+    },
     stop: () => {
       stopped = true
       window.clearTimeout(timer)
