@@ -17,7 +17,9 @@ const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, childre
   const opponentName = opponent?.username ?? 'Rival'
   const opponentLabel = opponent?.username === 'Bot de prueba (modo prueba)'
     ? 'Bot de prueba (modo prueba)'
-    : 'Rival'
+    : isRanked
+      ? 'Otra persona'
+      : 'Rival'
 
   return (
     <>

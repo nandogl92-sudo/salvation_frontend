@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { keyHeld, otherSide, startLiveInputs } from './liveInputs';
+import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
 const HEIGHT = 540;
@@ -292,7 +294,7 @@ const pointOnFrame = (t: number, x0: number, y0: number, w: number, h: number, r
   return { x: x0 + rad + Math.cos(a) * rad, y: y0 + rad + Math.sin(a) * rad, nx: Math.cos(a), ny: Math.sin(a) };
 };
 
-const makeCourse = (wild: boolean): Pt[] => {
+const makeCourse = (wild: boolean, rand: () => number): Pt[] => {
   const n = 48;
   const pts: Pt[] = [];
   const x0 = FIELD.left;
@@ -300,7 +302,7 @@ const makeCourse = (wild: boolean): Pt[] => {
   const w = FIELD.right - FIELD.left;
   const h = FIELD.bottom - FIELD.top;
   const rad = 40;
-  const phase = wild ? Math.random() : 0.22;
+  const phase = wild ? rand() : 0.22;
   const dents = 5;
   for (let i = 0; i < n; i += 1) {
     const t = i / n;
@@ -325,9 +327,9 @@ const makeCourse = (wild: boolean): Pt[] => {
   return resample(loop, 180);
 };
 
-const makeTrack = (): Track => {
+const makeTrack = (rand: () => number): Track => {
   for (let attempt = 0; attempt < 16; attempt += 1) {
-    const pts = makeCourse(true);
+    const pts = makeCourse(true, rand);
     const inside = pts.every((p) => (
       p.x >= FIELD.left && p.x <= FIELD.right && p.y >= FIELD.top && p.y <= FIELD.bottom
     ));
@@ -337,7 +339,7 @@ const makeTrack = (): Track => {
     if (sharpestTurn(track) > 1.35) continue;
     return startOnStraight(track);
   }
-  return startOnStraight(buildTrack(makeCourse(false)));
+  return startOnStraight(buildTrack(makeCourse(false, rand)));
 };
 
 const makeCar = (lane: number, color: string, dark: string, light: string, name: string): Car => ({
@@ -515,9 +517,11 @@ const burst = (sparks: Spark[], x: number, y: number, color: string) => {
 export default function Racing({
   onGameEnd,
   botEnabled = false,
+  world = null,
 }: {
   onGameEnd: (winner: 'p1' | 'p2') => void;
   botEnabled?: boolean;
+  world?: SharedWorld | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -529,10 +533,14 @@ export default function Racing({
     void document.fonts.load(`10px ${PIX}`);
 
     let raf = 0;
-    const track = makeTrack();
+    const rand = world ? makeRng(world.seed) : Math.random;
+    const you = world?.localSide ?? 'p1';
+    const them = otherSide(you);
+    const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
+    const track = makeTrack(rand);
     const state = {
-      p1: makeCar(-12, '#e11d48', '#9f1239', '#fecdd3', 'RED SLOT'),
-      p2: makeCar(12, '#2563eb', '#1e3a8a', '#bfdbfe', 'BLUE SLOT'),
+      p1: makeCar(-12, '#e11d48', '#9f1239', '#fecdd3', sideLabel(world, 'p1', 'RED SLOT')),
+      p2: makeCar(12, '#2563eb', '#1e3a8a', '#bfdbfe', sideLabel(world, 'p2', 'BLUE SLOT')),
       keys: {} as Record<string, boolean>,
       frames: 0,
       winner: null as Side | null,
@@ -541,6 +549,7 @@ export default function Racing({
     };
     placeCar(state.p1, track, 0);
     placeCar(state.p2, track, 0);
+    if (link) link.setLocalKeys(state.keys);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       state.keys[event.key] = true;
@@ -601,20 +610,36 @@ export default function Racing({
 
     const update = () => {
       state.frames += 1;
-      const racing = state.frames >= COUNT_FRAMES && !state.winner;
+      const rankedWait = world ? rankedCountdown(world.startAt) : null;
+      const racing = !rankedWait && (world || state.frames >= COUNT_FRAMES) && !state.winner;
 
       if (racing) {
-        const p1Steer = (state.keys['d'] || state.keys['D'] ? 1 : 0) - (state.keys['a'] || state.keys['A'] ? 1 : 0);
-        drive(
-          state.p1,
-          state.keys['w'] || state.keys['W'],
-          state.keys['s'] || state.keys['S'],
-          p1Steer,
-        );
-        if (botEnabled) botSteer(state.p2);
-        else {
-          const p2Steer = (state.keys['ArrowRight'] ? 1 : 0) - (state.keys['ArrowLeft'] ? 1 : 0);
-          drive(state.p2, Boolean(state.keys['ArrowUp']), Boolean(state.keys['ArrowDown']), p2Steer);
+        if (world) {
+          const drivePad = (side: Side, keys: Record<string, boolean>) => {
+            const car = side === 'p1' ? state.p1 : state.p2;
+            const steer = (keyHeld(keys, 'd', 'D', 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
+            drive(
+              car,
+              keyHeld(keys, 'w', 'W', 'ArrowUp'),
+              keyHeld(keys, 's', 'S', 'ArrowDown'),
+              steer,
+            );
+          };
+          drivePad(you, state.keys);
+          drivePad(them, link?.readRivalKeys() ?? {});
+        } else {
+          const p1Steer = (state.keys['d'] || state.keys['D'] ? 1 : 0) - (state.keys['a'] || state.keys['A'] ? 1 : 0);
+          drive(
+            state.p1,
+            state.keys['w'] || state.keys['W'],
+            state.keys['s'] || state.keys['S'],
+            p1Steer,
+          );
+          if (botEnabled) botSteer(state.p2);
+          else {
+            const p2Steer = (state.keys['ArrowRight'] ? 1 : 0) - (state.keys['ArrowLeft'] ? 1 : 0);
+            drive(state.p2, Boolean(state.keys['ArrowUp']), Boolean(state.keys['ArrowDown']), p2Steer);
+          }
         }
         if (state.p1.laps >= LAPS) state.winner = 'p1';
         else if (state.p2.laps >= LAPS) state.winner = 'p2';
@@ -638,7 +663,9 @@ export default function Racing({
       });
       drawHud(ctx, state.p1, state.p2);
 
-      if (state.frames < COUNT_FRAMES) {
+      if (rankedWait) {
+        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    W ACELERA  A/D GIRA');
+      } else if (!world && state.frames < COUNT_FRAMES) {
         const left = COUNT_FRAMES - state.frames;
         const n = left > 120 ? '3' : left > 60 ? '2' : left > 18 ? '1' : 'GO';
         drawBanner(ctx, n, 'W ACELERA  A/D GIRA  TOCA NARANJA = REINICIO');
@@ -660,9 +687,10 @@ export default function Racing({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      link?.stop();
       cancelAnimationFrame(raf);
     };
-  }, [onGameEnd, botEnabled]);
+  }, [onGameEnd, botEnabled, world]);
 
   return (
     <canvas

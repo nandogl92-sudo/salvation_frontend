@@ -1,0 +1,67 @@
+export type SharedWorld = {
+  matchId: string
+  localUserId: string
+  seed: number
+  startAt: number
+  localSide: 'p1' | 'p2'
+  youName: string
+  rivalName: string
+}
+
+const COUNTDOWN_MS = 3500
+
+export const hashSeed = (text: string): number => {
+  let hash = 2166136261
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+export const makeRng = (seed: number): (() => number) => {
+  let value = seed >>> 0
+  return () => {
+    value = (value + 0x6d2b79f5) >>> 0
+    let t = Math.imul(value ^ (value >>> 15), 1 | value)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+export const buildSharedWorld = (input: {
+  matchId: string
+  createdAt: number
+  localUserId: string
+  rivalUserId: string
+  youName: string
+  rivalName: string
+}): SharedWorld => {
+  const createdAt = Number.isFinite(input.createdAt) ? input.createdAt : Date.now()
+  const localSide = input.localUserId < input.rivalUserId ? 'p1' : 'p2'
+  return {
+    matchId: input.matchId,
+    localUserId: input.localUserId,
+    seed: hashSeed(input.matchId),
+    startAt: createdAt + COUNTDOWN_MS,
+    localSide,
+    youName: input.youName,
+    rivalName: input.rivalName,
+  }
+}
+
+export const rankedCountdown = (startAt: number, now = Date.now()): string | null => {
+  const left = startAt - now
+  if (left <= 0) return null
+  if (left > 2500) return '3'
+  if (left > 1500) return '2'
+  if (left > 400) return '1'
+  return 'YA'
+}
+
+export const sideLabel = (world: SharedWorld | null | undefined, side: 'p1' | 'p2', fallback: string): string => {
+  if (!world) return fallback
+  if (world.localSide === side) return 'TU'
+  const name = world.rivalName.trim()
+  return name.length > 0 ? name.slice(0, 10).toUpperCase() : 'RIVAL'
+}

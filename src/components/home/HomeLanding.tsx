@@ -193,7 +193,7 @@ const HomeLanding = ({
           <p className="text-sm text-text-200">Error de plataforma: las fichas de esa partida se devuelven.</p>
           <h3 className="font-pixel text-[10px] text-[#f5c518] pt-3">Premio del mes</h3>
           <p className="text-sm text-text-200">Hace falta inscripción de este mes para competir.</p>
-          <p className="text-sm text-text-200">Ranqueada: humano vs humano, ambos inscritos.</p>
+          <p className="text-sm text-text-200">Ranking: otra persona, ambos inscritos. El bot no se usa.</p>
           <p className="text-sm text-text-200">Una victoria ranqueada suma 1 punto a esa semana.</p>
           <p className="text-sm text-text-200">Una derrota no quita puntos.</p>
           <p className="text-sm text-text-200">Máximo 8 ranqueadas al día.</p>
@@ -201,7 +201,7 @@ const HomeLanding = ({
           <p className="text-sm text-text-200">El mes tiene 4 semanas. Cuentan las 3 mejores. Una semana ruin se descarta.</p>
           <p className="text-sm text-text-200">Solo el 1.º gana. El premio no está cerrado: aún se le puede alcanzar.</p>
           <p className="text-sm text-text-200">Una persona, una plaza.</p>
-          <p className="text-sm text-text-200">Bot y amistoso no cuentan.</p>
+          <p className="text-sm text-text-200">Amistoso: bot o práctica. Bot y amistoso no cuentan para el premio.</p>
           <p className="text-sm text-text-200">Las fichas sirven para jugar. No dan puesto en el premio.</p>
         </div>
       </section>

@@ -128,11 +128,16 @@ const isApiTicket = (value: unknown): value is ApiTicket => {
 export const joinQueue = async (input: {
   gameId: string
   betAmount: number
+  ranked?: boolean
 }): Promise<JoinQueueResult> => {
   try {
     const response = await request('/matchmaking/tickets', {
       method: 'POST',
-      body: JSON.stringify({ gameId: input.gameId, betAmount: input.betAmount }),
+      body: JSON.stringify({
+        gameId: input.gameId,
+        betAmount: input.betAmount,
+        ranked: Boolean(input.ranked),
+      }),
     })
     if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
 

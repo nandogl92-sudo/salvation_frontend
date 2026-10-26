@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { keyHeld, otherSide, startLiveInputs } from './liveInputs';
+import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 /** Velocidad máxima del bot (píxeles por frame). Ajustar para cambiar dificultad. */
 const BOT_SPEED = 4;
@@ -115,7 +117,14 @@ const drawPanel = (ctx: Ctx, x: number, y: number, w: number, h: number, stroke:
   ctx.stroke();
 };
 
-const drawHud = (ctx: Ctx, leftScore: number, rightScore: number, botEnabled: boolean) => {
+const drawHud = (
+  ctx: Ctx,
+  leftScore: number,
+  rightScore: number,
+  botEnabled: boolean,
+  leftName = 'P1',
+  rightName = 'P2',
+) => {
   const y = 12;
   const h = 66;
   ctx.textBaseline = 'middle';
@@ -124,7 +133,7 @@ const drawHud = (ctx: Ctx, leftScore: number, rightScore: number, botEnabled: bo
   ctx.textAlign = 'left';
   ctx.font = '18px "Press Start 2P", monospace';
   ctx.fillStyle = CYAN;
-  ctx.fillText('P1', 40, 46);
+  ctx.fillText(leftName, 40, 46);
   ctx.font = '8px "Press Start 2P", monospace';
   ctx.fillStyle = '#9fb3c8';
   ctx.fillText('W / S', 104, 38);
@@ -151,7 +160,7 @@ const drawHud = (ctx: Ctx, leftScore: number, rightScore: number, botEnabled: bo
   ctx.textAlign = 'right';
   ctx.font = '18px "Press Start 2P", monospace';
   ctx.fillStyle = ORANGE;
-  ctx.fillText('P2', 920, 46);
+  ctx.fillText(rightName, 920, 46);
   ctx.font = '8px "Press Start 2P", monospace';
   ctx.fillStyle = '#9fb3c8';
   ctx.fillText(botEnabled ? 'BOT' : 'FLECHAS', 856, 38);
@@ -426,12 +435,29 @@ const drawSparks = (ctx: Ctx, sparks: Spark[]) => {
   ctx.globalAlpha = 1;
 };
 
+const drawCountBanner = (ctx: Ctx, title: string) => {
+  ctx.fillStyle = 'rgba(5, 7, 15, 0.72)';
+  ctx.fillRect(180, 210, 600, 140);
+  ctx.strokeStyle = '#3ec8ff';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(180, 210, 600, 140);
+  ctx.textAlign = 'center';
+  ctx.font = '28px "Press Start 2P", monospace';
+  ctx.fillStyle = '#d9f23c';
+  ctx.fillText(title, 480, 280);
+  ctx.font = '8px "Press Start 2P", monospace';
+  ctx.fillStyle = '#9fb3c8';
+  ctx.fillText('MISMO CAMPO    MISMO SAQUE', 480, 318);
+};
+
 export default function Pong({
   onGameEnd,
   botEnabled = false,
+  world = null,
 }: {
   onGameEnd: (winner: 'p1' | 'p2') => void;
   botEnabled?: boolean;
+  world?: SharedWorld | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -444,6 +470,10 @@ export default function Pong({
     void document.fonts.load('20px "Press Start 2P"');
 
     let animationFrameId = 0;
+    const rand = world ? makeRng(world.seed) : Math.random;
+    const you = world?.localSide ?? 'p1';
+    const them = otherSide(you);
+    const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const paddleStart = (PLAY_TOP + PLAY_BOTTOM - PADDLE_H) / 2;
     const minPaddle = PLAY_TOP + 6;
     const maxPaddle = PLAY_BOTTOM - PADDLE_H - 6;
@@ -458,6 +488,7 @@ export default function Pong({
       frames: 0,
       keys: {} as Record<string, boolean>,
     };
+    if (link) link.setLocalKeys(state.keys);
 
     const handleKeyDown = (e: KeyboardEvent) => { state.keys[e.key] = true; };
     const handleKeyUp = (e: KeyboardEvent) => { state.keys[e.key] = false; };
@@ -469,8 +500,8 @@ export default function Pong({
       state.ball = {
         x: WIDTH / 2,
         y: (PLAY_TOP + PLAY_BOTTOM) / 2,
-        vx: Math.random() > 0.5 ? 6 : -6,
-        vy: Math.random() > 0.5 ? 4 : -4,
+        vx: rand() > 0.5 ? 6 : -6,
+        vy: rand() > 0.5 ? 4 : -4,
       };
     };
 
@@ -489,21 +520,40 @@ export default function Pong({
       resetBall();
     };
 
+    const movePaddle = (side: 'p1' | 'p2', up: boolean, down: boolean) => {
+      if (up) state[side].y = Math.max(minPaddle, state[side].y - 7);
+      if (down) state[side].y = Math.min(maxPaddle, state[side].y + 7);
+    };
+
     const update = () => {
       state.frames += 1;
+      const rankedWait = world ? rankedCountdown(world.startAt) : null;
       const p1Before = state.p1.y;
       const p2Before = state.p2.y;
 
-      if (state.keys['w'] || state.keys['W']) state.p1.y = Math.max(minPaddle, state.p1.y - 7);
-      if (state.keys['s'] || state.keys['S']) state.p1.y = Math.min(maxPaddle, state.p1.y + 7);
-
-      if (botEnabled) {
-        const paddleCenter = state.p2.y + PADDLE_H / 2;
-        if (state.ball.y > paddleCenter) state.p2.y = Math.min(maxPaddle, state.p2.y + BOT_SPEED);
-        else if (state.ball.y < paddleCenter) state.p2.y = Math.max(minPaddle, state.p2.y - BOT_SPEED);
-      } else {
-        if (state.keys['ArrowUp']) state.p2.y = Math.max(minPaddle, state.p2.y - 7);
-        if (state.keys['ArrowDown']) state.p2.y = Math.min(maxPaddle, state.p2.y + 7);
+      if (!rankedWait) {
+        if (world) {
+          const rival = link?.readRivalKeys() ?? {};
+          movePaddle(
+            you,
+            keyHeld(state.keys, 'w', 'W', 'ArrowUp'),
+            keyHeld(state.keys, 's', 'S', 'ArrowDown'),
+          );
+          movePaddle(
+            them,
+            keyHeld(rival, 'w', 'W', 'ArrowUp'),
+            keyHeld(rival, 's', 'S', 'ArrowDown'),
+          );
+        } else {
+          movePaddle('p1', Boolean(state.keys['w'] || state.keys['W']), Boolean(state.keys['s'] || state.keys['S']));
+          if (botEnabled) {
+            const paddleCenter = state.p2.y + PADDLE_H / 2;
+            if (state.ball.y > paddleCenter) state.p2.y = Math.min(maxPaddle, state.p2.y + BOT_SPEED);
+            else if (state.ball.y < paddleCenter) state.p2.y = Math.max(minPaddle, state.p2.y - BOT_SPEED);
+          } else {
+            movePaddle('p2', Boolean(state.keys['ArrowUp']), Boolean(state.keys['ArrowDown']));
+          }
+        }
       }
 
       state.p1.moving = state.p1.y !== p1Before ? Math.floor(state.frames / 6) : -1;
@@ -512,6 +562,7 @@ export default function Pong({
       if (state.p2.swing > 0) state.p2.swing -= 1;
       if (state.shake > 0) state.shake -= 1;
 
+      if (!rankedWait) {
       state.trail.push({ x: state.ball.x, y: state.ball.y });
       if (state.trail.length > 8) state.trail.shift();
 
@@ -558,6 +609,7 @@ export default function Pong({
 
       if (state.ball.x < 0) scorePoint('p2');
       if (state.ball.x > WIDTH) scorePoint('p1');
+      }
 
       state.sparks = state.sparks.filter((spark) => {
         spark.x += spark.vx;
@@ -593,19 +645,29 @@ export default function Pong({
       drawSparks(ctx, state.sparks);
       ctx.restore();
       drawFrame(ctx);
-      drawHud(ctx, state.p1.score, state.p2.score, botEnabled);
+      drawHud(
+        ctx,
+        state.p1.score,
+        state.p2.score,
+        botEnabled,
+        sideLabel(world, 'p1', 'P1'),
+        sideLabel(world, 'p2', 'P2'),
+      );
+      if (rankedWait) drawCountBanner(ctx, rankedWait);
 
       animationFrameId = requestAnimationFrame(update);
     };
 
+    if (world) resetBall();
     animationFrameId = requestAnimationFrame(update);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      link?.stop();
       cancelAnimationFrame(animationFrameId);
     };
-  }, [onGameEnd, botEnabled]);
+  }, [onGameEnd, botEnabled, world]);
 
   return (
     <canvas

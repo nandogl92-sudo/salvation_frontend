@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { keyHeld, otherSide, startLiveInputs } from './liveInputs';
+import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
 const HEIGHT = 540;
@@ -225,9 +227,11 @@ const hitsJumper = (jumper: Jumper, item: Hazard, sway: number) => {
 export default function Skydive({
   onGameEnd,
   botEnabled = false,
+  world = null,
 }: {
   onGameEnd: (winner: 'p1' | 'p2') => void;
   botEnabled?: boolean;
+  world?: SharedWorld | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -239,9 +243,13 @@ export default function Skydive({
     void document.fonts.load(`10px ${PIX}`);
 
     let raf = 0;
+    const rand = world ? makeRng(world.seed) : Math.random;
+    const you = world?.localSide ?? 'p1';
+    const them = otherSide(you);
+    const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const state = {
-      p1: makeJumper(300, '#fb7185', '#9f1239', '#e11d48', 'ROSA'),
-      p2: makeJumper(660, '#7dd3fc', '#1e3a8a', '#2563eb', 'AZUL'),
+      p1: makeJumper(300, '#fb7185', '#9f1239', '#e11d48', sideLabel(world, 'p1', 'ROSA')),
+      p2: makeJumper(660, '#7dd3fc', '#1e3a8a', '#2563eb', sideLabel(world, 'p2', 'AZUL')),
       keys: {} as Record<string, boolean>,
       hazards: [] as Hazard[],
       sparks: [] as Spark[],
@@ -259,6 +267,7 @@ export default function Skydive({
       ko: 0,
       last: performance.now(),
     };
+    if (link) link.setLocalKeys(state.keys);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       state.keys[event.key] = true;
@@ -284,21 +293,21 @@ export default function Skydive({
     };
 
     const spawnWave = () => {
-      const roll = Math.random();
+      const roll = rand();
       const y = HEIGHT + 12;
       if (roll < 0.4) {
-        const kind: Kind = (['bird', 'balloon', 'kite', 'crate'] as Kind[])[Math.floor(Math.random() * 4)];
+        const kind: Kind = (['bird', 'balloon', 'kite', 'crate'] as Kind[])[Math.floor(rand() * 4)];
         const w = kind === 'crate' ? 54 : kind === 'balloon' ? 34 : 42;
         const h = kind === 'balloon' ? 46 : 26;
-        const x = FIELD.left + 24 + Math.random() * (FIELD.right - FIELD.left - w - 48);
+        const x = FIELD.left + 24 + rand() * (FIELD.right - FIELD.left - w - 48);
         state.hazards.push({ x, y, w, h, vx: 0, kind });
         return;
       }
       if (roll < 0.82) {
-        const leftW = 36 + Math.random() * 28;
-        const gap = MIN_GAP + Math.random() * 90;
+        const leftW = 36 + rand() * 28;
+        const gap = MIN_GAP + rand() * 90;
         const room = FIELD.right - FIELD.left - leftW - gap - 40;
-        const leftX = FIELD.left + 16 + Math.random() * Math.max(8, room);
+        const leftX = FIELD.left + 16 + rand() * Math.max(8, room);
         state.hazards.push({ x: leftX, y, w: leftW, h: 28, vx: 0, kind: 'crate' });
         state.hazards.push({
           x: leftX + leftW + gap,
@@ -306,11 +315,11 @@ export default function Skydive({
           w: 38,
           h: 26,
           vx: 0,
-          kind: Math.random() < 0.5 ? 'kite' : 'balloon',
+          kind: rand() < 0.5 ? 'kite' : 'balloon',
         });
         return;
       }
-      const fromLeft = Math.random() < 0.5;
+      const fromLeft = rand() < 0.5;
       state.hazards.push({
         x: fromLeft ? FIELD.left - 10 : FIELD.right - 30,
         y,
@@ -348,7 +357,10 @@ export default function Skydive({
       const dt = Math.min(0.05, (now - state.last) / 1000);
       state.last = now;
 
-      if (state.intro > 0) {
+      const rankedWait = world ? rankedCountdown(world.startAt) : null;
+      if (rankedWait) {
+        // Misma cuenta atrás en los dos terminales.
+      } else if (!world && state.intro > 0) {
         state.intro -= dt;
       } else if (!state.winner) {
         state.gameTime += dt;
@@ -362,18 +374,25 @@ export default function Skydive({
           spawnWave();
         }
 
-        drive(
-          state.p1,
-          steerOf(Boolean(state.keys['a'] || state.keys['A']), Boolean(state.keys['d'] || state.keys['D'])),
-          dt,
-        );
-        if (botEnabled) drive(state.p2, botSteer(state.p2), dt);
-        else {
+        if (world) {
+          const padSteer = (keys: Record<string, boolean>) =>
+            steerOf(keyHeld(keys, 'a', 'A', 'ArrowLeft'), keyHeld(keys, 'd', 'D', 'ArrowRight'));
+          drive(you === 'p1' ? state.p1 : state.p2, padSteer(state.keys), dt);
+          drive(them === 'p1' ? state.p1 : state.p2, padSteer(link?.readRivalKeys() ?? {}), dt);
+        } else {
           drive(
-            state.p2,
-            steerOf(Boolean(state.keys['ArrowLeft']), Boolean(state.keys['ArrowRight'])),
+            state.p1,
+            steerOf(Boolean(state.keys['a'] || state.keys['A']), Boolean(state.keys['d'] || state.keys['D'])),
             dt,
           );
+          if (botEnabled) drive(state.p2, botSteer(state.p2), dt);
+          else {
+            drive(
+              state.p2,
+              steerOf(Boolean(state.keys['ArrowLeft']), Boolean(state.keys['ArrowRight'])),
+              dt,
+            );
+          }
         }
 
         if (state.p1.alive) state.p1.lived = state.gameTime;
@@ -427,7 +446,9 @@ export default function Skydive({
       state.sparks.forEach((spark) => paint(ctx, spark.x, spark.y, 3, 3, spark.color));
       drawHud(ctx, state.p1, state.p2, state.gameTime, phase);
 
-      if (state.intro > 0) {
+      if (rankedWait) {
+        drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA');
+      } else if (!world && state.intro > 0) {
         const n = state.intro > 2 ? '3' : state.intro > 1 ? '2' : state.intro > 0.25 ? '1' : 'GO';
         drawBanner(ctx, n, 'P1 A/D    P2 FLECHAS    ESQUIVA Y AGUANTA');
       }
@@ -445,9 +466,10 @@ export default function Skydive({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      link?.stop();
       cancelAnimationFrame(raf);
     };
-  }, [onGameEnd, botEnabled]);
+  }, [onGameEnd, botEnabled, world]);
 
   return (
     <canvas

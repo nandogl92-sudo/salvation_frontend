@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { keyHeld, otherSide, startLiveInputs } from './liveInputs';
+import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
 const HEIGHT = 540;
@@ -173,12 +175,12 @@ const drawHud = (ctx: Ctx, p1: PlaneUnit, p2: PlaneUnit) => {
   ctx.textAlign = 'left';
   ctx.fillStyle = '#fdba74';
   ctx.font = `8px ${PIX}`;
-  ctx.fillText(`TU ${p1.score}`, 16, 22);
+  ctx.fillText(`${p1.name} ${p1.score}`, 16, 22);
   ctx.fillStyle = '#94a3b8';
   ctx.fillText(`CRECE ${p1.grows}/${MAX_GROWS}`, 16, 40);
   ctx.textAlign = 'right';
   ctx.fillStyle = '#7dd3fc';
-  ctx.fillText(`RIVAL ${p2.score}`, 944, 22);
+  ctx.fillText(`${p2.name} ${p2.score}`, 944, 22);
   ctx.fillStyle = '#94a3b8';
   ctx.fillText(`CRECE ${p2.grows}/${MAX_GROWS}`, 944, 40);
   const meter = (x: number, grows: number, color: string) => {
@@ -208,20 +210,20 @@ const drawBanner = (ctx: Ctx, title: string, sub: string) => {
   ctx.fillText('ESPACIO IMPULSO    P2 FLECHA ARRIBA', 480, 318);
 };
 
-const pickInner = (gameTime: number) => {
-  if (gameTime < 12) return Math.random() < 0.5 ? 86 : 74;
-  if (gameTime < 28) return [62, 74, 88][Math.floor(Math.random() * 3)];
-  return [48, 62, 78, 90][Math.floor(Math.random() * 4)];
+const pickInner = (gameTime: number, rand: () => number) => {
+  if (gameTime < 12) return rand() < 0.5 ? 86 : 74;
+  if (gameTime < 28) return [62, 74, 88][Math.floor(rand() * 3)];
+  return [48, 62, 78, 90][Math.floor(rand() * 4)];
 };
 
-const spawnRing = (id: number, gameTime: number): Ring => {
-  const inner = pickInner(gameTime);
+const spawnRing = (id: number, gameTime: number, rand: () => number): Ring => {
+  const inner = pickInner(gameTime, rand);
   const outer = inner + 16;
   const dodge = START_SIZE + GROW_STEP * 5 + 28;
-  const leaveBottom = Math.random() < 0.5;
+  const leaveBottom = rand() < 0.5;
   const minY = FIELD.top + outer + 16;
   const maxY = FIELD.bottom - outer - 16;
-  let y = minY + Math.random() * Math.max(12, maxY - minY);
+  let y = minY + rand() * Math.max(12, maxY - minY);
   if (leaveBottom) y = Math.min(y, FIELD.bottom - outer - dodge);
   else y = Math.max(y, FIELD.top + outer + dodge);
   return { id, x: WIDTH + outer + 8, y, inner, outer, seen: { p1: false, p2: false } };
@@ -230,9 +232,11 @@ const spawnRing = (id: number, gameTime: number): Ring => {
 export default function Plane({
   onGameEnd,
   botEnabled = false,
+  world = null,
 }: {
   onGameEnd: (winner: 'p1' | 'p2') => void;
   botEnabled?: boolean;
+  world?: SharedWorld | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -246,9 +250,13 @@ export default function Plane({
     let raf = 0;
     let ended = false;
     let nextRingId = 1;
+    const rand = world ? makeRng(world.seed) : Math.random;
+    const you = world?.localSide ?? 'p1';
+    const them = otherSide(you);
+    const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const state = {
-      p1: makePlane(168, '#fdba74', '#c2410c', 'TU'),
-      p2: makePlane(258, '#7dd3fc', '#1d4ed8', 'RIVAL'),
+      p1: makePlane(168, '#fdba74', '#c2410c', sideLabel(world, 'p1', 'TU')),
+      p2: makePlane(258, '#7dd3fc', '#1d4ed8', sideLabel(world, 'p2', 'RIVAL')),
       keys: {} as Record<string, boolean>,
       rings: [] as Ring[],
       sparks: [] as Spark[],
@@ -267,6 +275,7 @@ export default function Plane({
       ko: 0,
       last: performance.now(),
     };
+    if (link) link.setLocalKeys(state.keys);
 
     const isDown = (code: string, key: string) => Boolean(state.keys[code] || state.keys[key]);
 
@@ -274,6 +283,8 @@ export default function Plane({
       if (state.intro > 0 || state.started || state.winner) return;
       state.started = true;
     };
+
+    const localPlane = () => (you === 'p1' ? state.p1 : state.p2);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'Space' || event.key === ' ' || event.key === 'ArrowUp') event.preventDefault();
@@ -283,10 +294,11 @@ export default function Plane({
       const now = performance.now() / 1000;
       if (event.code === 'Space' || event.key === ' ') {
         beginIfNeeded();
-        state.p1.flapReady = true;
-        flap(state.p1, now, true);
+        const plane = localPlane();
+        plane.flapReady = true;
+        flap(plane, now, true);
       }
-      if (event.key === 'ArrowUp') {
+      if (!world && event.key === 'ArrowUp') {
         state.p2.flapReady = true;
         flap(state.p2, now, true);
       }
@@ -294,21 +306,22 @@ export default function Plane({
     const handleKeyUp = (event: KeyboardEvent) => {
       state.keys[event.code] = false;
       state.keys[event.key] = false;
-      if (event.code === 'Space' || event.key === ' ') state.p1.flapReady = true;
-      if (event.key === 'ArrowUp') state.p2.flapReady = true;
+      if (event.code === 'Space' || event.key === ' ') localPlane().flapReady = true;
+      if (!world && event.key === 'ArrowUp') state.p2.flapReady = true;
     };
     const handlePointer = (event: PointerEvent) => {
       event.preventDefault();
       state.keys.Space = true;
       state.keys[' '] = true;
       beginIfNeeded();
-      state.p1.flapReady = true;
-      flap(state.p1, performance.now() / 1000, true);
+      const plane = localPlane();
+      plane.flapReady = true;
+      flap(plane, performance.now() / 1000, true);
     };
     const handlePointerUp = () => {
       state.keys.Space = false;
       state.keys[' '] = false;
-      state.p1.flapReady = true;
+      localPlane().flapReady = true;
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -415,25 +428,36 @@ export default function Plane({
       state.last = nowMs;
       const scroll = Math.min(SCROLL_MAX, SCROLL0 + state.gameTime * SCROLL_GAIN);
 
-      if (state.intro > 0) {
+      const rankedWait = world ? rankedCountdown(world.startAt) : null;
+      if (rankedWait) {
+        // La cuenta atrás usa el reloj de la partida, igual en los dos terminales.
+      } else if (!world && state.intro > 0) {
         state.intro -= dt;
-      } else if (!state.started) {
+      } else if (!world && !state.started) {
         if (isDown('Space', ' ')) {
           state.started = true;
           state.p1.flapReady = true;
           flap(state.p1, now, true);
         }
+      } else if (world && !state.started) {
+        state.started = true;
       } else if (!state.winner) {
         state.gameTime += dt;
         state.spawnWait += dt;
         const every = Math.max(1.15, 1.7 - state.gameTime * 0.018);
         if (state.spawnWait >= every) {
           state.spawnWait = 0;
-          state.rings.push(spawnRing(nextRingId, state.gameTime));
+          state.rings.push(spawnRing(nextRingId, state.gameTime, rand));
           nextRingId += 1;
         }
 
         if (botEnabled) botFlap(state.p2, scroll, now);
+        else if (world) {
+          const rival = link?.readRivalKeys() ?? {};
+          const other = them === 'p1' ? state.p1 : state.p2;
+          if (keyHeld(rival, ' ', 'Space', 'ArrowUp')) flap(other, now, true);
+          else other.flapReady = true;
+        }
 
         growIfDue(state.p1, state.gameTime);
         growIfDue(state.p2, state.gameTime);
@@ -482,14 +506,16 @@ export default function Plane({
       });
       drawHud(ctx, state.p1, state.p2);
 
-      if (state.intro > 0) {
+      if (rankedWait) {
+        drawBanner(ctx, rankedWait, 'MISMO CIELO    MISMO ARO    ESPACIO IMPULSO');
+      } else if (!world && state.intro > 0) {
         const n = state.intro > 1.9 ? '3' : state.intro > 1.1 ? '2' : state.intro > 0.35 ? '1' : 'YA';
         drawBanner(ctx, n, 'PASA POR EL HUECO    CHOCA EL BORDE Y PIERDES');
-      } else if (!state.started) {
+      } else if (!world && !state.started) {
         drawBanner(ctx, 'ESPACIO', 'CRECE CADA 10s    6 VECES Y EXPLOTA');
       } else if (state.winner) {
-        const title = state.winner === 'p1' ? 'VICTORIA' : 'GANA EL RIVAL';
-        drawBanner(ctx, title, `TU ${state.p1.score}   RIVAL ${state.p2.score}`);
+        const title = state.winner === you ? 'VICTORIA' : 'GANA EL RIVAL';
+        drawBanner(ctx, title, `${state.p1.name} ${state.p1.score}   ${state.p2.name} ${state.p2.score}`);
       }
 
       raf = requestAnimationFrame(update);
@@ -502,9 +528,10 @@ export default function Plane({
       window.removeEventListener('keyup', handleKeyUp);
       canvas.removeEventListener('pointerdown', handlePointer);
       window.removeEventListener('pointerup', handlePointerUp);
+      link?.stop();
       cancelAnimationFrame(raf);
     };
-  }, [onGameEnd, botEnabled]);
+  }, [onGameEnd, botEnabled, world]);
 
   return (
     <canvas

@@ -19,7 +19,7 @@ type LobbyPanelProps = {
   betAmount: number
   queueStatus: QueueStatus
   onCancel: () => void
-  onRetry: () => void
+  onRetry: (isRanked: boolean) => void
   onPlayBot: () => void
   queueError: string | null
   currentUser: UserProfile
@@ -68,21 +68,11 @@ const LobbyPanel = ({
     setPlayMode('friendly')
   }
 
-  const pickRankedRival = (): UserProfile | null => {
-    if (eligibleRanked.length === 0) return null
-    const unseen = eligibleRanked.filter((user) => user.id !== lastRivalId)
-    const pool = unseen.length > 0 ? unseen : eligibleRanked
-    const index = Math.floor(Math.random() * pool.length)
-    return pool[index] ?? null
-  }
-
   const handlePlay = () => {
     if (isInvalidBet) return
     if (isRanked) {
       if (!canRanked || leftToday <= 0) return
-      const picked = pickRankedRival()
-      if (!picked) return
-      onPlayRival(picked, true)
+      onRetry(true)
       return
     }
     if (allRivals.length === 0) return
@@ -104,7 +94,7 @@ const LobbyPanel = ({
 
   const handleRetry = () => {
     if (isInvalidBet) return
-    onRetry()
+    onRetry(isRanked)
   }
 
   const rankedClass = isRanked
@@ -114,13 +104,13 @@ const LobbyPanel = ({
     ? 'bg-accent-100 text-white'
     : 'bg-bg-200 text-text-100'
 
-  const rankedBlocked = !canRanked || leftToday <= 0 || eligibleRanked.length === 0
+  const rankedBlocked = !canRanked || leftToday <= 0
   const playDisabled = isInvalidBet || isSearching || (isRanked
     ? rankedBlocked
     : allRivals.length === 0)
 
   const playLabel = isRanked
-    ? 'Buscar ranqueada'
+    ? 'Buscar a otra persona'
     : selectedRival
       ? `Jugar amistoso contra ${selectedRival.username}`
       : 'Jugar amistoso contra un rival al azar'
@@ -133,7 +123,7 @@ const LobbyPanel = ({
         </div>
         <h2 className="text-2xl font-bold">{selectedGame.name}</h2>
         <p className="text-text-200 text-sm mt-2">
-          Ranking suma al premio. Amistoso y bot no. Cada partida se juega por 1 ficha.
+          Ranking: otra persona. Amistoso: bot o práctica. Cada partida se juega por 1 ficha.
         </p>
       </div>
 
@@ -146,7 +136,7 @@ const LobbyPanel = ({
             tabIndex={0}
             onClick={handleSelectRanked}
             onKeyDown={(event) => handleActivateKey(event, handleSelectRanked)}
-            disabled={!canRanked}
+            disabled={!canRanked || isSearching}
             className={`py-3 rounded-xl text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed ${rankedClass}`}
           >
             Ranking
@@ -158,7 +148,8 @@ const LobbyPanel = ({
             tabIndex={0}
             onClick={handleSelectFriendly}
             onKeyDown={(event) => handleActivateKey(event, handleSelectFriendly)}
-            className={`py-3 rounded-xl text-sm font-bold ${friendlyClass}`}
+            disabled={isSearching}
+            className={`py-3 rounded-xl text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed ${friendlyClass}`}
           >
             Amistoso
           </button>
@@ -167,7 +158,7 @@ const LobbyPanel = ({
         {isRanked ? (
           <div className="space-y-2">
             <p className="text-xs text-text-200">
-              Ranqueada: la cola elige rival. No puedes elegir a alguien a dedo.
+              Ranking: otra persona. El bot no se usa. La cola elige rival.
             </p>
             <p className="text-sm font-bold text-text-100" aria-label={`${leftToday} ranqueadas restantes de ${RANKED_PER_DAY} hoy`}>
               Te quedan {leftToday} de {RANKED_PER_DAY} ranqueadas hoy
@@ -175,7 +166,7 @@ const LobbyPanel = ({
           </div>
         ) : (
           <p className="text-xs text-text-200">
-            Amistoso: se juega con fichas. No cambia los puntos del mes ni el puesto del premio.
+            Amistoso: bot o persona de prueba. No cambia los puntos del mes ni el puesto del premio.
           </p>
         )}
 
@@ -227,14 +218,25 @@ const LobbyPanel = ({
           </div>
         )}
 
-        {isTimeout ? (
+        {isSearching ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-text-200 text-sm bg-bg-200 p-3 rounded-lg" role="status">
               <WifiOff className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <span>
                 {isRanked
-                  ? 'No hay rival para la ranqueada. El bot no se ofrece en ranking. Cambia a Amistoso si quieres jugar contra el bot de prueba.'
-                  : `No hay otro jugador con ${formatPoints(betAmount)} fichas en ${selectedGame.name}. Puedes jugar contra el bot de prueba. Esa partida no cambia tus fichas ni los puntos del mes.`}
+                  ? 'Esperando a otra persona. El bot no se usa. No entramos al juego hasta que el rival también busque.'
+                  : 'Buscando rival...'}
+              </span>
+            </div>
+          </div>
+        ) : isTimeout ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-text-200 text-sm bg-bg-200 p-3 rounded-lg" role="status">
+              <WifiOff className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+              <span>
+                {isRanked
+                  ? 'No hay otra persona para la ranqueada. El bot no se usa en ranking. Cambia a Amistoso para el bot de prueba.'
+                  : `No hay otra persona en ${selectedGame.name}. Puedes jugar contra el bot de prueba. No suma al premio.`}
               </span>
             </div>
             {!isRanked && (
@@ -349,8 +351,13 @@ const LobbyPanel = ({
               disabled={playDisabled}
               className="w-full py-4 rounded-xl font-bold text-lg bg-accent-100 hover:bg-accent-200 text-white shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isSearching ? 'Entrando...' : isRanked ? 'Buscar ranqueada' : selectedRival ? `Amistoso vs ${selectedRival.username}` : 'Jugar amistoso'}
+              {isRanked ? 'Buscar a otra persona' : selectedRival ? `Amistoso vs ${selectedRival.username}` : 'Jugar amistoso'}
             </button>
+            {!isRanked && (
+              <p className="text-xs text-text-200 text-center">
+                Si no hay persona, al acabar la espera puedes jugar contra el bot.
+              </p>
+            )}
           </div>
         )}
 

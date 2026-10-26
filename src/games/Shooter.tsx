@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { keyHeld, otherSide, startLiveInputs } from './liveInputs';
+import { rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
 const HEIGHT = 540;
@@ -258,7 +260,7 @@ const drawPortrait = (ctx: Ctx, x: number, y: number, pal: Palette, dir: number)
   ctx.restore();
 };
 
-const drawHud = (ctx: Ctx, p1: Fighter, p2: Fighter, frames: number) => {
+const drawHud = (ctx: Ctx, p1: Fighter, p2: Fighter, frames: number, p1Name: string, p2Name: string) => {
   paint(ctx, 0, 0, WIDTH, 104, 'rgba(10, 8, 24, 0.72)');
   paint(ctx, 8, 8, 300, 88, '#161022');
   ctx.strokeStyle = CYAN.glow;
@@ -283,7 +285,7 @@ const drawHud = (ctx: Ctx, p1: Fighter, p2: Fighter, frames: number) => {
   ctx.fillText(p1.reloading > 0 ? 'RELOAD' : `AMMO ${p1.mag}/${p1.reserve}`, 154, 48);
   ctx.fillStyle = CYAN.glow;
   ctx.font = `8px ${PIX}`;
-  ctx.fillText(CYAN.name, 70, 68);
+  ctx.fillText(p1Name, 70, 68);
   ctx.fillStyle = '#9aa6b8';
   ctx.font = `7px ${PIX}`;
   ctx.fillText('Arena: Laser Yard', 70, 86);
@@ -302,7 +304,7 @@ const drawHud = (ctx: Ctx, p1: Fighter, p2: Fighter, frames: number) => {
   ctx.fillText('RIFLE', 860, 48);
   ctx.fillStyle = AMBER.glow;
   ctx.font = `8px ${PIX}`;
-  ctx.fillText(AMBER.name, 888, 68);
+  ctx.fillText(p2Name, 888, 68);
   ctx.fillStyle = '#9aa6b8';
   ctx.font = `7px ${PIX}`;
   ctx.fillText('P1 WASD  P2 FLECHAS', 888, 86);
@@ -316,9 +318,9 @@ const drawHud = (ctx: Ctx, p1: Fighter, p2: Fighter, frames: number) => {
   ctx.fillText(formatTime(frames), 480, 56);
   ctx.font = `7px ${PIX}`;
   ctx.fillStyle = CYAN.glow;
-  ctx.fillText(`P1 ${p1.hits}`, 390, 78);
+  ctx.fillText(`${p1Name} ${p1.hits}`, 390, 78);
   ctx.fillStyle = AMBER.glow;
-  ctx.fillText(`P2 ${p2.hits}`, 570, 78);
+  ctx.fillText(`${p2Name} ${p2.hits}`, 570, 78);
   ctx.fillStyle = '#f4f7fb';
   ctx.fillText('ROUND 1', 480, 78);
   ctx.textAlign = 'left';
@@ -365,9 +367,11 @@ const makeFighter = (x: number, y: number, magSize: number, reserve: number): Fi
 export default function Shooter({
   onGameEnd,
   botEnabled = false,
+  world = null,
 }: {
   onGameEnd: (winner: 'p1' | 'p2') => void;
   botEnabled?: boolean;
+  world?: SharedWorld | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -380,6 +384,11 @@ export default function Shooter({
     void document.fonts.load(`10px ${PIX}`);
 
     let animationFrameId = 0;
+    const you = world?.localSide ?? 'p1';
+    const them = otherSide(you);
+    const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
+    const p1Name = sideLabel(world, 'p1', CYAN.name);
+    const p2Name = sideLabel(world, 'p2', AMBER.name);
     const state = {
       p1: makeFighter(200, 300, 15, 45),
       p2: makeFighter(620, 250, 10, 60),
@@ -390,9 +399,12 @@ export default function Shooter({
       ko: null as Side | null,
       koFrames: 0,
     };
+    if (link) link.setLocalKeys(state.keys);
+
+    const waiting = () => Boolean(world ? rankedCountdown(world.startAt) : state.frames < INTRO_FRAMES);
 
     const shoot = (owner: Side) => {
-      if (state.ko || state.frames < INTRO_FRAMES) return;
+      if (state.ko || waiting()) return;
       const fighter = state[owner];
       if (fighter.reloading > 0 || fighter.cooldown > 0) return;
       if (fighter.mag <= 0) return;
@@ -462,8 +474,11 @@ export default function Shooter({
         paint(ctx, spark.x, spark.y, spark.size, spark.size, spark.color);
       });
       ctx.globalAlpha = 1;
-      drawHud(ctx, state.p1, state.p2, state.frames);
-      if (state.frames < INTRO_FRAMES) {
+      drawHud(ctx, state.p1, state.p2, state.frames, p1Name, p2Name);
+      const count = world ? rankedCountdown(world.startAt) : null;
+      if (count) {
+        drawBanner(ctx, count, 'MISMO PATIO    TU LADO SOLO', '#5cf0ff');
+      } else if (!world && state.frames < INTRO_FRAMES) {
         drawBanner(ctx, 'LASER DUEL', 'CYAN PULSE  VS  AMBER BOLT', '#5cf0ff');
       }
       if (state.ko) {
@@ -487,8 +502,34 @@ export default function Shooter({
         return;
       }
 
-      if (state.frames >= INTRO_FRAMES) {
+      if (!waiting()) {
         const speed = 4;
+        const steer = (side: Side, up: boolean, down: boolean, left: boolean, right: boolean) => {
+          const beforeX = state[side].x;
+          const beforeY = state[side].y;
+          if (up) state[side].y -= speed;
+          if (down) state[side].y += speed;
+          if (left) state[side].x -= speed;
+          if (right) state[side].x += speed;
+          state[side].moving = state[side].x !== beforeX || state[side].y !== beforeY;
+        };
+        if (world) {
+          const padSteer = (side: Side, keys: Record<string, boolean>) => {
+            steer(
+              side,
+              keyHeld(keys, 'w', 'W', 'ArrowUp'),
+              keyHeld(keys, 's', 'S', 'ArrowDown'),
+              keyHeld(keys, 'a', 'A', 'ArrowLeft'),
+              keyHeld(keys, 'd', 'D', 'ArrowRight'),
+            );
+            clamp(state[side], side === 'p1' ? FIELD.left : 500, side === 'p1' ? 470 : FIELD.right);
+            if (keyHeld(keys, ' ', 'Space', 'Enter')) shoot(side);
+          };
+          padSteer(you, state.keys);
+          padSteer(them, link?.readRivalKeys() ?? {});
+          reload(state.p1);
+          reload(state.p2);
+        } else {
         const p1x = state.p1.x;
         const p1y = state.p1.y;
         if (state.keys['w'] || state.keys['W']) state.p1.y -= speed;
@@ -524,6 +565,7 @@ export default function Shooter({
           state.p2.moving = state.p2.x !== p2x || state.p2.y !== p2y;
           clamp(state.p2, 500, FIELD.right);
           if (state.keys['Enter']) shoot('p2');
+        }
         }
 
         state.bullets = state.bullets.filter((bullet) => {
@@ -564,9 +606,10 @@ export default function Shooter({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      link?.stop();
       cancelAnimationFrame(animationFrameId);
     };
-  }, [onGameEnd, botEnabled]);
+  }, [onGameEnd, botEnabled, world]);
 
   return (
     <canvas

@@ -9,6 +9,7 @@ export type GameResult = {
   isRanked: boolean
   monthPoints: number
   monthPointsDelta: number
+  byAbandon?: boolean
 }
 
 type GameResultPanelProps = {
@@ -38,6 +39,20 @@ const GameResultPanel = ({
         ? `Esta semana no entra en las 3 mejores. Sigues con ${formatPoints(result.monthPoints)}.`
         : `Los puntos del mes no bajan. Sigues con ${formatPoints(result.monthPoints)}.`
 
+  const abandonMessage = !result.byAbandon
+    ? null
+    : result.won
+      ? 'El rival salió, recargó o se desconectó.'
+      : 'Saliste de la partida, recargaste o se cortó la conexión.'
+
+  const outcomeTitle = result.byAbandon
+    ? result.won
+      ? 'Ganaste por abandono'
+      : 'Perdiste por abandono'
+    : result.won
+      ? '¡Ganaste!'
+      : 'Perdiste'
+
   return (
     <div className="flex flex-col items-center justify-center py-16 space-y-6">
       {result.isRefund ? (
@@ -56,11 +71,9 @@ const GameResultPanel = ({
           <div className="bg-bg-300 text-text-200 p-5 rounded-full">
             <Trophy className="w-12 h-12" aria-hidden="true" />
           </div>
-          <h2 className="text-3xl font-bold text-text-100">
-            {result.won ? 'Ganaste' : 'Perdiste'}
-          </h2>
+          <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
           <p className="text-text-200 text-center max-w-sm">
-            Tus fichas no cambian.
+            {abandonMessage ?? 'Tus fichas no cambian.'}
           </p>
           <p className="text-text-200 text-sm">
             Fichas:{' '}
@@ -73,7 +86,10 @@ const GameResultPanel = ({
           <div className="bg-accent-100/10 text-accent-100 p-5 rounded-full">
             <Trophy className="w-12 h-12" aria-hidden="true" />
           </div>
-          <h2 className="text-3xl font-bold text-text-100">¡Ganaste!</h2>
+          <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
+          {abandonMessage && (
+            <p className="text-text-200 text-sm text-center max-w-sm">{abandonMessage}</p>
+          )}
           <div className="text-center space-y-1">
             <p className="text-text-200 text-sm">Fichas ganadas (comisión {feePercent}% incluida)</p>
             <p className="text-4xl font-bold text-accent-100">+{formatPoints(result.profit)}</p>
@@ -89,7 +105,10 @@ const GameResultPanel = ({
           <div className="bg-primary-100/10 text-primary-100 p-5 rounded-full">
             <AlertCircle className="w-12 h-12" aria-hidden="true" />
           </div>
-          <h2 className="text-3xl font-bold text-text-100">Perdiste</h2>
+          <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
+          {abandonMessage && (
+            <p className="text-text-200 text-sm text-center max-w-sm">{abandonMessage}</p>
+          )}
           <div className="text-center space-y-1">
             <p className="text-text-200 text-sm">Fichas perdidas</p>
             <p className="text-4xl font-bold text-primary-100">-{formatPoints(betAmount)}</p>
