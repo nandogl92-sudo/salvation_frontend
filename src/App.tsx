@@ -283,7 +283,7 @@ export default function App() {
     }
 
     const already = await tryMatch(result.ticket);
-    if (already.status === 'matched' && (!isRanked || already.world)) {
+    if (already.status === 'matched') {
       enterMatchedQueue(result.ticket, already, isRanked);
       await syncBalanceFromServer();
       return;
@@ -375,12 +375,6 @@ export default function App() {
       if (stopped) return;
 
       if (result.status === 'matched') {
-        if (queueIsRanked && !result.world) {
-          timer = window.setTimeout(() => {
-            void poll();
-          }, QUEUE_POLL_INTERVAL_MS);
-          return;
-        }
         enterMatchedQueue(ticket, result, queueIsRanked);
         return;
       }
