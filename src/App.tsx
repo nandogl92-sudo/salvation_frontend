@@ -724,7 +724,7 @@ export default function App() {
                   activeMatch?.isRanked
                     ? 'Ranqueada — tú mueves tu lado. El rival es otra persona, no un bot.'
                     : selectedGame.id === 'combat'
-                    ? 'Controles — P1: A/D para moverte | P2: Flechas. Gana quien sobreviva más tiempo.'
+                    ? 'Controles — P1: A/D para moverte | P2: Flechas. Quien choca pierde. Cada 10s la caída es más rápida.'
                     : selectedGame.id === 'snake'
                       ? 'Controles — P1: Espacio o toque para impulso | P2: Flecha arriba. Pasa un aro para bajar de tamaño. Al máximo explotas.'
                       : selectedGame.id === 'tetris'

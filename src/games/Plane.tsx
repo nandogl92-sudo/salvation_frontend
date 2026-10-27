@@ -18,9 +18,7 @@ const GROW_STEP = 5;
 const GROW_EVERY = 10;
 const MAX_GROWS = 6;
 const RING_THICK = 12;
-const SCROLL0 = 210;
-const SPEED_STEP = 36;
-const SCROLL_MAX = 426;
+const SPEED_PHASES = 8;
 
 type Ctx = CanvasRenderingContext2D;
 type Side = 'p1' | 'p2';
@@ -96,9 +94,15 @@ const canPass = (plane: PlaneUnit, ring: Ring) => ring.inner > plane.size + 8;
 
 const pullOf = (vy: number) => (vy < 0 ? RISE_G : FALL_G);
 
-const scrollSpeed = (gameTime: number) => (
-  Math.min(SCROLL_MAX, SCROLL0 + Math.floor(gameTime / GROW_EVERY) * SPEED_STEP)
-);
+const scrollSpeed = (gameTime: number) => {
+  const phase = Math.min(SPEED_PHASES, Math.floor(gameTime / GROW_EVERY));
+  return 170 + phase * 75;
+};
+
+const ringEvery = (gameTime: number) => {
+  const phase = Math.min(SPEED_PHASES, Math.floor(gameTime / GROW_EVERY));
+  return Math.max(0.85, 1.6 - phase * 0.09);
+};
 
 const resize = (plane: PlaneUnit) => {
   plane.size = START_SIZE + plane.grows * GROW_STEP;
@@ -552,7 +556,7 @@ export default function Plane({
         state.gameTime += dt;
         const scroll = scrollSpeed(state.gameTime);
         state.spawnWait += dt;
-        const every = Math.max(1.15, 1.7 - state.gameTime * 0.018);
+        const every = ringEvery(state.gameTime);
         if (state.spawnWait >= every) {
           state.spawnWait = 0;
           state.rings.push(spawnRing(nextRingId, state.gameTime, rand));

@@ -106,6 +106,8 @@ const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }
 
 const PADDLE_BUTTON = 'min-h-24 w-full flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold tracking-wide select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
 
+const PLANE_BUTTON = 'min-h-32 w-full rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-xl font-bold tracking-wide select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+
 const PADDLE_KEYS: PadKey[] = [
   { key: 'w', label: '▲ ARRIBA', ariaLabel: 'Subir la pala' },
   { key: 's', label: '▼ ABAJO', ariaLabel: 'Bajar la pala' },
@@ -123,7 +125,11 @@ const STEER_BUTTONS: PadKey[] = [
   { key: 'd', label: 'ABAJO', ariaLabel: 'Girar a la derecha' },
 ]
 
-const DROP_BUTTON = 'flex-1 min-h-20 landscape:min-h-16 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+const DROP_BUTTON = 'min-h-24 w-full flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+
+const DROP_LEFT = 'flex min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
+
+const DROP_RIGHT = 'flex min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
 
 const DROP_BUTTONS: PadKey[] = [
   { key: 'a', label: '◀ IZQUIERDA', ariaLabel: 'Mover a la izquierda' },
@@ -179,8 +185,8 @@ const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSi
     : gameId === 'pong'
       ? 'w-full flex lg:hidden items-center justify-center px-2 py-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
       : `${gameId === 'combat'
-        ? 'w-full flex lg:hidden items-center justify-between gap-3 px-3 py-3 landscape:gap-2 landscape:px-2 landscape:py-1'
-        : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'} ${FLOAT_ON_LANDSCAPE}`
+        ? 'w-full flex lg:hidden items-stretch justify-between gap-3 px-3 py-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
+        : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'} ${gameId === 'combat' ? '' : FLOAT_ON_LANDSCAPE}`
 
   return (
     <div
@@ -210,13 +216,21 @@ const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSi
         </>
       )}
       {gameId === 'combat' && (
-        <div className="flex w-full flex-1 gap-3" aria-label="Mover el paracaídas">
-          {DROP_BUTTONS.map((padKey) => (
-            <PadButton key={padKey.ariaLabel} padKey={padKey} className={DROP_BUTTON} />
-          ))}
+        <>
+          <div className={DROP_LEFT} aria-label="Mover a la izquierda">
+            <PadButton padKey={DROP_BUTTONS[0]} className={DROP_BUTTON} />
+          </div>
+          <div className={DROP_RIGHT} aria-label="Mover a la derecha">
+            <PadButton padKey={DROP_BUTTONS[1]} className={DROP_BUTTON} />
+          </div>
+        </>
+      )}
+      {gameId === 'snake' && (
+        <div className="flex w-full" aria-label="Impulso del avión">
+          <PadButton padKey={PADS.snake.dirs[0]} className={PLANE_BUTTON} />
         </div>
       )}
-      {gameId !== 'pong' && gameId !== 'tetris' && gameId !== 'combat' && <DirPad dirs={pad.dirs} />}
+      {gameId !== 'pong' && gameId !== 'tetris' && gameId !== 'combat' && gameId !== 'snake' && <DirPad dirs={pad.dirs} />}
       {pad.actions.length > 0 && (
         <div className="flex flex-wrap justify-end gap-2 max-w-[50%]">
           {pad.actions.map((action) => (

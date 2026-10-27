@@ -8,10 +8,12 @@ const PIX = '"Press Start 2P", monospace';
 const FIELD = { left: 18, top: 70, right: 942, bottom: 530 };
 const INTRO_S = 3;
 const KO_S = 2.2;
-const PHASE_S = 20;
-const MAX_PHASE = 7;
+const PHASE_S = 10;
+const MAX_PHASE = 8;
 const MIN_GAP = 112;
 const MOVE = 310;
+
+const fallSpeedOf = (phase: number) => 75 + phase * 65;
 
 type Ctx = CanvasRenderingContext2D;
 type Side = 'p1' | 'p2';
@@ -438,8 +440,8 @@ export default function Skydive({
       } else if (!state.winner) {
         state.gameTime += dt;
         const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
-        const fallSpeed = 90 + phase * 18;
-        const spawnEvery = Math.max(0.5, 1.32 - phase * 0.11);
+        const fallSpeed = fallSpeedOf(phase);
+        const spawnEvery = Math.max(0.48, 1.15 - phase * 0.08);
         state.fall += fallSpeed * dt;
         state.spawnWait += dt;
         if (state.spawnWait >= spawnEvery) {
@@ -491,10 +493,12 @@ export default function Skydive({
         strike(state.p1, sway1);
         strike(state.p2, sway2);
 
-        if (!state.p1.alive && !state.p2.alive) {
-          const gap = Math.abs(state.p1.lived - state.p2.lived);
-          if (gap < 0.04) state.winner = 'draw';
-          else state.winner = state.p1.lived > state.p2.lived ? 'p1' : 'p2';
+        if (!state.p1.alive || !state.p2.alive) {
+          if (state.p1.alive !== state.p2.alive) state.winner = state.p1.alive ? 'p1' : 'p2';
+          else {
+            const gap = Math.abs(state.p1.lived - state.p2.lived);
+            state.winner = gap < 0.04 ? 'draw' : state.p1.lived > state.p2.lived ? 'p1' : 'p2';
+          }
           state.ko = KO_S;
         }
       } else {
@@ -524,7 +528,7 @@ export default function Skydive({
         drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA');
       } else if (!world && state.intro > 0) {
         const n = state.intro > 2 ? '3' : state.intro > 1 ? '2' : state.intro > 0.25 ? '1' : 'GO';
-        drawBanner(ctx, n, 'P1 A/D    P2 FLECHAS    ESQUIVA Y AGUANTA');
+        drawBanner(ctx, n, 'QUIEN CHOCA PIERDE    CADA 10s BAJAS MAS');
       }
       if (state.winner === 'draw') {
         drawBanner(ctx, 'EMPATE', `${formatTime(state.p1.lived)} = ${formatTime(state.p2.lived)}`);
