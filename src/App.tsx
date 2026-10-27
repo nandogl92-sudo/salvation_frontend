@@ -728,7 +728,7 @@ export default function App() {
                     : selectedGame.id === 'snake'
                       ? 'Controles — P1: Espacio o toque para impulso | P2: Flecha arriba. Pasa un aro para bajar de tamaño. Al máximo explotas.'
                       : selectedGame.id === 'tetris'
-                        ? 'Controles — P1: W acelerar, S frenar, A/D girar | P2: Flechas. Tocar el borde naranja anula la vuelta.'
+                        ? 'Controles — P1: A/D girar, S o espacio frenar | P2: Flechas. El coche acelera solo. Tocar el borde naranja anula la vuelta.'
                         : undefined}
               >
                 {renderGame()}

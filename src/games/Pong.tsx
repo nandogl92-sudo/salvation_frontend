@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { easeToward, keyHeld, otherSide, startLiveInputs, stepPlayHead } from './liveInputs';
+import { keyHeld, otherSide, startLiveInputs, stepPlayHead } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 /** Velocidad máxima del bot (píxeles por frame). Ajustar para cambiar dificultad. */
@@ -490,11 +490,66 @@ export default function Pong({
     };
     if (link) link.setLocalKeys(state.keys);
 
+    const TAP_MS = 130;
+    let p1Tap = 0;
+    let p1TapUntil = 0;
+    let p2Tap = 0;
+    let p2TapUntil = 0;
+    const armTap = (key: string) => {
+      const until = performance.now() + TAP_MS;
+      if (!world) {
+        if (key === 'w' || key === 'W') {
+          p1Tap = -1;
+          p1TapUntil = until;
+        }
+        if (key === 's' || key === 'S') {
+          p1Tap = 1;
+          p1TapUntil = until;
+        }
+        if (key === 'ArrowUp') {
+          p2Tap = -1;
+          p2TapUntil = until;
+        }
+        if (key === 'ArrowDown') {
+          p2Tap = 1;
+          p2TapUntil = until;
+        }
+        return;
+      }
+      const mineUp = key === 'w' || key === 'W' || key === 'ArrowUp';
+      const mineDown = key === 's' || key === 'S' || key === 'ArrowDown';
+      if (you === 'p1' && mineUp) {
+        p1Tap = -1;
+        p1TapUntil = until;
+      }
+      if (you === 'p1' && mineDown) {
+        p1Tap = 1;
+        p1TapUntil = until;
+      }
+      if (you === 'p2' && mineUp) {
+        p2Tap = -1;
+        p2TapUntil = until;
+      }
+      if (you === 'p2' && mineDown) {
+        p2Tap = 1;
+        p2TapUntil = until;
+      }
+    };
+    const sentKeys = () => {
+      const keys = { ...state.keys };
+      const now = performance.now();
+      const tap = you === 'p1' ? p1Tap : p2Tap;
+      const until = you === 'p1' ? p1TapUntil : p2TapUntil;
+      if (now < until && tap < 0) keys.w = true;
+      if (now < until && tap > 0) keys.s = true;
+      return keys;
+    };
     const publishKeys = () => {
-      link?.setLocalKeys(state.keys);
+      link?.setLocalKeys(sentKeys());
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       state.keys[e.key] = true;
+      if (!e.repeat) armTap(e.key);
       publishKeys();
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -552,7 +607,6 @@ export default function Pong({
     let acc = 0;
     let ended = false;
     let playHead = 0;
-    let shownLead = 0;
 
     const stepBall = () => {
       state.trail.push({ x: state.ball.x, y: state.ball.y });
@@ -636,7 +690,7 @@ export default function Pong({
       const now = link.serverNow();
       const live = link.serverFrame(world.startAt);
       link.setLocalKeys(
-        state.keys,
+        sentKeys(),
         state[you].y,
         null,
         live,
@@ -688,10 +742,11 @@ export default function Pong({
             if (Math.abs(drift) > 2) state[them].y = clampPaddle(state[them].y + drift * 0.45);
           }
         } else {
-          const p1Up = Boolean(state.keys['w'] || state.keys['W']);
-          const p1Down = Boolean(state.keys['s'] || state.keys['S']);
-          const p2Up = Boolean(state.keys['ArrowUp']);
-          const p2Down = Boolean(state.keys['ArrowDown']);
+          const nowTap = performance.now();
+          const p1Up = Boolean(state.keys['w'] || state.keys['W']) || (nowTap < p1TapUntil && p1Tap < 0);
+          const p1Down = Boolean(state.keys['s'] || state.keys['S']) || (nowTap < p1TapUntil && p1Tap > 0);
+          const p2Up = Boolean(state.keys['ArrowUp']) || (nowTap < p2TapUntil && p2Tap < 0);
+          const p2Down = Boolean(state.keys['ArrowDown']) || (nowTap < p2TapUntil && p2Tap > 0);
           faceMine = { up: p1Up, down: p1Down };
           faceTheirs = botEnabled ? { up: false, down: false } : { up: p2Up, down: p2Down };
           movePaddle('p1', p1Up, p1Down);
@@ -715,7 +770,7 @@ export default function Pong({
 
       if (world) {
         link?.setLocalKeys(
-          state.keys,
+          sentKeys(),
           state[you].y,
           isHost
             ? {
@@ -800,23 +855,18 @@ export default function Pong({
       if (world && link) {
         const dt = Math.min(50, Math.max(0, now - lastStamp));
         lastStamp = now;
-        link.setLocalKeys(state.keys, state[you].y, null, link.serverFrame(world.startAt));
+        link.setLocalKeys(sentKeys(), state[you].y, null, link.serverFrame(world.startAt));
         const countdown = rankedCountdown(world.startAt, link.serverNow());
         const latestAt = link.rallyAt();
         playHead = stepPlayHead(playHead, dt, latestAt, link.serverNow());
         const view = playHead > 0 ? link.readRally(playHead) : null;
         if (view) {
-          const base = you === 'p1' ? view.p1y : view.p2y;
-          const dir = (keyHeld(state.keys, 'w', 'W', 'ArrowUp') ? -1 : 0)
-            + (keyHeld(state.keys, 's', 'S', 'ArrowDown') ? 1 : 0);
-          shownLead = easeToward(shownLead, dir * 7, dt, 24);
           if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
           state.trail.push({ x: view.ballX, y: view.ballY });
           if (state.trail.length > 8) state.trail.shift();
           state.ball = { x: view.ballX, y: view.ballY, vx: 0, vy: 0 };
           state.p1.y = view.p1y;
           state.p2.y = view.p2y;
-          state[you].y = Math.max(minPaddle, Math.min(maxPaddle, base + shownLead));
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;

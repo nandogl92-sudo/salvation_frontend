@@ -27,10 +27,9 @@ const PADS: Record<string, GamePad> = {
   },
   tetris: {
     dirs: [
-      { key: 'w', label: '▲', ariaLabel: 'Acelerar' },
       { key: 'a', label: '◀', ariaLabel: 'Girar a la izquierda' },
-      { key: 's', label: '▼', ariaLabel: 'Frenar' },
       { key: 'd', label: '▶', ariaLabel: 'Girar a la derecha' },
+      { key: ' ', label: 'FRENO', ariaLabel: 'Reducir la velocidad' },
     ],
     actions: [],
   },
@@ -124,10 +123,6 @@ const STEER_BUTTONS: PadKey[] = [
   { key: 'd', label: 'ABAJO', ariaLabel: 'Girar a la derecha' },
 ]
 
-const GAS_BUTTONS: PadKey[] = [
-  { key: 'w', label: 'ADELANTE', ariaLabel: 'Acelerar' },
-]
-
 const DROP_BUTTON = 'flex-1 min-h-20 landscape:min-h-16 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
 
 const DROP_BUTTONS: PadKey[] = [
@@ -209,10 +204,7 @@ const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSi
               <PadButton key={padKey.ariaLabel} padKey={padKey} className={CAR_BUTTON} />
             ))}
           </div>
-          <div className={GAS_ROW} aria-label="Acelerar y frenar">
-            {GAS_BUTTONS.map((padKey) => (
-              <PadButton key={padKey.ariaLabel} padKey={padKey} className={CAR_BUTTON} />
-            ))}
+          <div className={GAS_ROW} aria-label="Reducir la velocidad">
             <PadButton padKey={BRAKE_BUTTON} className={CAR_BUTTON} />
           </div>
         </>
