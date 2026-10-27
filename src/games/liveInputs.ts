@@ -15,6 +15,21 @@ export type PaddleMove = {
   down: boolean
 }
 
+export type RallyView = {
+  ballX: number
+  ballY: number
+  p1y: number
+  p2y: number
+  p1: number
+  p2: number
+}
+
+type RallySnap = RallyView & {
+  at: number
+  ballVx: number
+  ballVy: number
+}
+
 export type LiveInputLink = {
   setLocalKeys: (keys: Record<string, boolean>, y?: number, pose?: RemotePose | null, frame?: number) => void
   readRivalKeys: () => Record<string, boolean>
@@ -23,6 +38,7 @@ export type LiveInputLink = {
   serverFrame: (startAt: number) => number
   serverNow: () => number
   readMove: (frame: number, who: 'local' | 'rival') => PaddleMove | null
+  readRally: (at: number) => RallyView | null
   localHeardFrame: () => number
   rivalHeardFrame: () => number
   pullRewind: () => number | null
@@ -139,6 +155,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   let lastLocalSeq = 0
   const localLog: MoveSample[] = []
   const rivalLog: MoveSample[] = []
+  const rally: RallySnap[] = []
   const liveAbort = new AbortController()
   let socket: WebSocket | null = null
 
@@ -159,6 +176,79 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   const sendPing = () => {
     if (clockLocked || !socket || socket.readyState !== WebSocket.OPEN) return
     socket.send(JSON.stringify({ ping: Date.now() }))
+  }
+
+  const finite = (value: unknown): number | null => (
+    typeof value === 'number' && Number.isFinite(value) ? value : null
+  )
+
+  const noteRally = (value: unknown) => {
+    if (!value || typeof value !== 'object') return
+    const body = value as Record<string, unknown>
+    const at = finite(body.at)
+    const ballX = finite(body.ballX)
+    const ballY = finite(body.ballY)
+    const ballVx = finite(body.ballVx)
+    const ballVy = finite(body.ballVy)
+    const p1y = finite(body.p1y)
+    const p2y = finite(body.p2y)
+    const p1 = finite(body.p1)
+    const p2 = finite(body.p2)
+    if (
+      at === null || ballX === null || ballY === null || ballVx === null || ballVy === null
+      || p1y === null || p2y === null || p1 === null || p2 === null
+    ) return
+    const last = rally[rally.length - 1]
+    if (last && at <= last.at) return
+    rally.push({ at, ballX, ballY, ballVx, ballVy, p1y, p2y, p1, p2 })
+    while (rally.length > 40) rally.shift()
+  }
+
+  const rallyView = (snap: RallySnap): RallyView => ({
+    ballX: snap.ballX,
+    ballY: snap.ballY,
+    p1y: snap.p1y,
+    p2y: snap.p2y,
+    p1: snap.p1,
+    p2: snap.p2,
+  })
+
+  const readRallyAt = (at: number): RallyView | null => {
+    if (rally.length === 0) return null
+    let prev = rally[0]
+    if (at <= prev.at) return rallyView(prev)
+    for (let index = 1; index < rally.length; index += 1) {
+      const next = rally[index]
+      if (at > next.at) {
+        prev = next
+        continue
+      }
+      const jumped = Math.abs(next.ballX - prev.ballX) > 48 || Math.abs(next.ballY - prev.ballY) > 48
+      if (jumped) return rallyView(prev)
+      const span = next.at - prev.at
+      const blend = span > 0 ? (at - prev.at) / span : 0
+      return {
+        ballX: prev.ballX + (next.ballX - prev.ballX) * blend,
+        ballY: prev.ballY + (next.ballY - prev.ballY) * blend,
+        p1y: prev.p1y + (next.p1y - prev.p1y) * blend,
+        p2y: prev.p2y + (next.p2y - prev.p2y) * blend,
+        p1: prev.p1,
+        p2: prev.p2,
+      }
+    }
+    const last = rally[rally.length - 1]
+    const ahead = at - last.at
+    if (ahead > 0 && ahead < 40) {
+      return {
+        ballX: last.ballX + last.ballVx * (ahead / FRAME_MS),
+        ballY: last.ballY + last.ballVy * (ahead / FRAME_MS),
+        p1y: last.p1y,
+        p2y: last.p2y,
+        p1: last.p1,
+        p2: last.p2,
+      }
+    }
+    return rallyView(last)
   }
 
   const noteOwn = (pad: RemotePad) => {
@@ -242,8 +332,9 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     }
     socket.onmessage = (event) => {
       try {
-        const body = JSON.parse(String(event.data)) as { serverNow?: unknown; players?: unknown; pong?: unknown }
+        const body = JSON.parse(String(event.data)) as { serverNow?: unknown; players?: unknown; pong?: unknown; rally?: unknown }
         if (typeof body.pong === 'number' && typeof body.serverNow === 'number') notePong(body.pong, body.serverNow)
+        if (body.rally) noteRally(body.rally)
         if (Array.isArray(body.players)) {
           body.players.forEach((item) => {
             if (!item || typeof item !== 'object') return
@@ -309,6 +400,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
       const found = readList(who === 'local' ? localLog : rivalLog, frame)
       return found ? { up: found.up, down: found.down } : null
     },
+    readRally: (at) => readRallyAt(at),
     rivalHeardFrame: () => rivalHeard,
     localHeardFrame: () => localHeard,
     pullRewind: () => {

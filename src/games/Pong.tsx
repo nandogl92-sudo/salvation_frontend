@@ -780,6 +780,29 @@ export default function Pong({
 
     const tick = (now: number) => {
       if (ended) return;
+      if (world && link) {
+        link.setLocalKeys(state.keys, state[you].y, null, link.serverFrame(world.startAt));
+        const view = link.readRally(link.serverNow() - 70);
+        if (view) {
+          if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
+          state.trail.push({ x: view.ballX, y: view.ballY });
+          if (state.trail.length > 8) state.trail.shift();
+          state.ball = { x: view.ballX, y: view.ballY, vx: 0, vy: 0 };
+          state.p1.y = view.p1y;
+          state.p2.y = view.p2y;
+          state.p1.score = view.p1;
+          state.p2.score = view.p2;
+          if (state.shake > 0) state.shake -= 1;
+          const countdown = rankedCountdown(world.startAt, link.serverNow());
+          paint(countdown, 0);
+          if (view.p1 >= 10) { ended = true; onGameEnd('p1'); return; }
+          if (view.p2 >= 10) { ended = true; onGameEnd('p2'); return; }
+        } else {
+          paint(rankedCountdown(world.startAt, link.serverNow()), 0);
+        }
+        animationFrameId = requestAnimationFrame(tick);
+        return;
+      }
       acc += Math.min(50, now - lastStamp);
       lastStamp = now;
       while (acc >= FRAME_MS) {
