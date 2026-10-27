@@ -593,7 +593,6 @@ export default function Pong({
     };
 
     let simFrame = 0;
-    let simArmed = false;
     let faceMine = { up: false, down: false };
     let faceTheirs = { up: false, down: false };
 
@@ -633,15 +632,17 @@ export default function Pong({
       );
       if (rankedCountdown(world.startAt, now)) return;
       if (finish()) return;
-      const target = Math.min(link.localHeardFrame(), link.rivalHeardFrame());
-      if (target <= 0) return;
-      if (!simArmed) {
-        simFrame = target;
-        simArmed = true;
-        return;
-      }
+      const origin = Math.floor(world.startAt / FRAME_MS);
+      const clockFrame = origin + live;
+      const ready = Math.min(link.localHeardFrame(), link.rivalHeardFrame());
+      if (ready <= origin) return;
+      const target = Math.min(ready, clockFrame - 5);
+      if (simFrame < origin) simFrame = origin;
+      if (target <= simFrame) return;
+      const gap = target - simFrame;
+      const budget = gap > 2 ? Math.min(gap, 10) : 1;
       let guard = 0;
-      while (simFrame < target && guard < 4) {
+      while (simFrame < target && guard < budget) {
         guard += 1;
         simFrame += 1;
         playFrame(simFrame);
