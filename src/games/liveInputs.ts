@@ -5,6 +5,16 @@ import { getMatchInputs, openMatchLive, putMatchInputs, type RemotePad, type Rem
 const HEARTBEAT_MS = 40
 const FRAME_MS = 1000 / 60
 
+export const stepPlayHead = (playHead: number, dt: number, ceiling: number, serverNow: number): number => {
+  const shared = serverNow - 32
+  const desired = ceiling > 0 ? Math.min(shared, ceiling) : 0
+  if (desired <= 0) return playHead
+  if (playHead <= 0) return desired
+  const gap = desired - playHead
+  if (gap > 0) return playHead + Math.min(gap, Math.max(0, dt) * (gap > 48 ? 1.2 : 1))
+  return desired
+}
+
 export type WorldSnap = RemotePose & {
   y: number
   receivedAt: number
@@ -24,6 +34,37 @@ export type RallyView = {
   p2: number
 }
 
+export type SceneUnit = {
+  x: number
+  y: number
+  v: number
+  n: number
+  a: number
+  p: number
+  alive: number
+}
+
+export type SceneItem = {
+  id: number
+  x: number
+  y: number
+  w: number
+  h: number
+  v: number
+  k: number
+}
+
+export type SceneSnap = {
+  at: number
+  kind: 'rings' | 'race' | 'drop'
+  winner: '' | 'p1' | 'p2' | 'draw'
+  time: number
+  fall: number
+  p1: SceneUnit
+  p2: SceneUnit
+  items: SceneItem[]
+}
+
 type RallySnap = RallyView & {
   at: number
   ballVx: number
@@ -40,6 +81,8 @@ export type LiveInputLink = {
   readMove: (frame: number, who: 'local' | 'rival') => PaddleMove | null
   readRally: (at: number) => RallyView | null
   rallyAt: () => number
+  readScene: (at: number) => SceneSnap | null
+  sceneAt: () => number
   localHeardFrame: () => number
   rivalHeardFrame: () => number
   pullRewind: () => number | null
@@ -157,6 +200,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   const localLog: MoveSample[] = []
   const rivalLog: MoveSample[] = []
   const rally: RallySnap[] = []
+  const scenes: SceneSnap[] = []
   const liveAbort = new AbortController()
   let socket: WebSocket | null = null
 
@@ -252,6 +296,108 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     return rallyView(last)
   }
 
+  const unitOf = (value: unknown): SceneUnit | null => {
+    if (!value || typeof value !== 'object') return null
+    const body = value as Record<string, unknown>
+    const x = finite(body.x)
+    const y = finite(body.y)
+    const v = finite(body.v)
+    const n = finite(body.n)
+    const a = finite(body.a)
+    const p = finite(body.p)
+    const alive = finite(body.alive)
+    if (x === null || y === null || v === null || n === null || a === null || p === null || alive === null) return null
+    return { x, y, v, n, a, p, alive }
+  }
+
+  const noteScene = (value: unknown) => {
+    if (!value || typeof value !== 'object') return
+    const body = value as Record<string, unknown>
+    const at = finite(body.at)
+    const time = finite(body.time)
+    const fall = finite(body.fall)
+    const p1 = unitOf(body.p1)
+    const p2 = unitOf(body.p2)
+    const kind = body.kind === 'rings' || body.kind === 'race' || body.kind === 'drop' ? body.kind : null
+    const winner = body.winner === 'p1' || body.winner === 'p2' || body.winner === 'draw' ? body.winner : ''
+    if (at === null || time === null || fall === null || !p1 || !p2 || !kind || !Array.isArray(body.items)) return
+    const items: SceneItem[] = []
+    body.items.forEach((item) => {
+      if (!item || typeof item !== 'object' || items.length >= 24) return
+      const row = item as Record<string, unknown>
+      const id = finite(row.id)
+      const x = finite(row.x)
+      const y = finite(row.y)
+      const w = finite(row.w)
+      const h = finite(row.h)
+      const v = finite(row.v)
+      const k = finite(row.k)
+      if (id === null || x === null || y === null || w === null || h === null || v === null || k === null) return
+      items.push({ id, x, y, w, h, v, k })
+    })
+    const last = scenes[scenes.length - 1]
+    if (last && at <= last.at) return
+    scenes.push({ at, kind, winner, time, fall, p1, p2, items })
+    while (scenes.length > 40) scenes.shift()
+  }
+
+  const lerp = (from: number, to: number, t: number) => from + (to - from) * t
+
+  const lerpAngle = (from: number, to: number, t: number) => {
+    let gap = to - from
+    while (gap > Math.PI) gap -= Math.PI * 2
+    while (gap < -Math.PI) gap += Math.PI * 2
+    return from + gap * t
+  }
+
+  const blendUnit = (from: SceneUnit, to: SceneUnit, t: number, angle: boolean): SceneUnit => ({
+    x: lerp(from.x, to.x, t),
+    y: lerp(from.y, to.y, t),
+    v: angle ? lerpAngle(from.v, to.v, t) : lerp(from.v, to.v, t),
+    n: from.n,
+    a: lerp(from.a, to.a, t),
+    p: lerp(from.p, to.p, t),
+    alive: from.alive,
+  })
+
+  const blendScene = (prev: SceneSnap, next: SceneSnap, t: number): SceneSnap => {
+    const angle = prev.kind === 'race'
+    const same = prev.items.length === next.items.length
+      && prev.items.every((item, index) => item.id === next.items[index].id)
+    const items = same
+      ? prev.items.map((item, index) => ({
+        ...item,
+        x: lerp(item.x, next.items[index].x, t),
+        y: lerp(item.y, next.items[index].y, t),
+      }))
+      : prev.items
+    return {
+      ...prev,
+      time: lerp(prev.time, next.time, t),
+      fall: lerp(prev.fall, next.fall, t),
+      p1: blendUnit(prev.p1, next.p1, t, angle),
+      p2: blendUnit(prev.p2, next.p2, t, angle),
+      items,
+    }
+  }
+
+  const readSceneAt = (at: number): SceneSnap | null => {
+    if (scenes.length === 0) return null
+    let prev = scenes[0]
+    if (at <= prev.at) return prev
+    for (let index = 1; index < scenes.length; index += 1) {
+      const next = scenes[index]
+      if (at > next.at) {
+        prev = next
+        continue
+      }
+      const span = next.at - prev.at
+      const blend = span > 0 ? (at - prev.at) / span : 0
+      return blendScene(prev, next, blend)
+    }
+    return scenes[scenes.length - 1]
+  }
+
   const noteOwn = (pad: RemotePad) => {
     if (pad.seq > 0 && pad.seq <= lastLocalSeq) return
     if (pad.seq > 0) lastLocalSeq = pad.seq
@@ -333,9 +479,10 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     }
     socket.onmessage = (event) => {
       try {
-        const body = JSON.parse(String(event.data)) as { serverNow?: unknown; players?: unknown; pong?: unknown; rally?: unknown }
+        const body = JSON.parse(String(event.data)) as { serverNow?: unknown; players?: unknown; pong?: unknown; rally?: unknown; scene?: unknown }
         if (typeof body.pong === 'number' && typeof body.serverNow === 'number') notePong(body.pong, body.serverNow)
         if (body.rally) noteRally(body.rally)
+        if (body.scene) noteScene(body.scene)
         if (Array.isArray(body.players)) {
           body.players.forEach((item) => {
             if (!item || typeof item !== 'object') return
@@ -403,6 +550,8 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     },
     readRally: (at) => readRallyAt(at),
     rallyAt: () => (rally.length > 0 ? rally[rally.length - 1].at : 0),
+    readScene: (at) => readSceneAt(at),
+    sceneAt: () => (scenes.length > 0 ? scenes[scenes.length - 1].at : 0),
     rivalHeardFrame: () => rivalHeard,
     localHeardFrame: () => localHeard,
     pullRewind: () => {

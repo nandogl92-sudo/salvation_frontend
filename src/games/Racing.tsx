@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, startLiveInputs } from './liveInputs';
+import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -533,6 +533,8 @@ export default function Racing({
     void document.fonts.load(`10px ${PIX}`);
 
     let raf = 0;
+    let playHead = 0;
+    let lastStamp = performance.now();
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -608,7 +610,53 @@ export default function Racing({
       drive(car, gas, brake, steer);
     };
 
+    const applyRace = (scene: SceneSnap) => {
+      const put = (car: Car, actor: SceneSnap['p1']) => {
+        car.x = actor.x;
+        car.y = actor.y;
+        car.angle = actor.v;
+        car.laps = actor.n;
+        car.recover = actor.a;
+        car.progress = actor.p;
+      };
+      put(state.p1, scene.p1);
+      put(state.p2, scene.p2);
+      if ((scene.winner === 'p1' || scene.winner === 'p2') && !state.winner) {
+        state.winner = scene.winner;
+        state.ko = KO_FRAMES;
+      }
+    };
+
     const update = () => {
+      const now = performance.now();
+      const dt = Math.min(50, Math.max(0, now - lastStamp));
+      lastStamp = now;
+      if (world && link) {
+        link.setLocalKeys(state.keys);
+        playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
+        const scene = link.readScene(playHead);
+        if (scene?.kind === 'race') applyRace(scene);
+        state.frames += 1;
+        drawWorld(ctx, track);
+        const spin1 = state.p1.recover > 0 ? state.frames * 0.4 : 0;
+        const spin2 = state.p2.recover > 0 ? state.frames * 0.4 : 0;
+        drawCar(ctx, state.p1, spin1);
+        drawCar(ctx, state.p2, spin2);
+        drawHud(ctx, state.p1, state.p2);
+        const rankedWait = rankedCountdown(world.startAt, link.serverNow());
+        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    W ACELERA  A/D GIRA');
+        if (state.winner) {
+          const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
+          drawBanner(ctx, 'META', `${name} GANA`);
+          state.ko -= 1;
+          if (state.ko <= 0) {
+            onGameEnd(state.winner);
+            return;
+          }
+        }
+        raf = requestAnimationFrame(update);
+        return;
+      }
       state.frames += 1;
       const rankedWait = world ? rankedCountdown(world.startAt) : null;
       const racing = !rankedWait && (world || state.frames >= COUNT_FRAMES) && !state.winner;

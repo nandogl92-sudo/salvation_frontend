@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Crosshair, Flag, Plane, Umbrella } from 'lucide-react';
+import { Activity, Flag, Plane, Umbrella } from 'lucide-react';
 
 import Pong from './games/Pong';
 import AeroRings from './games/Plane';
@@ -43,7 +43,6 @@ const GAMES: Game[] = [
   { id: 'snake', name: 'Aero Rings', description: 'Gravedad y aros. Impulso con espacio. Gana quien sobreviva más tiempo.', icon: <Plane className="w-8 h-8" /> },
   { id: 'tetris', name: 'Slot Car Racing', description: 'Circuito procedural. El primero en completar 5 vueltas válidas gana.', icon: <Flag className="w-8 h-8" /> },
   { id: 'combat', name: 'Sky Drop', description: 'Dos paracaidistas. Gana quien sobreviva más tiempo sin chocar.', icon: <Umbrella className="w-8 h-8" /> },
-  { id: 'shooter', name: 'Laser Duel', description: 'Cyan Pulse vs Amber Bolt en Laser Yard. Precisión y velocidad.', icon: <Crosshair className="w-8 h-8" /> },
 ];
 
 export default function App() {

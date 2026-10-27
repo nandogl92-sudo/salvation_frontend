@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, startLiveInputs } from './liveInputs';
+import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -243,6 +243,7 @@ export default function Skydive({
     void document.fonts.load(`10px ${PIX}`);
 
     let raf = 0;
+    let playHead = 0;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -353,8 +354,67 @@ export default function Skydive({
       if (jumper.x > FIELD.right - 26) jumper.x = FIELD.right - 26;
     };
 
+    const KINDS = ['bird', 'balloon', 'kite', 'crate'] as const;
+
+    const applyDrop = (scene: SceneSnap) => {
+      const put = (jumper: Jumper, actor: SceneSnap['p1']) => {
+        jumper.x = actor.x;
+        jumper.y = actor.y;
+        jumper.vx = actor.v;
+        jumper.lived = actor.p;
+        jumper.alive = actor.alive === 1;
+      };
+      put(state.p1, scene.p1);
+      put(state.p2, scene.p2);
+      state.gameTime = scene.time;
+      state.fall = scene.fall;
+      state.hazards = scene.items.map((item) => ({
+        x: item.x,
+        y: item.y,
+        w: item.w,
+        h: item.h,
+        vx: item.v,
+        kind: KINDS[item.k] ?? 'crate',
+      }));
+      if ((scene.winner === 'p1' || scene.winner === 'p2' || scene.winner === 'draw') && !state.winner) {
+        state.winner = scene.winner;
+        state.ko = KO_S;
+      }
+    };
+
     const update = (now: number) => {
       const dt = Math.min(0.05, (now - state.last) / 1000);
+      if (world && link) {
+        const stepMs = Math.min(50, Math.max(0, now - state.last));
+        state.last = now;
+        link.setLocalKeys(state.keys);
+        playHead = stepPlayHead(playHead, stepMs, link.sceneAt(), link.serverNow());
+        const scene = link.readScene(playHead);
+        if (scene?.kind === 'drop') applyDrop(scene);
+        const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
+        drawSky(ctx, state.clouds, state.fall, state.gameTime);
+        state.hazards.forEach((item) => drawHazard(ctx, item));
+        drawJumper(ctx, state.p1, state.gameTime, Math.sin(state.gameTime * 3.1) * 7);
+        drawJumper(ctx, state.p2, state.gameTime, Math.sin(state.gameTime * 3.1 + 1.4) * 7);
+        drawHud(ctx, state.p1, state.p2, state.gameTime, phase);
+        const rankedWait = rankedCountdown(world.startAt, link.serverNow());
+        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA');
+        if (state.winner === 'draw') {
+          drawBanner(ctx, 'EMPATE', `${formatTime(state.p1.lived)} = ${formatTime(state.p2.lived)}`);
+        } else if (state.winner) {
+          const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
+          drawBanner(ctx, `${name} GANA`, `${formatTime(state.p1.lived)}  vs  ${formatTime(state.p2.lived)}`);
+        }
+        if (state.winner) {
+          state.ko -= stepMs / 1000;
+          if (state.ko <= 0) {
+            onGameEnd(state.winner === 'p2' ? 'p2' : 'p1');
+            return;
+          }
+        }
+        raf = requestAnimationFrame(update);
+        return;
+      }
       state.last = now;
 
       const rankedWait = world ? rankedCountdown(world.startAt) : null;

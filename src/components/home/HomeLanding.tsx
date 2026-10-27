@@ -8,7 +8,6 @@ const CARD_BORDER: Record<string, string> = {
   snake: 'border-sky-400',
   tetris: 'border-red-400',
   combat: 'border-sky-400',
-  shooter: 'border-purple-400',
 }
 
 const NOTES = [
@@ -58,18 +57,6 @@ const GameArt = ({ gameId }: { gameId: string }) => {
         <div className="absolute right-[3.15rem] top-8 w-4 h-6 bg-blue-300" />
         <div className="absolute left-1/2 top-12 w-16 h-5 bg-white/70 -translate-x-1/2" />
         <div className="absolute bottom-2 left-6 w-8 h-3 bg-amber-700" />
-      </div>
-    )
-  }
-  if (gameId === 'shooter') {
-    return (
-      <div className="h-28 bg-[#14082c] relative overflow-hidden">
-        <div className="absolute inset-x-0 bottom-0 h-10 bg-[#24183c]" />
-        <div className="absolute left-6 bottom-8 w-6 h-8 bg-cyan-400" />
-        <div className="absolute right-6 bottom-8 w-6 h-8 bg-orange-400" />
-        <div className="absolute left-14 top-12 h-1 w-16 bg-cyan-300" />
-        <div className="absolute right-14 top-14 h-1 w-16 bg-orange-300" />
-        <div className="absolute left-1/2 top-6 w-2 h-2 bg-fuchsia-400 -translate-x-1/2" />
       </div>
     )
   }

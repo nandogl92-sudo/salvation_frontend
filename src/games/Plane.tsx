@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, startLiveInputs } from './liveInputs';
+import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -250,6 +250,7 @@ export default function Plane({
     let raf = 0;
     let ended = false;
     let nextRingId = 1;
+    let playHead = 0;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -421,8 +422,73 @@ export default function Plane({
       return 'p1';
     };
 
+    const applyRings = (scene: SceneSnap) => {
+      const put = (plane: PlaneUnit, unit: SceneSnap['p1']) => {
+        plane.x = unit.x;
+        plane.y = unit.y;
+        plane.vy = unit.v;
+        plane.size = unit.a;
+        plane.score = unit.n;
+        plane.grows = Math.max(0, Math.round((unit.a - START_SIZE) / GROW_STEP));
+        plane.alive = unit.alive === 1;
+      };
+      put(state.p1, scene.p1);
+      put(state.p2, scene.p2);
+      state.rings = scene.items.map((item) => ({
+        id: item.id,
+        x: item.x,
+        y: item.y,
+        inner: item.w,
+        outer: item.h,
+        seen: { p1: false, p2: false },
+      }));
+      state.gameTime = scene.time;
+      if ((scene.winner === 'p1' || scene.winner === 'p2') && !state.winner) {
+        state.winner = scene.winner;
+        state.ko = KO_S;
+      }
+    };
+
+    const paintRings = (rankedWait: string | null) => {
+      state.clouds.forEach((cloud) => {
+        cloud.x -= cloud.v * 0.016;
+        if (cloud.x + cloud.w < 0) cloud.x = WIDTH + 20;
+      });
+      drawSky(ctx, state.clouds);
+      state.rings.forEach((ring) => drawRing(ctx, ring));
+      drawPlane(ctx, state.p1);
+      drawPlane(ctx, state.p2);
+      drawHud(ctx, state.p1, state.p2);
+      if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIELO    MISMO ARO    ESPACIO IMPULSO');
+      else if (state.winner) {
+        const title = state.winner === you ? 'VICTORIA' : 'GANA EL RIVAL';
+        drawBanner(ctx, title, `${state.p1.name} ${state.p1.score}   ${state.p2.name} ${state.p2.score}`);
+      }
+    };
+
     const update = (nowMs: number) => {
       if (ended) return;
+      if (world && link) {
+        const dt = Math.min(50, Math.max(0, nowMs - state.last));
+        state.last = nowMs;
+        link.setLocalKeys(state.keys);
+        playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
+        const scene = link.readScene(playHead);
+        const countdown = rankedCountdown(world.startAt, link.serverNow());
+        if (scene?.kind === 'rings') applyRings(scene);
+        paintRings(countdown);
+        if (state.winner) {
+          state.ko -= dt / 1000;
+          if (state.ko <= 0) {
+            ended = true;
+            cancelAnimationFrame(raf);
+            onGameEnd(state.winner);
+            return;
+          }
+        }
+        raf = requestAnimationFrame(update);
+        return;
+      }
       const now = nowMs / 1000;
       const dt = Math.min(0.05, (nowMs - state.last) / 1000);
       state.last = nowMs;
