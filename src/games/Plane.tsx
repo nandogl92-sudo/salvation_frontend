@@ -264,9 +264,7 @@ export default function Plane({
     let ended = false;
     let nextRingId = 1;
     let playHead = 0;
-    let liftY = 0;
-    let liftFrom = 0;
-    let liftLeft = 0;
+    let holdFlapUntil = 0;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -304,13 +302,16 @@ export default function Plane({
     const localPlane = () => (you === 'p1' ? state.p1 : state.p2);
 
     const publishKeys = () => {
-      link?.setLocalKeys(state.keys);
+      if (!link) return;
+      const keys = { ...state.keys };
+      if (performance.now() < holdFlapUntil) {
+        keys.Space = true;
+        keys[' '] = true;
+      }
+      link.setLocalKeys(keys);
     };
-    const armLocalLift = () => {
-      if (!world || world.startAt > Date.now()) return;
-      const plane = localPlane();
-      liftFrom = plane.vy;
-      liftLeft = 0.2;
+    const noteFlap = () => {
+      holdFlapUntil = performance.now() + 100;
     };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'Space' || event.key === ' ' || event.key === 'ArrowUp') event.preventDefault();
@@ -321,7 +322,7 @@ export default function Plane({
       const now = performance.now() / 1000;
       if (event.code === 'Space' || event.key === ' ') {
         beginIfNeeded();
-        armLocalLift();
+        noteFlap();
         const plane = localPlane();
         plane.flapReady = true;
         flap(plane, now, true);
@@ -343,7 +344,7 @@ export default function Plane({
       state.keys.Space = true;
       state.keys[' '] = true;
       beginIfNeeded();
-      armLocalLift();
+      noteFlap();
       const plane = localPlane();
       plane.flapReady = true;
       flap(plane, performance.now() / 1000, true);
@@ -512,31 +513,11 @@ export default function Plane({
       if (world && link) {
         const dt = Math.min(50, Math.max(0, nowMs - state.last));
         state.last = nowMs;
-        link.setLocalKeys(state.keys);
+        publishKeys();
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
         const countdown = rankedCountdown(world.startAt, link.serverNow());
         if (scene?.kind === 'rings') applyRings(scene);
-        const mine = localPlane();
-        const dtSec = dt / 1000;
-        if (!mine.alive) {
-          liftY = 0;
-          liftLeft = 0;
-        } else if (liftLeft > 0) {
-          const caught = mine.vy < liftFrom - 120;
-          if (caught) liftLeft = 0;
-          else {
-            const follow = 1 - Math.exp(-Math.max(0, dt) / 28);
-            liftY += (-34 - liftY) * follow;
-            liftLeft -= dtSec;
-          }
-        }
-        if (liftLeft <= 0 && liftY !== 0) {
-          const follow = 1 - Math.exp(-Math.max(0, dt) / 180);
-          liftY += (0 - liftY) * follow;
-          if (Math.abs(liftY) < 0.4) liftY = 0;
-        }
-        mine.y += liftY;
         paintRings(countdown);
         if (state.winner) {
           state.ko -= dt / 1000;
@@ -580,7 +561,7 @@ export default function Plane({
 
         if (botEnabled) botFlap(state.p2, scroll, now);
         else if (world) {
-          link?.setLocalKeys(state.keys);
+          publishKeys();
           const rival = link?.readRivalKeys() ?? {};
           const other = them === 'p1' ? state.p1 : state.p2;
           if (keyHeld(rival, ' ', 'Space', 'ArrowUp')) flap(other, now, true);
