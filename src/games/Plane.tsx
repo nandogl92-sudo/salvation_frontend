@@ -19,6 +19,8 @@ const GROW_EVERY = 10;
 const MAX_GROWS = 6;
 const RING_THICK = 12;
 const SPEED_PHASES = 8;
+const SPIKE_W = 20;
+const SPIKE_H = 22;
 
 type Ctx = CanvasRenderingContext2D;
 type Side = 'p1' | 'p2';
@@ -122,6 +124,25 @@ const drawSky = (ctx: Ctx, clouds: Cloud[]) => {
   });
   paint(ctx, 0, FIELD.bottom, WIDTH, HEIGHT - FIELD.bottom, '#65a30d');
   paint(ctx, 0, FIELD.bottom, WIDTH, 4, '#4d7c0f');
+  paint(ctx, 0, FIELD.top, WIDTH, 4, '#334155');
+  ctx.fillStyle = '#1e293b';
+  for (let x = 0; x < WIDTH; x += SPIKE_W) {
+    ctx.beginPath();
+    ctx.moveTo(x, FIELD.top);
+    ctx.lineTo(x + SPIKE_W / 2, FIELD.top + SPIKE_H);
+    ctx.lineTo(x + SPIKE_W, FIELD.top);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.fillStyle = '#cbd5e1';
+  for (let x = 0; x < WIDTH; x += SPIKE_W) {
+    ctx.beginPath();
+    ctx.moveTo(x + 3, FIELD.top);
+    ctx.lineTo(x + SPIKE_W / 2, FIELD.top + SPIKE_H - 7);
+    ctx.lineTo(x + SPIKE_W / 2 + 2, FIELD.top);
+    ctx.closePath();
+    ctx.fill();
+  }
 };
 
 const drawRing = (ctx: Ctx, ring: Ring) => {
@@ -404,7 +425,7 @@ export default function Plane({
       if (!plane.alive) return;
       const next = state.rings.find((ring) => ring.x + ring.outer > plane.x - 4);
       const floor = FIELD.bottom - plane.size - 18;
-      const ceil = FIELD.top + plane.size + 18;
+      const ceil = FIELD.top + SPIKE_H + plane.size + 36;
       let target = (FIELD.top + FIELD.bottom) / 2;
       if (next) {
         if (canPass(plane, next)) target = next.y;
@@ -412,6 +433,8 @@ export default function Plane({
       }
       const look = next ? Math.max(0.08, (next.x - plane.x) / Math.max(80, scroll)) : 0.35;
       const pred = plane.y + plane.vy * look + 0.5 * pullOf(plane.vy) * look * look;
+      const nearSpikes = plane.y - plane.size < FIELD.top + SPIKE_H + 36 || pred - plane.size < FIELD.top + SPIKE_H + 12;
+      if (nearSpikes) return;
       const danger = plane.y > floor - 10 || plane.vy > 70;
       if (danger || pred > target + 14) {
         if (Math.random() > 0.12) flap(plane, now, false);
@@ -436,11 +459,12 @@ export default function Plane({
       if (!plane.alive) return;
       plane.vy = Math.min(MAX_FALL, plane.vy + pullOf(plane.vy) * dt);
       plane.y += plane.vy * dt;
-      const top = FIELD.top + plane.size;
+      const spikeLine = FIELD.top + SPIKE_H;
       const bottom = FIELD.bottom - plane.size;
-      if (plane.y < top) {
-        plane.y = top;
+      if (plane.y - plane.size <= spikeLine) {
+        plane.y = spikeLine + plane.size;
         plane.vy = 0;
+        explode(plane, true);
       }
       if (plane.y > bottom) {
         plane.y = bottom;
@@ -624,7 +648,7 @@ export default function Plane({
         drawBanner(ctx, rankedWait, 'MISMO CIELO    MISMO ARO    ESPACIO IMPULSO');
       } else if (!world && state.intro > 0) {
         const n = state.intro > 1.9 ? '3' : state.intro > 1.1 ? '2' : state.intro > 0.35 ? '1' : 'YA';
-        drawBanner(ctx, n, 'EL SUELO EXPLOTA    PASA EL ARO Y BAJAS');
+        drawBanner(ctx, n, 'SUELO Y PINCHOS EXPLOTAN');
       } else if (!world && !state.started) {
         drawBanner(ctx, 'ESPACIO', 'CADA 10s CRECES Y ACELERAS');
       } else if (state.winner) {

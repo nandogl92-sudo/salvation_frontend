@@ -726,7 +726,7 @@ export default function App() {
                     : selectedGame.id === 'combat'
                     ? 'Controles — P1: A/D para moverte | P2: Flechas. Quien choca pierde. Cada 10s la caída es más rápida.'
                     : selectedGame.id === 'snake'
-                      ? 'Controles — P1: Espacio o toque para impulso | P2: Flecha arriba. Pasa un aro para bajar de tamaño. El suelo y el tamaño máximo explotan el avión.'
+                      ? 'Controles — P1: Espacio o toque para impulso | P2: Flecha arriba. Pasa un aro para bajar de tamaño. El suelo, los pinchos y el tamaño máximo explotan el avión.'
                       : selectedGame.id === 'tetris'
                         ? 'Controles — P1: A/D girar, S o espacio frenar | P2: Flechas. El coche acelera solo. Tocar el borde naranja anula la vuelta.'
                         : undefined}
