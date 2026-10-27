@@ -73,9 +73,24 @@ type Spark = {
   color: string;
 };
 
+const ART_SRC = '/slot-car.jpg';
+const raceArt = new Image();
+let raceArtReady = false;
+raceArt.onload = () => {
+  raceArtReady = true;
+};
+raceArt.src = ART_SRC;
+
 const paint = (ctx: Ctx, x: number, y: number, w: number, h: number, color: string) => {
   ctx.fillStyle = color;
   ctx.fillRect(x, y, w, h);
+};
+
+const drawCover = (ctx: Ctx, image: HTMLImageElement, x: number, y: number, w: number, h: number) => {
+  const scale = Math.max(w / image.width, h / image.height);
+  const dw = image.width * scale;
+  const dh = image.height * scale;
+  ctx.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
 };
 
 const dist = (a: Pt, b: Pt) => Math.hypot(b.x - a.x, b.y - a.y);
@@ -382,10 +397,13 @@ const placeCar = (car: Car, track: Track, recover: number) => {
 const hitsOrange = (track: Track, x: number, y: number) => Math.abs(project(track, x, y).offset) >= HALF + 6;
 
 const drawWorld = (ctx: Ctx, track: Track) => {
-  paint(ctx, 0, 0, WIDTH, HEIGHT, '#3f8a3a');
-  ctx.fillStyle = '#4ea34a';
-  for (let i = 0; i < 28; i += 1) {
-    ctx.fillRect((i * 73) % WIDTH, 40 + (i * 37) % 480, 26, 12);
+  if (raceArtReady) drawCover(ctx, raceArt, 0, 0, WIDTH, HEIGHT);
+  else {
+    paint(ctx, 0, 0, WIDTH, HEIGHT, '#3f8a3a');
+    ctx.fillStyle = '#4ea34a';
+    for (let i = 0; i < 28; i += 1) {
+      ctx.fillRect((i * 73) % WIDTH, 40 + (i * 37) % 480, 26, 12);
+    }
   }
 
   ctx.lineJoin = 'round';
@@ -757,7 +775,7 @@ export default function Racing({
       width={WIDTH}
       height={HEIGHT}
       aria-label="Slot Car Racing"
-      className="w-full max-w-full rounded-xl [image-rendering:pixelated]"
+      className="w-full max-w-full rounded-xl"
     />
   );
 }

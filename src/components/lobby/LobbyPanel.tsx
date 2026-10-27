@@ -12,6 +12,13 @@ import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
 import { usePointsRanking } from '../home/usePointsRanking'
 
+const GAME_POSTER: Record<string, string> = {
+  pong: '/paddle-duel.jpg',
+  snake: '/aero-rings.jpg',
+  tetris: '/slot-car.jpg',
+  combat: '/sky-drop.jpg',
+}
+
 type LobbyPanelProps = {
   selectedGame: Game
   balance: number
@@ -122,9 +129,9 @@ const LobbyPanel = ({
   return (
     <div className="max-w-md mx-auto bg-bg-100 rounded-3xl shadow-sm border border-bg-300 p-8 animate-fade-in">
       <div className="text-center mb-8">
-        {selectedGame.id === 'pong' ? (
+        {GAME_POSTER[selectedGame.id] ? (
           <img
-            src="/paddle-duel.jpg"
+            src={GAME_POSTER[selectedGame.id]}
             alt=""
             className="mb-4 w-full rounded-2xl object-cover object-center"
           />

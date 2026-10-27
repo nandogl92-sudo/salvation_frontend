@@ -53,9 +53,24 @@ type Ring = {
 type Spark = { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string };
 type Cloud = { x: number; y: number; w: number; h: number; v: number };
 
+const ART_SRC = '/aero-rings.jpg';
+const ringArt = new Image();
+let ringArtReady = false;
+ringArt.onload = () => {
+  ringArtReady = true;
+};
+ringArt.src = ART_SRC;
+
 const paint = (ctx: Ctx, x: number, y: number, w: number, h: number, color: string) => {
   ctx.fillStyle = color;
   ctx.fillRect(x, y, w, h);
+};
+
+const drawCover = (ctx: Ctx, image: HTMLImageElement, x: number, y: number, w: number, h: number) => {
+  const scale = Math.max(w / image.width, h / image.height);
+  const dw = image.width * scale;
+  const dh = image.height * scale;
+  ctx.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
 };
 
 const makePlane = (x: number, color: string, dark: string, name: string): PlaneUnit => ({
@@ -122,6 +137,10 @@ const drawSky = (ctx: Ctx, clouds: Cloud[]) => {
     paint(ctx, cloud.x, cloud.y, cloud.w, cloud.h, 'rgba(255,255,255,0.72)');
     paint(ctx, cloud.x + cloud.w * 0.28, cloud.y - cloud.h * 0.45, cloud.w * 0.55, cloud.h * 0.9, 'rgba(255,255,255,0.8)');
   });
+  drawHazards(ctx);
+};
+
+const drawHazards = (ctx: Ctx) => {
   paint(ctx, 0, FIELD.bottom, WIDTH, HEIGHT - FIELD.bottom, '#65a30d');
   paint(ctx, 0, FIELD.bottom, WIDTH, 4, '#4d7c0f');
   paint(ctx, 0, FIELD.top, WIDTH, 4, '#334155');
@@ -143,6 +162,15 @@ const drawSky = (ctx: Ctx, clouds: Cloud[]) => {
     ctx.closePath();
     ctx.fill();
   }
+};
+
+const drawBackdrop = (ctx: Ctx, clouds: Cloud[]) => {
+  if (!ringArtReady) {
+    drawSky(ctx, clouds);
+    return;
+  }
+  drawCover(ctx, ringArt, 0, 0, WIDTH, HEIGHT);
+  drawHazards(ctx);
 };
 
 const drawRing = (ctx: Ctx, ring: Ring) => {
@@ -527,7 +555,7 @@ export default function Plane({
         cloud.x -= cloud.v * 0.016;
         if (cloud.x + cloud.w < 0) cloud.x = WIDTH + 20;
       });
-      drawSky(ctx, state.clouds);
+      drawBackdrop(ctx, state.clouds);
       state.rings.forEach((ring) => drawRing(ctx, ring));
       drawPlane(ctx, state.p1);
       drawPlane(ctx, state.p2);
@@ -645,7 +673,7 @@ export default function Plane({
         return spark.life > 0;
       });
 
-      drawSky(ctx, state.clouds);
+      drawBackdrop(ctx, state.clouds);
       state.rings.forEach((ring) => drawRing(ctx, ring));
       drawPlane(ctx, state.p1);
       drawPlane(ctx, state.p2);
@@ -689,7 +717,7 @@ export default function Plane({
       width={WIDTH}
       height={HEIGHT}
       aria-label="Aero Rings"
-      className="w-full max-w-full rounded-xl [image-rendering:pixelated]"
+      className="w-full max-w-full rounded-xl"
     />
   );
 }

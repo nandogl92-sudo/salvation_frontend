@@ -39,34 +39,29 @@ const GameArt = ({ gameId }: { gameId: string }) => {
   }
   if (gameId === 'snake') {
     return (
-      <div className="h-28 bg-[#7ec8ea] relative overflow-hidden">
-        <div className="absolute left-8 top-10 w-10 h-4 bg-[#fdba74] rounded-sm" />
-        <div className="absolute left-12 top-7 w-5 h-4 bg-[#c2410c]" />
-        <div className="absolute right-10 top-6 w-16 h-16 rounded-full border-8 border-[#f5c518]" />
-        <div className="absolute inset-x-0 bottom-0 h-4 bg-[#65a30d]" />
-      </div>
+      <img
+        src="/aero-rings.jpg"
+        alt=""
+        className="aspect-[1024/571] w-full object-cover object-center"
+      />
     )
   }
   if (gameId === 'tetris') {
     return (
-      <div className="h-28 bg-[#3f8a3a] relative overflow-hidden">
-        <div className="absolute left-6 top-6 w-40 h-16 rounded-full border-8 border-[#c1121f] bg-[#2b2d34]" />
-        <div className="absolute left-16 top-10 w-6 h-3 bg-rose-500 rounded-sm" />
-        <div className="absolute left-24 top-14 w-6 h-3 bg-blue-500 rounded-sm" />
-        <div className="absolute left-[8.5rem] top-8 w-2 h-8 bg-white" />
-      </div>
+      <img
+        src="/slot-car.jpg"
+        alt=""
+        className="aspect-[1024/571] w-full object-cover object-center"
+      />
     )
   }
   if (gameId === 'combat') {
     return (
-      <div className="h-28 bg-[#6eb6e8] relative overflow-hidden">
-        <div className="absolute left-8 top-4 w-10 h-3 bg-rose-500 rounded-sm" />
-        <div className="absolute left-11 top-7 w-4 h-6 bg-rose-300" />
-        <div className="absolute right-10 top-5 w-10 h-3 bg-blue-600 rounded-sm" />
-        <div className="absolute right-[3.15rem] top-8 w-4 h-6 bg-blue-300" />
-        <div className="absolute left-1/2 top-12 w-16 h-5 bg-white/70 -translate-x-1/2" />
-        <div className="absolute bottom-2 left-6 w-8 h-3 bg-amber-700" />
-      </div>
+      <img
+        src="/sky-drop.jpg"
+        alt=""
+        className="aspect-[1024/571] w-full object-cover object-center"
+      />
     )
   }
   return (

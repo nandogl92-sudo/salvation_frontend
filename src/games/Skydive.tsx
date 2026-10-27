@@ -43,9 +43,24 @@ type Hazard = {
 type Cloud = { x: number; y: number; s: number; layer: number };
 type Spark = { x: number; y: number; vx: number; vy: number; life: number; color: string };
 
+const ART_SRC = '/sky-drop.jpg';
+const dropArt = new Image();
+let dropArtReady = false;
+dropArt.onload = () => {
+  dropArtReady = true;
+};
+dropArt.src = ART_SRC;
+
 const paint = (ctx: Ctx, x: number, y: number, w: number, h: number, color: string) => {
   ctx.fillStyle = color;
   ctx.fillRect(x, y, w, h);
+};
+
+const drawCover = (ctx: Ctx, image: HTMLImageElement, x: number, y: number, w: number, h: number) => {
+  const scale = Math.max(w / image.width, h / image.height);
+  const dw = image.width * scale;
+  const dh = image.height * scale;
+  ctx.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
 };
 
 const overlaps = (
@@ -111,6 +126,14 @@ const drawSky = (ctx: Ctx, clouds: Cloud[], fall: number, time: number) => {
     paint(ctx, cloud.x + cloud.s * 0.6, y - cloud.s * 0.4, cloud.s * 1.4, cloud.s * 0.9, ctx.fillStyle as string);
   });
   void time;
+};
+
+const drawBackdrop = (ctx: Ctx, clouds: Cloud[], fall: number, time: number) => {
+  if (!dropArtReady) {
+    drawSky(ctx, clouds, fall, time);
+    return;
+  }
+  drawCover(ctx, dropArt, 0, 0, WIDTH, HEIGHT);
 };
 
 const drawHazard = (ctx: Ctx, item: Hazard) => {
@@ -427,7 +450,7 @@ export default function Skydive({
         const scene = link.readScene(playHead);
         if (scene?.kind === 'drop') applyDrop(scene);
         const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
-        drawSky(ctx, state.clouds, state.fall, state.gameTime);
+        drawBackdrop(ctx, state.clouds, state.fall, state.gameTime);
         state.hazards.forEach((item) => drawHazard(ctx, item));
         drawJumper(ctx, state.p1, state.gameTime, Math.sin(state.gameTime * 3.1) * 7);
         drawJumper(ctx, state.p2, state.gameTime, Math.sin(state.gameTime * 3.1 + 1.4) * 7);
@@ -539,7 +562,7 @@ export default function Skydive({
       });
 
       const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
-      drawSky(ctx, state.clouds, state.fall, state.gameTime);
+      drawBackdrop(ctx, state.clouds, state.fall, state.gameTime);
       state.hazards.forEach((item) => drawHazard(ctx, item));
       drawJumper(ctx, state.p1, state.gameTime, Math.sin(state.gameTime * 3.1) * 7);
       drawJumper(ctx, state.p2, state.gameTime, Math.sin(state.gameTime * 3.1 + 1.4) * 7);
@@ -577,7 +600,7 @@ export default function Skydive({
       width={WIDTH}
       height={HEIGHT}
       aria-label="Sky Drop"
-      className="w-full max-w-full rounded-xl [image-rendering:pixelated]"
+      className="w-full max-w-full rounded-xl"
     />
   );
 }
