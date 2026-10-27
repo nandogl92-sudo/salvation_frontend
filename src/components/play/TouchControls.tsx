@@ -267,8 +267,8 @@ const CarJoystick = () => {
   const heldKeys = useRef<Set<string>>(new Set())
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const rays = [
-    { x: 0, y: -1, keys: ['a', 'w'] },
-    { x: 0, y: 1, keys: ['d', 'w'] },
+    { x: 0, y: -1, keys: ['a'] },
+    { x: 0, y: 1, keys: ['d'] },
     { x: 1, y: 0, keys: ['w'] },
   ]
 
@@ -333,7 +333,7 @@ const CarJoystick = () => {
   return (
     <div
       role="application"
-      aria-label="Joystick del coche. Arriba sube, abajo baja, a la derecha va adelante"
+      aria-label="Joystick del coche. Arriba gira a la izquierda, abajo gira a la derecha, adelante acelera"
       tabIndex={0}
       onPointerDown={handlePointerDown}
       onPointerMove={(event) => {

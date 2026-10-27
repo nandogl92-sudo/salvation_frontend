@@ -319,7 +319,7 @@ const makeCourse = (wild: boolean, rand: () => number): Pt[] => {
       let gap = Math.abs(t - center);
       if (gap > 0.5) gap = 1 - gap;
       const wave = Math.max(0, 1 - gap / 0.09);
-      const depth = 64 + (wild ? Math.sin(k * 2.1 + phase * 5) * 14 : 8);
+      const depth = 42 + (wild ? Math.sin(k * 2.1 + phase * 5) * 10 : 6);
       pull += wave * wave * depth;
     }
     let x = p.x - p.nx * pull;
@@ -342,7 +342,7 @@ const makeTrack = (rand: () => number): Track => {
     if (!inside || loopsCross(pts)) continue;
     const track = buildTrack(pts);
     if (track.total < 1800) continue;
-    if (sharpestTurn(track) > 1.35) continue;
+    if (sharpestTurn(track) > 0.9) continue;
     return startOnStraight(track);
   }
   return startOnStraight(buildTrack(makeCourse(false, rand)));
@@ -375,7 +375,7 @@ const placeCar = (car: Car, track: Track, recover: number) => {
   car.recover = recover;
 };
 
-const hitsOrange = (track: Track, x: number, y: number) => Math.abs(project(track, x, y).offset) >= HALF - 2;
+const hitsOrange = (track: Track, x: number, y: number) => Math.abs(project(track, x, y).offset) >= HALF + 6;
 
 const drawWorld = (ctx: Ctx, track: Track) => {
   paint(ctx, 0, 0, WIDTH, HEIGHT, '#3f8a3a');
@@ -584,13 +584,11 @@ export default function Racing({
       if (brake) car.speed -= 0.2;
       car.speed -= 0.02;
       if (car.speed < 0) car.speed = 0;
-      if (car.speed > 4.8) car.speed = 4.8;
+      if (car.speed > 3.4) car.speed = 3.4;
       car.x += Math.cos(car.angle) * car.speed * 2.6;
       car.y += Math.sin(car.angle) * car.speed * 2.6;
 
-      const noseX = car.x + Math.cos(car.angle) * 12;
-      const noseY = car.y + Math.sin(car.angle) * 12;
-      if (hitsOrange(track, car.x, car.y) || hitsOrange(track, noseX, noseY)) {
+      if (hitsOrange(track, car.x, car.y)) {
         resetCar(car);
         return;
       }
@@ -611,7 +609,7 @@ export default function Racing({
       const err = wrapAngle(want - car.angle);
       const steer = err > 0.05 ? 1 : err < -0.05 ? -1 : 0;
       const side = project(track, car.x, car.y);
-      const gas = Math.abs(err) < 0.5 && car.speed < 4.1;
+      const gas = Math.abs(err) < 0.5 && car.speed < 3;
       const brake = Math.abs(err) > 0.72 || Math.abs(side.offset) > HALF - 10;
       drive(car, gas, brake, steer);
     };
