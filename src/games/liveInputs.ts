@@ -7,14 +7,17 @@ const FRAME_MS = 1000 / 60
 
 const PREDICT_CAP_MS = 120
 
+const SHOW_BEHIND_MS = 34
+
 export const stepPlayHead = (playHead: number, dt: number, ceiling: number, serverNow: number): number => {
-  const desired = ceiling > 0 ? Math.min(serverNow - 8, ceiling + 32) : 0
+  if (ceiling <= 0) return playHead
+  const desired = Math.min(serverNow - SHOW_BEHIND_MS, ceiling)
   if (desired <= 0) return playHead
-  if (playHead <= 0) return Math.max(0, desired - 16)
+  if (playHead <= 0) return desired
   const gap = desired - playHead
-  if (gap > 100) return desired
-  if (gap > 0) return playHead + Math.min(gap, Math.max(0, dt))
-  return desired
+  if (gap > 120 || gap < -80) return desired
+  if (gap <= 0) return playHead
+  return Math.min(desired, playHead + Math.max(0, dt))
 }
 
 export const easeToward = (current: number, target: number, dtMs: number, snap = 90): number => {
@@ -349,22 +352,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
         p2: prev.p2,
       }
     }
-    const last = rally[rally.length - 1]
-    const ahead = at - last.at
-    if (ahead > 0 && ahead < 48) {
-      const before = rally.length > 1 ? rally[rally.length - 2] : last
-      const span = Math.max(FRAME_MS, last.at - before.at)
-      const t = ahead / span
-      return {
-        ballX: last.ballX + last.ballVx * (ahead / FRAME_MS),
-        ballY: last.ballY + last.ballVy * (ahead / FRAME_MS),
-        p1y: last.p1y + (last.p1y - before.p1y) * t,
-        p2y: last.p2y + (last.p2y - before.p2y) * t,
-        p1: last.p1,
-        p2: last.p2,
-      }
-    }
-    return rallyView(last)
+    return rallyView(rally[rally.length - 1])
   }
 
   const unitOf = (value: unknown): SceneUnit | null => {
@@ -466,38 +454,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
       const blend = span > 0 ? (at - prev.at) / span : 0
       return blendScene(prev, next, blend)
     }
-    const last = scenes[scenes.length - 1]
-    const ahead = at - last.at
-    if (ahead <= 0 || ahead >= 48 || scenes.length < 2) return last
-    const before = scenes[scenes.length - 2]
-    const span = last.at - before.at
-    if (span <= 0) return last
-    const t = 1 + ahead / span
-    const angle = last.kind === 'race'
-    const project = (older: SceneUnit, newer: SceneUnit): SceneUnit => ({
-      x: lerp(older.x, newer.x, t),
-      y: lerp(older.y, newer.y, t),
-      v: angle ? lerpAngle(older.v, newer.v, t) : lerp(older.v, newer.v, t),
-      n: newer.n,
-      a: newer.a,
-      p: newer.p,
-      alive: newer.alive,
-    })
-    const items = last.items.map((item, index) => {
-      const older = before.items[index]
-      if (!older || older.id !== item.id) return item
-      return {
-        ...item,
-        x: lerp(older.x, item.x, t),
-        y: lerp(older.y, item.y, t),
-      }
-    })
-    return {
-      ...last,
-      p1: project(before.p1, last.p1),
-      p2: project(before.p2, last.p2),
-      items,
-    }
+    return scenes[scenes.length - 1]
   }
 
   const noteOwn = (pad: RemotePad) => {
