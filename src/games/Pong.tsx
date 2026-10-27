@@ -595,7 +595,6 @@ export default function Pong({
     let simFrame = 0;
     let faceMine = { up: false, down: false };
     let faceTheirs = { up: false, down: false };
-    const INPUT_DELAY = 2;
 
     const finish = () => {
       if (state.p1.score >= 10) { ended = true; onGameEnd('p1'); return true; }
@@ -641,7 +640,8 @@ export default function Pong({
       );
       if (rankedCountdown(world.startAt)) return;
       if (finish()) return;
-      const target = Math.max(0, live - INPUT_DELAY);
+      const heard = link.rivalHeardFrame();
+      const target = Math.max(0, Math.min(live, heard));
       let guard = 0;
       while (simFrame < target && guard < 30) {
         guard += 1;

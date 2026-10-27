@@ -22,6 +22,7 @@ export type LiveInputLink = {
   readRivalSnap: () => WorldSnap | null
   serverFrame: (startAt: number) => number
   readMove: (frame: number, who: 'local' | 'rival') => PaddleMove | null
+  rivalHeardFrame: () => number
   pullRewind: () => number | null
   stop: () => void
 }
@@ -129,6 +130,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   let clockLocked = false
   const clockSamples: number[] = []
   let rewindFrom = Number.POSITIVE_INFINITY
+  let rivalHeard = 0
   const localLog: MoveSample[] = []
   const rivalLog: MoveSample[] = []
   const liveAbort = new AbortController()
@@ -155,6 +157,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     if (typeof pad.y === 'number') rivalY = pad.y
     if (pad.pose) rivalSnap = { ...pad.pose, y: pad.y ?? 0, receivedAt: performance.now() }
     if (pad.frame < 0) return
+    if (pad.frame > rivalHeard) rivalHeard = pad.frame
     const changed = remember(rivalLog, pad.frame, moveOf(rivalKeys))
     if (changed) rewindFrom = Math.min(rewindFrom, pad.frame)
   }
@@ -256,6 +259,8 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     if (!stopped) sendSocket()
   }, HEARTBEAT_MS)
 
+  let lastPushedFrame = -1
+
   return {
     setLocalKeys: (keys, y, pose, frame) => {
       localKeys = keys
@@ -264,6 +269,10 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
       if (typeof frame === 'number') {
         localFrame = frame
         remember(localLog, frame, moveOf(keys))
+        if (frame !== lastPushedFrame) {
+          lastPushedFrame = frame
+          sendSocket()
+        }
       }
       const held = packKeys(keys)
       const sig = signatureOf(held)
@@ -279,6 +288,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
       const found = readList(who === 'local' ? localLog : rivalLog, frame)
       return found ? { up: found.up, down: found.down } : null
     },
+    rivalHeardFrame: () => rivalHeard,
     pullRewind: () => {
       if (!Number.isFinite(rewindFrom)) return null
       const frame = rewindFrom
