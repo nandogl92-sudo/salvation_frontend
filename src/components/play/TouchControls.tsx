@@ -263,6 +263,137 @@ const VirtualJoystick = ({ label, horizontal, vertical }: VirtualJoystickProps) 
   )
 }
 
+const CarJoystick = () => {
+  const heldKeys = useRef<Set<string>>(new Set())
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const rays = [
+    { x: 0, y: -1, keys: ['a', 'w'] },
+    { x: 0, y: 1, keys: ['d', 'w'] },
+    { x: 1, y: 0, keys: ['w'] },
+  ]
+
+  const releaseAll = () => {
+    heldKeys.current.forEach((key) => sendKey('keyup', key))
+    heldKeys.current = new Set()
+  }
+
+  const applyKeys = (keys: string[]) => {
+    const want = new Set(keys)
+    heldKeys.current.forEach((key) => {
+      if (!want.has(key)) sendKey('keyup', key)
+    })
+    want.forEach((key) => {
+      if (!heldKeys.current.has(key)) sendKey('keydown', key)
+    })
+    heldKeys.current = want
+  }
+
+  useEffect(() => releaseAll, [])
+
+  const resetStick = () => {
+    applyKeys([])
+    setOffset({ x: 0, y: 0 })
+  }
+
+  const placePointer = (event: PointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const dx = event.clientX - (rect.left + rect.width / 2)
+    const dy = event.clientY - (rect.top + rect.height / 2)
+    const distance = Math.hypot(dx, dy)
+    if (distance < DEAD * TRAVEL) {
+      resetStick()
+      return
+    }
+    const nx = dx / distance
+    const ny = dy / distance
+    let best = rays[0]
+    let bestDot = -1
+    rays.forEach((ray) => {
+      const dot = nx * ray.x + ny * ray.y
+      if (dot > bestDot) {
+        bestDot = dot
+        best = ray
+      }
+    })
+    if (bestDot < 0.4) {
+      resetStick()
+      return
+    }
+    const travel = Math.min(TRAVEL, distance)
+    applyKeys(best.keys)
+    setOffset({ x: best.x * travel, y: best.y * travel })
+  }
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    placePointer(event)
+  }
+
+  return (
+    <div
+      role="application"
+      aria-label="Joystick del coche. Arriba sube, abajo baja, a la derecha va adelante"
+      tabIndex={0}
+      onPointerDown={handlePointerDown}
+      onPointerMove={(event) => {
+        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+        placePointer(event)
+      }}
+      onPointerUp={resetStick}
+      onPointerCancel={resetStick}
+      onBlur={resetStick}
+      onContextMenu={(event) => event.preventDefault()}
+      className="relative shrink-0 rounded-full bg-[#12182c] border-2 border-[#f5c518]/70 touch-none select-none"
+      style={{ width: STICK, height: STICK }}
+    >
+      <span className="pointer-events-none absolute top-1 left-1/2 -translate-x-1/2 text-[8px] font-bold text-[#f5c518]">ARRIBA</span>
+      <span className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-bold text-[#f5c518]">ABAJO</span>
+      <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[8px] font-bold text-[#f5c518] [writing-mode:vertical-rl]">ADELANTE</span>
+      <span
+        aria-hidden="true"
+        className="absolute left-1/2 top-1/2 rounded-full bg-[#f5c518] shadow-[0_4px_0_#a16207]"
+        style={{
+          width: KNOB,
+          height: KNOB,
+          transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
+        }}
+      />
+    </div>
+  )
+}
+
+const BrakeBar = () => (
+  <button
+    type="button"
+    aria-label="Frenar"
+    tabIndex={0}
+    onPointerDown={(event: PointerEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+      sendKey('keydown', ' ')
+    }}
+    onPointerUp={(event: PointerEvent<HTMLButtonElement>) => {
+      event.preventDefault()
+      sendKey('keyup', ' ')
+    }}
+    onPointerCancel={() => sendKey('keyup', ' ')}
+    onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      sendKey('keydown', ' ')
+    }}
+    onKeyUp={(event: KeyboardEvent<HTMLButtonElement>) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      sendKey('keyup', ' ')
+    }}
+    className="flex-1 h-28 min-w-[8rem] rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-sm font-bold tracking-[0.25em] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]"
+  >
+    ESPACIO
+  </button>
+)
+
 const DirPad = ({ dirs }: { dirs: PadKey[] }) => {
   const byKey: Record<string, PadKey> = {}
   dirs.forEach((dir) => {
@@ -299,10 +430,11 @@ const TouchControls = ({ gameId }: { gameId: string }) => {
   const pad = PADS[gameId]
   if (!pad) return null
 
-  const stick = gameId === 'pong' || gameId === 'tetris'
-  const rowClass = stick
+  const rowClass = gameId === 'pong'
     ? 'w-full flex lg:hidden items-center justify-center px-2 py-3'
-    : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'
+    : gameId === 'tetris'
+      ? 'w-full flex lg:hidden items-center justify-between gap-3 px-3 py-3'
+      : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'
 
   return (
     <div
@@ -313,13 +445,12 @@ const TouchControls = ({ gameId }: { gameId: string }) => {
         <VirtualJoystick label="Joystick para mover la pala" vertical={{ minus: 'w', plus: 's' }} />
       )}
       {gameId === 'tetris' && (
-        <VirtualJoystick
-          label="Joystick del coche. Arriba acelera, abajo frena, los lados giran"
-          horizontal={{ minus: 'a', plus: 'd' }}
-          vertical={{ minus: 'w', plus: 's' }}
-        />
+        <>
+          <CarJoystick />
+          <BrakeBar />
+        </>
       )}
-      {!stick && <DirPad dirs={pad.dirs} />}
+      {gameId !== 'pong' && gameId !== 'tetris' && <DirPad dirs={pad.dirs} />}
       {pad.actions.length > 0 && (
         <div className="flex flex-wrap justify-end gap-2 max-w-[50%]">
           {pad.actions.map((action) => (

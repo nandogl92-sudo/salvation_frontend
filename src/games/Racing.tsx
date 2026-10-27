@@ -12,7 +12,13 @@ const ORANGE = '#ff8c1a';
 const COUNT_FRAMES = 180;
 const KO_FRAMES = 100;
 const SPARK_MAX = 36;
-const FIELD = { left: 28, top: 86, right: 932, bottom: 512 };
+const ROAD_EDGE = (TRACK_W + 14) / 2 + 6;
+const FIELD = {
+  left: ROAD_EDGE,
+  top: 56 + ROAD_EDGE,
+  right: WIDTH - ROAD_EDGE,
+  bottom: HEIGHT - ROAD_EDGE,
+};
 
 type Ctx = CanvasRenderingContext2D;
 type Pt = { x: number; y: number };
@@ -669,7 +675,7 @@ export default function Racing({
             drive(
               car,
               keyHeld(keys, 'w', 'W', 'ArrowUp'),
-              keyHeld(keys, 's', 'S', 'ArrowDown'),
+              keyHeld(keys, 's', 'S', 'ArrowDown', ' '),
               steer,
             );
           };
@@ -681,7 +687,7 @@ export default function Racing({
           drive(
             state.p1,
             state.keys['w'] || state.keys['W'],
-            state.keys['s'] || state.keys['S'],
+            state.keys['s'] || state.keys['S'] || state.keys[' '],
             p1Steer,
           );
           if (botEnabled) botSteer(state.p2);
