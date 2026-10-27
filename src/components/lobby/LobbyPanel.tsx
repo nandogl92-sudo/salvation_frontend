@@ -38,6 +38,7 @@ const LobbyPanel = ({
   queueError,
   queueHold,
   currentUser,
+  lastRivalId,
   onPlayRival,
 }: LobbyPanelProps) => {
   const hasInsufficientBalance = betAmount > balance
@@ -78,11 +79,17 @@ const LobbyPanel = ({
       onRetry(true)
       return
     }
+    if (allRivals.length === 0) return
     if (selectedRival) {
       onPlayRival(selectedRival, false)
       return
     }
-    onRetry(false)
+    const unseen = allRivals.filter((user) => user.id !== lastRivalId)
+    const pool = unseen.length > 0 ? unseen : allRivals
+    const index = Math.floor(Math.random() * pool.length)
+    const picked = pool[index]
+    if (!picked) return
+    onPlayRival(picked, false)
   }
 
   const handleRetryRivals = () => {
@@ -102,7 +109,9 @@ const LobbyPanel = ({
     : 'bg-bg-200 text-text-100'
 
   const rankedBlocked = !canRanked
-  const playDisabled = isInvalidBet || isSearching || (isRanked && rankedBlocked)
+  const playDisabled = isInvalidBet || isSearching || (isRanked
+    ? rankedBlocked
+    : allRivals.length === 0)
 
   const playLabel = isRanked
     ? 'Buscar a otra persona'
@@ -153,7 +162,7 @@ const LobbyPanel = ({
         {isRanked ? (
           <div className="space-y-2">
             <p className="text-xs text-text-200">
-              Los dos tenéis que pulsar buscar en el mismo juego y en Ranking.
+              Ranking: otra persona. El bot no se usa. La cola elige rival.
             </p>
             <p className="text-sm font-bold text-text-100">
               Pruebas: sin tope diario de ranqueadas.
@@ -161,7 +170,7 @@ const LobbyPanel = ({
           </div>
         ) : (
           <p className="text-xs text-text-200">
-            Amistoso: los dos en Amistoso, mismo juego, y buscar. No elige una cuenta al azar.
+            Amistoso: bot o persona de prueba. No cambia los puntos del mes ni el puesto del premio.
           </p>
         )}
 
@@ -218,7 +227,7 @@ const LobbyPanel = ({
                   ? `Encontrado: ${queueHold}. Esperando a que entre en la misma partida.`
                   : isRanked
                   ? 'Esperando a otra persona. El bot no se usa. Buscad los dos a la vez; el móvil puede tardar un poco más.'
-                  : 'Buscando a la otra persona en este juego. Tiene que estar también en Amistoso.'}
+                  : 'Buscando rival...'}
               </span>
             </div>
           </div>
@@ -344,7 +353,7 @@ const LobbyPanel = ({
               disabled={playDisabled}
               className="w-full py-4 rounded-xl font-bold text-lg bg-accent-100 hover:bg-accent-200 text-white shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isRanked ? 'Buscar a otra persona' : selectedRival ? `Amistoso vs ${selectedRival.username}` : 'Buscar en este juego'}
+              {isRanked ? 'Buscar a otra persona' : selectedRival ? `Amistoso vs ${selectedRival.username}` : 'Jugar amistoso'}
             </button>
             {!isRanked && (
               <p className="text-xs text-text-200 text-center">

@@ -46,7 +46,6 @@ type ApiMatch = {
   betAmount: number
   players: ApiRival[]
   isBotMatch?: boolean
-  ranked?: boolean
   createdAt?: string
 }
 
@@ -260,55 +259,11 @@ export const tryMatch = async (ticket: MatchTicket): Promise<QueuePoll> => {
   }
 }
 
-export type IncomingMatch =
-  | { status: 'none' }
-  | { status: 'matched'; ticket: MatchTicket; match: MatchRecord; opponent: MatchPlayer; ranked: boolean; world: RankedWorld | null }
-
-export const fetchIncoming = async (): Promise<IncomingMatch> => {
-  try {
-    const response = await request('/matchmaking/incoming', { method: 'GET' })
-    if (response.status === 204) return { status: 'none' }
-    if (!response.ok) return { status: 'none' }
-    const body = (await response.json()) as ApiPoll & { ticket?: ApiTicket }
-    if (body.status !== 'matched' || !body.match || !body.rival || !body.ticket || !isApiTicket(body.ticket)) {
-      return { status: 'none' }
-    }
-    const ticket: MatchTicket = {
-      id: body.ticket.id,
-      userId: body.ticket.userId,
-      username: body.ticket.username,
-      gameId: body.ticket.gameId,
-      betAmount: body.ticket.betAmount,
-      createdAt: Date.parse(body.ticket.createdAt),
-    }
-    const self: MatchPlayer = {
-      ticketId: ticket.id,
-      userId: ticket.userId,
-      username: ticket.username,
-    }
-    const match = toMatchRecord(body.match, self)
-    if (!match) return { status: 'none' }
-    return {
-      status: 'matched',
-      ticket,
-      match,
-      opponent: toPlayer(body.rival, Boolean(body.match.isBotMatch)),
-      ranked: body.match.ranked === true,
-      world: readWorld(body.world),
-    }
-  } catch {
-    return { status: 'none' }
-  }
-}
-
 export const startDirectMatch = async (input: {
   gameId: string
   betAmount: number
   rivalUserId: string
-}): Promise<
-  | { ok: true; match: MatchRecord; opponent: MatchPlayer; ranked: boolean; world: RankedWorld | null }
-  | { ok: false; message: string }
-> => {
+}): Promise<BotMatchResult> => {
   try {
     const response = await request('/matches', {
       method: 'POST',
@@ -333,13 +288,7 @@ export const startDirectMatch = async (input: {
     const match = toMatchRecord(body.match, self)
     if (!match) return { ok: false, message: 'La partida no incluye a los dos jugadores.' }
 
-    return {
-      ok: true,
-      match,
-      opponent: toPlayer(body.rival, false),
-      ranked: body.match.ranked === true,
-      world: readWorld(body.world),
-    }
+    return { ok: true, match, opponent: toPlayer(body.rival, false) }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo empezar la partida.'
     return { ok: false, message }
