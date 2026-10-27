@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Gamepad2, Home, Info, LogOut, Moon, Sun, Trophy, User, Wallet } from 'lucide-react'
 import AuthPanel from '../../auth/AuthPanel'
 import type { Game, UserProfile } from '../../types'
@@ -27,9 +28,11 @@ const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
 ]
 
 const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLogout, onNavigate }: NavbarProps) => {
+  const headerRef = useRef<HTMLElement>(null)
   const [isLight, setIsLight] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('register')
+  const [panelBox, setPanelBox] = useState({ top: 72, maxHeight: 480 })
   const showAuth = !user && isAuthReady
 
   useEffect(() => {
@@ -42,6 +45,28 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
     if (!user) return
     setAuthOpen(false)
   }, [user])
+
+  useLayoutEffect(() => {
+    if (!authOpen) return
+    const placePanel = () => {
+      const headerBottom = headerRef.current?.getBoundingClientRect().bottom ?? 64
+      const top = headerBottom + 8
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+      setPanelBox({
+        top,
+        maxHeight: Math.max(180, viewportHeight - top - 12),
+      })
+    }
+    placePanel()
+    window.addEventListener('resize', placePanel)
+    window.visualViewport?.addEventListener('resize', placePanel)
+    window.visualViewport?.addEventListener('scroll', placePanel)
+    return () => {
+      window.removeEventListener('resize', placePanel)
+      window.visualViewport?.removeEventListener('resize', placePanel)
+      window.visualViewport?.removeEventListener('scroll', placePanel)
+    }
+  }, [authOpen])
 
   const handleGoHome = () => {
     onGoHome()
@@ -89,7 +114,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
     : 'text-[#d5dcf0] hover:text-white'
 
   return (
-    <header className="relative bg-[#0c1224]/95 border-b border-[#243056] sticky top-0 z-20 backdrop-blur overflow-x-clip">
+    <header ref={headerRef} className="relative bg-[#0c1224]/95 border-b border-[#243056] sticky top-0 z-20 backdrop-blur">
       <div className="max-w-6xl mx-auto px-3 py-2 flex flex-wrap items-center justify-between gap-2 min-h-16">
         <button
           type="button"
@@ -205,15 +230,19 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
           </button>
         </div>
       </div>
-      {showAuth && authOpen && (
-        <div className="absolute left-3 right-3 sm:left-auto sm:right-4 top-full mt-1 z-30 sm:w-[360px] max-h-[min(80svh,36rem)] overflow-y-auto">
+      {showAuth && authOpen && createPortal(
+        <div
+          className="fixed z-50 left-3 right-3 overflow-y-auto overscroll-contain sm:left-auto sm:right-4 sm:w-[360px]"
+          style={{ top: panelBox.top, maxHeight: panelBox.maxHeight }}
+        >
           <AuthPanel
             hideTabs
             initialMode={authMode}
             notice={pendingGame ? `Inicia sesión para jugar ${pendingGame.name}.` : undefined}
             className="bg-[#0e1528] p-4 rounded-2xl border border-[#f5c518]/50 shadow-xl"
           />
-        </div>
+        </div>,
+        document.body,
       )}
     </header>
   )
