@@ -604,7 +604,8 @@ export default function Pong({
     };
     const hist: Hist[] = [];
     let simFrame = 0;
-    let shownRival = state[them].y;
+    let faceMine = { up: false, down: false };
+    let faceTheirs = { up: false, down: false };
     const INPUT_DELAY = 2;
 
     const capture = (): Hist => ({
@@ -641,6 +642,8 @@ export default function Pong({
       const p2Before = state.p2.y;
       const mine = link?.readMove(frame, 'local') ?? { up: false, down: false };
       const theirs = link?.readMove(frame, 'rival') ?? { up: false, down: false };
+      faceMine = mine;
+      faceTheirs = theirs;
       movePaddle(you, mine.up, mine.down);
       movePaddle(them, theirs.up, theirs.down);
       state.p1.moving = state.p1.y !== p1Before ? Math.floor(state.frames / 6) : -1;
@@ -800,7 +803,7 @@ export default function Pong({
       if (snap && snap.p2 >= 10) { ended = true; onGameEnd('p2'); return; }
     };
 
-    const paint = (rankedWait: string | null) => {
+    const paint = (rankedWait: string | null, blend: number) => {
       ctx.fillStyle = '#05070f';
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
       ctx.save();
@@ -812,8 +815,18 @@ export default function Pong({
       ctx.clip();
       drawField(ctx);
 
-      const p1Draw = world && them === 'p1' ? shownRival : state.p1.y;
-      const p2Draw = world && them === 'p2' ? shownRival : state.p2.y;
+      const glide = (side: 'p1' | 'p2') => {
+        const move = side === you ? faceMine : faceTheirs;
+        const dir = (move.up ? -7 : 0) + (move.down ? 7 : 0);
+        return clampPaddle(state[side].y + dir * blend);
+      };
+      const p1Draw = world ? glide('p1') : state.p1.y;
+      const p2Draw = world ? glide('p2') : state.p2.y;
+      const ballX = state.ball.x + state.ball.vx * blend;
+      const ballY = Math.max(
+        PLAY_TOP + BALL_R,
+        Math.min(PLAY_BOTTOM - BALL_R, state.ball.y + state.ball.vy * blend),
+      );
       const p1SwingShift = state.p1.swing > 0 ? Math.round(Math.sin((state.p1.swing / SWING_FRAMES) * Math.PI) * 6) : 0;
       const p2SwingShift = state.p2.swing > 0 ? Math.round(Math.sin((state.p2.swing / SWING_FRAMES) * Math.PI) * 6) : 0;
       const p1PlayerY = Math.round(p1Draw + PADDLE_H / 2 - PLAYER_H / 2);
@@ -822,7 +835,7 @@ export default function Pong({
       drawPlayer(ctx, P2_X + PADDLE_W + 2, p2PlayerY, -1, TEAM_P2, state.p2.moving, state.p2.swing);
       drawRacket(ctx, P1_X + p1SwingShift, p1Draw, TEAM_P1);
       drawRacket(ctx, P2_X - p2SwingShift, p2Draw, TEAM_P2);
-      drawBall(ctx, state.ball.x, state.ball.y, state.trail);
+      drawBall(ctx, ballX, ballY, state.trail);
       drawSparks(ctx, state.sparks);
       ctx.restore();
       drawFrame(ctx);
@@ -846,12 +859,8 @@ export default function Pong({
         step();
         if (ended) return;
       }
-      if (world) {
-        const delta = state[them].y - shownRival;
-        if (Math.abs(delta) <= 14) shownRival = state[them].y;
-        else shownRival += Math.sign(delta) * 14;
-      }
-      paint(world ? rankedCountdown(world.startAt) : null);
+      const blend = world ? Math.max(0, Math.min(1, acc / FRAME_MS)) : 0;
+      paint(world ? rankedCountdown(world.startAt) : null, blend);
       animationFrameId = requestAnimationFrame(tick);
     };
 
