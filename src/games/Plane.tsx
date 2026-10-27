@@ -393,9 +393,9 @@ export default function Plane({
 
     const isBot = (plane: PlaneUnit) => botEnabled && plane === state.p2;
 
-    const explode = (plane: PlaneUnit, fromSize = false) => {
+    const explode = (plane: PlaneUnit, force = false) => {
       if (!plane.alive) return;
-      if (isBot(plane) && !fromSize) return;
+      if (isBot(plane) && !force) return;
       plane.alive = false;
       burst(plane.x, plane.y, plane.color);
     };
@@ -445,6 +445,7 @@ export default function Plane({
       if (plane.y > bottom) {
         plane.y = bottom;
         plane.vy = 0;
+        explode(plane, true);
       }
     };
 
@@ -623,7 +624,7 @@ export default function Plane({
         drawBanner(ctx, rankedWait, 'MISMO CIELO    MISMO ARO    ESPACIO IMPULSO');
       } else if (!world && state.intro > 0) {
         const n = state.intro > 1.9 ? '3' : state.intro > 1.1 ? '2' : state.intro > 0.35 ? '1' : 'YA';
-        drawBanner(ctx, n, 'PASA EL ARO Y BAJAS    AL TOPE EXPLOTAS');
+        drawBanner(ctx, n, 'EL SUELO EXPLOTA    PASA EL ARO Y BAJAS');
       } else if (!world && !state.started) {
         drawBanner(ctx, 'ESPACIO', 'CADA 10s CRECES Y ACELERAS');
       } else if (state.winner) {

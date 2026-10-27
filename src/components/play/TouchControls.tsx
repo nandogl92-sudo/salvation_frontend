@@ -114,11 +114,11 @@ const PADDLE_KEYS: PadKey[] = [
 ]
 
 
-const CAR_BUTTON = 'min-h-20 min-w-0 flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-xs font-bold leading-tight tracking-wide text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+const CAR_BUTTON = 'min-h-0 min-w-0 w-full flex-1 self-stretch rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-2 text-center text-lg font-bold leading-tight tracking-wide text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:text-sm'
 
-const STEER_ROW = 'flex min-w-0 flex-1 gap-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-[9rem] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-center'
+const STEER_ROW = 'flex min-h-0 min-w-0 flex-1 items-stretch gap-2 self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-col [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-2'
 
-const GAS_ROW = 'flex min-w-0 flex-1 gap-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-[9rem] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-center'
+const GAS_ROW = 'flex min-h-0 min-w-0 flex-1 items-stretch self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-2'
 
 const STEER_BUTTONS: PadKey[] = [
   { key: 'a', label: 'ARRIBA', ariaLabel: 'Girar a la izquierda' },
@@ -181,7 +181,7 @@ const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSi
   if (!pad) return null
 
   const rowClass = gameId === 'tetris'
-    ? 'w-full flex lg:hidden items-stretch justify-between gap-3 px-2 py-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
+    ? 'flex min-h-0 w-full flex-1 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
     : gameId === 'pong'
       ? 'w-full flex lg:hidden items-center justify-center px-2 py-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
       : `${gameId === 'combat'
