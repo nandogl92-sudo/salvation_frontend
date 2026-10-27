@@ -5,14 +5,48 @@ import { getMatchInputs, openMatchLive, putMatchInputs, type RemotePad, type Rem
 const HEARTBEAT_MS = 40
 const FRAME_MS = 1000 / 60
 
-export const stepPlayHead = (playHead: number, dt: number, ceiling: number, serverNow: number): number => {
-  const shared = serverNow - 32
-  const desired = ceiling > 0 ? Math.min(shared, ceiling) : 0
-  if (desired <= 0) return playHead
-  if (playHead <= 0) return desired
-  const gap = desired - playHead
-  if (gap > 0) return playHead + Math.min(gap, Math.max(0, dt) * (gap > 48 ? 1.2 : 1))
-  return desired
+const PREDICT_CAP_MS = 120
+
+export const stepPlayHead = (_playHead: number, _dt: number, ceiling: number, serverNow: number): number => {
+  if (ceiling <= 0) return 0
+  return Math.min(serverNow, ceiling)
+}
+
+export type KeySample = {
+  at: number
+  keys: Record<string, boolean>
+}
+
+const copyHeld = (keys: Record<string, boolean>): Record<string, boolean> => {
+  const copy: Record<string, boolean> = {}
+  Object.keys(keys).forEach((name) => {
+    if (keys[name]) copy[name] = true
+  })
+  return copy
+}
+
+export const replayInputs = (
+  fromAt: number,
+  now: number,
+  samples: KeySample[],
+  step: (keys: Record<string, boolean>, dtMs: number) => void,
+) => {
+  const end = Math.min(now, fromAt + PREDICT_CAP_MS)
+  if (end <= fromAt) return
+  let active: Record<string, boolean> = {}
+  let cursor = fromAt
+  samples.forEach((sample) => {
+    if (cursor >= end) return
+    if (sample.at <= fromAt) {
+      active = sample.keys
+      return
+    }
+    const next = Math.min(sample.at, end)
+    if (next > cursor) step(active, next - cursor)
+    cursor = next
+    active = sample.keys
+  })
+  if (end > cursor) step(active, end - cursor)
 }
 
 export type WorldSnap = RemotePose & {
@@ -83,6 +117,7 @@ export type LiveInputLink = {
   rallyAt: () => number
   readScene: (at: number) => SceneSnap | null
   sceneAt: () => number
+  readKeyLog: () => KeySample[]
   localHeardFrame: () => number
   rivalHeardFrame: () => number
   pullRewind: () => number | null
@@ -201,6 +236,18 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   const rivalLog: MoveSample[] = []
   const rally: RallySnap[] = []
   const scenes: SceneSnap[] = []
+  const keyLog: KeySample[] = []
+
+  const noteLocalKeys = (keys: Record<string, boolean>) => {
+    const at = Date.now() + clockOffset
+    const copy = copyHeld(keys)
+    const sig = signatureOf(packKeys(copy))
+    const last = keyLog[keyLog.length - 1]
+    if (last && signatureOf(packKeys(last.keys)) === sig) return
+    keyLog.push({ at, keys: copy })
+    const cutoff = at - 500
+    while (keyLog.length > 1 && keyLog[0].at < cutoff) keyLog.shift()
+  }
   const liveAbort = new AbortController()
   let socket: WebSocket | null = null
 
@@ -526,6 +573,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   return {
     setLocalKeys: (keys, y, pose, frame) => {
       localKeys = keys
+      noteLocalKeys(keys)
       if (typeof y === 'number') localY = y
       if (pose) localPose = pose
       if (typeof frame === 'number') localFrame = frame
@@ -552,6 +600,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     rallyAt: () => (rally.length > 0 ? rally[rally.length - 1].at : 0),
     readScene: (at) => readSceneAt(at),
     sceneAt: () => (scenes.length > 0 ? scenes[scenes.length - 1].at : 0),
+    readKeyLog: () => keyLog,
     rivalHeardFrame: () => rivalHeard,
     localHeardFrame: () => localHeard,
     pullRewind: () => {

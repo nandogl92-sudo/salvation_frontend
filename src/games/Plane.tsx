@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -287,11 +287,15 @@ export default function Plane({
 
     const localPlane = () => (you === 'p1' ? state.p1 : state.p2);
 
+    const publishKeys = () => {
+      link?.setLocalKeys(state.keys);
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'Space' || event.key === ' ' || event.key === 'ArrowUp') event.preventDefault();
       if (event.repeat) return;
       state.keys[event.code] = true;
       state.keys[event.key] = true;
+      publishKeys();
       const now = performance.now() / 1000;
       if (event.code === 'Space' || event.key === ' ') {
         beginIfNeeded();
@@ -307,6 +311,7 @@ export default function Plane({
     const handleKeyUp = (event: KeyboardEvent) => {
       state.keys[event.code] = false;
       state.keys[event.key] = false;
+      publishKeys();
       if (event.code === 'Space' || event.key === ' ') localPlane().flapReady = true;
       if (!world && event.key === 'ArrowUp') state.p2.flapReady = true;
     };
@@ -318,11 +323,13 @@ export default function Plane({
       const plane = localPlane();
       plane.flapReady = true;
       flap(plane, performance.now() / 1000, true);
+      publishKeys();
     };
     const handlePointerUp = () => {
       state.keys.Space = false;
       state.keys[' '] = false;
       localPlane().flapReady = true;
+      publishKeys();
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -475,7 +482,48 @@ export default function Plane({
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
         const countdown = rankedCountdown(world.startAt, link.serverNow());
-        if (scene?.kind === 'rings') applyRings(scene);
+        if (scene?.kind === 'rings') {
+          applyRings(scene);
+          const actor = you === 'p1' ? scene.p1 : scene.p2;
+          const plane = you === 'p1' ? state.p1 : state.p2;
+          let y = actor.y;
+          let vy = actor.v;
+          const size = actor.a;
+          let flapReady = true;
+          let lastFlap = -1;
+          let clock = 0;
+          let previous = false;
+          let primed = false;
+          replayInputs(scene.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+            const dt = dtMs / 1000;
+            const down = keyHeld(keys, ' ', 'Space', 'ArrowUp');
+            if (!primed) {
+              previous = down;
+              primed = true;
+            } else if (down && !previous && flapReady && clock - lastFlap >= FLAP_GAP) {
+              vy = FLAP;
+              lastFlap = clock;
+              flapReady = false;
+            }
+            if (!down) flapReady = true;
+            previous = down;
+            clock += dt;
+            vy = Math.min(MAX_FALL, vy + GRAVITY * dt);
+            y += vy * dt;
+            const top = FIELD.top + size;
+            const bottom = FIELD.bottom - size;
+            if (y < top) {
+              y = top;
+              vy = 0;
+            }
+            if (y > bottom) {
+              y = bottom;
+              vy = 0;
+            }
+          });
+          plane.y = y;
+          plane.vy = vy;
+        }
         paintRings(countdown);
         if (state.winner) {
           state.ko -= dt / 1000;

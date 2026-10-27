@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, startLiveInputs } from './liveInputs';
+import { keyHeld, otherSide, replayInputs, startLiveInputs } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 /** Velocidad máxima del bot (píxeles por frame). Ajustar para cambiar dificultad. */
@@ -490,8 +490,17 @@ export default function Pong({
     };
     if (link) link.setLocalKeys(state.keys);
 
-    const handleKeyDown = (e: KeyboardEvent) => { state.keys[e.key] = true; };
-    const handleKeyUp = (e: KeyboardEvent) => { state.keys[e.key] = false; };
+    const publishKeys = () => {
+      link?.setLocalKeys(state.keys);
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      state.keys[e.key] = true;
+      publishKeys();
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      state.keys[e.key] = false;
+      publishKeys();
+    };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
@@ -542,7 +551,6 @@ export default function Pong({
     let lastStamp = performance.now();
     let acc = 0;
     let ended = false;
-    let playHead = 0;
 
     const stepBall = () => {
       state.trail.push({ x: state.ball.x, y: state.ball.y });
@@ -782,29 +790,26 @@ export default function Pong({
     const tick = (now: number) => {
       if (ended) return;
       if (world && link) {
-        const dt = Math.min(50, Math.max(0, now - lastStamp));
         lastStamp = now;
         link.setLocalKeys(state.keys, state[you].y, null, link.serverFrame(world.startAt));
         const countdown = rankedCountdown(world.startAt, link.serverNow());
         const ceiling = link.rallyAt();
-        const shared = link.serverNow() - 32;
-        const desired = ceiling > 0 ? Math.min(shared, ceiling) : 0;
-        if (desired > 0) {
-          if (playHead <= 0) playHead = desired;
-          else {
-            const gap = desired - playHead;
-            if (gap > 0) playHead += Math.min(gap, dt * (gap > 48 ? 1.2 : 1));
-            else playHead = desired;
-          }
-        }
-        const view = desired > 0 ? link.readRally(playHead) : null;
+        const view = ceiling > 0 ? link.readRally(ceiling) : null;
         if (view) {
+          let y = you === 'p1' ? view.p1y : view.p2y;
+          replayInputs(ceiling, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+            const frames = dtMs / FRAME_MS;
+            if (keyHeld(keys, 'w', 'W', 'ArrowUp')) y -= 7 * frames;
+            if (keyHeld(keys, 's', 'S', 'ArrowDown')) y += 7 * frames;
+          });
+          y = Math.max(minPaddle, Math.min(maxPaddle, y));
           if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
           state.trail.push({ x: view.ballX, y: view.ballY });
           if (state.trail.length > 8) state.trail.shift();
           state.ball = { x: view.ballX, y: view.ballY, vx: 0, vy: 0 };
           state.p1.y = view.p1y;
           state.p2.y = view.p2y;
+          state[you].y = y;
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;

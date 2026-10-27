@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -559,11 +559,16 @@ export default function Racing({
     placeCar(state.p2, track, 0);
     if (link) link.setLocalKeys(state.keys);
 
+    const publishKeys = () => {
+      link?.setLocalKeys(state.keys);
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
       state.keys[event.key] = true;
+      publishKeys();
     };
     const handleKeyUp = (event: KeyboardEvent) => {
       state.keys[event.key] = false;
+      publishKeys();
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -639,7 +644,21 @@ export default function Racing({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        if (scene?.kind === 'race') applyRace(scene);
+        if (scene?.kind === 'race') {
+          applyRace(scene);
+          const car = you === 'p1' ? state.p1 : state.p2;
+          let bank = 0;
+          replayInputs(scene.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+            bank += dtMs;
+            const steer = (keyHeld(keys, 'd', 'D', 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
+            const gas = keyHeld(keys, 'w', 'W', 'ArrowUp');
+            const brake = keyHeld(keys, 's', 'S', 'ArrowDown', ' ');
+            while (bank >= 1000 / 60) {
+              bank -= 1000 / 60;
+              drive(car, gas, brake, steer);
+            }
+          });
+        }
         state.frames += 1;
         drawWorld(ctx, track);
         const spin1 = state.p1.recover > 0 ? state.frames * 0.4 : 0;

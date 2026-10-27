@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -270,11 +270,16 @@ export default function Skydive({
     };
     if (link) link.setLocalKeys(state.keys);
 
+    const publishKeys = () => {
+      link?.setLocalKeys(state.keys);
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
       state.keys[event.key] = true;
+      publishKeys();
     };
     const handleKeyUp = (event: KeyboardEvent) => {
       state.keys[event.key] = false;
+      publishKeys();
     };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
@@ -347,8 +352,7 @@ export default function Skydive({
 
     const drive = (jumper: Jumper, steer: number, dt: number) => {
       if (!jumper.alive) return;
-      const goal = steer * MOVE;
-      jumper.vx += (goal - jumper.vx) * Math.min(1, dt * 10);
+      jumper.vx = steer * MOVE;
       jumper.x += jumper.vx * dt;
       if (jumper.x < FIELD.left + 26) jumper.x = FIELD.left + 26;
       if (jumper.x > FIELD.right - 26) jumper.x = FIELD.right - 26;
@@ -390,7 +394,22 @@ export default function Skydive({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, stepMs, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        if (scene?.kind === 'drop') applyDrop(scene);
+        if (scene?.kind === 'drop') {
+          applyDrop(scene);
+          const actor = you === 'p1' ? scene.p1 : scene.p2;
+          const jumper = you === 'p1' ? state.p1 : state.p2;
+          let x = actor.x;
+          let vx = actor.v;
+          replayInputs(scene.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+            const steer = (keyHeld(keys, 'd', 'D', 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
+            vx = steer * MOVE;
+            x += vx * (dtMs / 1000);
+            if (x < FIELD.left + 26) x = FIELD.left + 26;
+            if (x > FIELD.right - 26) x = FIELD.right - 26;
+          });
+          jumper.x = x;
+          jumper.vx = vx;
+        }
         const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
         drawSky(ctx, state.clouds, state.fall, state.gameTime);
         state.hazards.forEach((item) => drawHazard(ctx, item));
