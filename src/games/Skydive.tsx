@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { easeToward, keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -246,7 +246,6 @@ export default function Skydive({
 
     let raf = 0;
     let playHead = 0;
-    let shownX = 0;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -397,15 +396,7 @@ export default function Skydive({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, stepMs, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        if (scene?.kind === 'drop') {
-          applyDrop(scene);
-          const jumper = you === 'p1' ? state.p1 : state.p2;
-          const steer = (keyHeld(state.keys, 'd', 'D', 'ArrowRight') ? 1 : 0)
-            - (keyHeld(state.keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
-          shownX = easeToward(shownX, steer * 10, stepMs, 24);
-          const x = jumper.x + shownX;
-          jumper.x = Math.max(FIELD.left + 26, Math.min(FIELD.right - 26, x));
-        }
+        if (scene?.kind === 'drop') applyDrop(scene);
         const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
         drawSky(ctx, state.clouds, state.fall, state.gameTime);
         state.hazards.forEach((item) => drawHazard(ctx, item));

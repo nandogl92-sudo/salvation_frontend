@@ -13,7 +13,8 @@ const COUNT_MS = 10_000;
 const KO_FRAMES = 100;
 const SPARK_MAX = 36;
 const ROAD_EDGE = (TRACK_W + 14) / 2 + 6;
-const CRUISE = 1.6;
+const CRUISE = 1.4;
+const STEP_MS = 1000 / 60;
 const SLOW = 1.15;
 const FIELD = {
   left: ROAD_EDGE,
@@ -542,6 +543,7 @@ export default function Racing({
     void document.fonts.load(`10px ${PIX}`);
 
     const openAt = Date.now();
+    let acc = 0;
     let raf = 0;
     let playHead = 0;
     let lastStamp = performance.now();
@@ -588,7 +590,7 @@ export default function Racing({
         car.speed = 0;
         return;
       }
-      car.angle += steer * (0.04 + car.speed * 0.013);
+      car.angle += steer * (0.026 + car.speed * 0.008);
       car.speed += 0.02;
       if (brake) car.speed -= 0.055;
       if (car.speed < SLOW) car.speed = SLOW;
@@ -655,7 +657,7 @@ export default function Racing({
         drawCar(ctx, state.p2, spin2);
         drawHud(ctx, state.p1, state.p2);
         const rankedWait = rankedCountdown(world.startAt, link.serverNow());
-        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA ARRIBA Y ABAJO GIRAN  ESPACIO FRENA');
+        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO FRENA');
         if (state.winner) {
           const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
           drawBanner(ctx, 'META', `${name} GANA`);
@@ -668,41 +670,47 @@ export default function Racing({
         raf = requestAnimationFrame(update);
         return;
       }
-      state.frames += 1;
+      acc += dt;
       const rankedWait = world ? rankedCountdown(world.startAt) : null;
       const localWait = world ? null : rankedCountdown(openAt + COUNT_MS);
-      const racing = !rankedWait && !localWait && !state.winner;
+      let guard = 0;
+      while (acc >= STEP_MS && guard < 4) {
+        acc -= STEP_MS;
+        guard += 1;
+        state.frames += 1;
+        const racing = !rankedWait && !localWait && !state.winner;
 
-      if (racing) {
+        if (racing) {
         if (world) {
           const drivePad = (side: Side, keys: Record<string, boolean>) => {
             const car = side === 'p1' ? state.p1 : state.p2;
-            const steer = (keyHeld(keys, 'ArrowDown', 's', 'S') ? 1 : 0) - (keyHeld(keys, 'ArrowUp', 'w', 'W') ? 1 : 0);
+            const steer = (keyHeld(keys, 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'ArrowLeft') ? 1 : 0);
             drive(car, keyHeld(keys, ' '), steer);
           };
           link?.setLocalKeys(state.keys);
           drivePad(you, state.keys);
           drivePad(them, link?.readRivalKeys() ?? {});
         } else {
-          const p1Steer = (state.keys['ArrowDown'] || state.keys['s'] || state.keys['S'] ? 1 : 0) - (state.keys['ArrowUp'] || state.keys['w'] || state.keys['W'] ? 1 : 0);
+          const p1Steer = (state.keys['ArrowRight'] ? 1 : 0) - (state.keys['ArrowLeft'] ? 1 : 0);
           drive(state.p1, Boolean(state.keys[' ']), p1Steer);
           if (botEnabled) botSteer(state.p2);
           else {
-            const p2Steer = (state.keys['ArrowDown'] ? 1 : 0) - (state.keys['ArrowUp'] ? 1 : 0);
+            const p2Steer = (state.keys['ArrowRight'] ? 1 : 0) - (state.keys['ArrowLeft'] ? 1 : 0);
             drive(state.p2, Boolean(state.keys[' ']), p2Steer);
           }
         }
-        if (state.p1.laps >= LAPS) state.winner = 'p1';
-        else if (state.p2.laps >= LAPS) state.winner = 'p2';
-        if (state.winner) state.ko = KO_FRAMES;
-      }
+          if (state.p1.laps >= LAPS) state.winner = 'p1';
+          else if (state.p2.laps >= LAPS) state.winner = 'p2';
+          if (state.winner) state.ko = KO_FRAMES;
+        }
 
-      state.sparks = state.sparks.filter((spark) => {
-        spark.x += spark.vx;
-        spark.y += spark.vy;
-        spark.life -= 1;
-        return spark.life > 0;
-      });
+        state.sparks = state.sparks.filter((spark) => {
+          spark.x += spark.vx;
+          spark.y += spark.vy;
+          spark.life -= 1;
+          return spark.life > 0;
+        });
+      }
 
       drawWorld(ctx, track);
       const spin1 = state.p1.recover > 0 ? state.frames * 0.4 : 0;
@@ -715,9 +723,9 @@ export default function Racing({
       drawHud(ctx, state.p1, state.p2);
 
       if (rankedWait) {
-        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA ARRIBA Y ABAJO GIRAN  ESPACIO FRENA');
+        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO FRENA');
       } else if (localWait) {
-        drawBanner(ctx, localWait, 'ACELERA SOLO    FLECHA ARRIBA Y ABAJO GIRAN  ESPACIO FRENA');
+        drawBanner(ctx, localWait, 'ACELERA SOLO    FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO FRENA');
       }
       if (state.winner) {
         const name = state.winner === 'p1' ? state.p1.name : state.p2.name;

@@ -614,6 +614,7 @@ export default function Pong({
       state.trail.push({ x: state.ball.x, y: state.ball.y });
       if (state.trail.length > 8) state.trail.shift();
 
+      const prevX = state.ball.x;
       state.ball.x += state.ball.vx;
       state.ball.y += state.ball.vy;
 
@@ -628,27 +629,24 @@ export default function Pong({
         spawnSparks(state.sparks, state.ball.x, PLAY_BOTTOM, 4, '#cfe9ff');
       }
 
-      const hitsPaddle = (paddleY: number) => (
-        state.ball.y >= paddleY && state.ball.y <= paddleY + PADDLE_H
-      );
+      const meets = (paddleX: number, paddleY: number) => {
+        const yHit = state.ball.y + BALL_R >= paddleY && state.ball.y - BALL_R <= paddleY + PADDLE_H;
+        if (!yHit) return false;
+        const face = state.ball.vx < 0 ? paddleX + PADDLE_W : paddleX;
+        const crossed = state.ball.vx < 0
+          ? prevX - BALL_R >= face && state.ball.x - BALL_R <= face
+          : prevX + BALL_R <= face && state.ball.x + BALL_R >= face;
+        const inside = state.ball.x + BALL_R >= paddleX && state.ball.x - BALL_R <= paddleX + PADDLE_W;
+        return crossed || inside;
+      };
 
-      if (
-        state.ball.vx < 0 &&
-        state.ball.x <= P1_X + PADDLE_W + BALL_R &&
-        state.ball.x >= P1_X - BALL_R &&
-        hitsPaddle(state.p1.y)
-      ) {
+      if (state.ball.vx < 0 && meets(P1_X, state.p1.y)) {
         bounceOff(state.p1.y, 1);
         state.ball.x = P1_X + PADDLE_W + BALL_R;
         state.p1.swing = SWING_FRAMES;
         spawnSparks(state.sparks, state.ball.x, state.ball.y, 6, CYAN);
       }
-      if (
-        state.ball.vx > 0 &&
-        state.ball.x >= P2_X - BALL_R &&
-        state.ball.x <= P2_X + PADDLE_W + BALL_R &&
-        hitsPaddle(state.p2.y)
-      ) {
+      if (state.ball.vx > 0 && meets(P2_X, state.p2.y)) {
         bounceOff(state.p2.y, -1);
         state.ball.x = P2_X - BALL_R;
         state.p2.swing = SWING_FRAMES;
@@ -660,7 +658,6 @@ export default function Pong({
     };
 
     let simFrame = 0;
-    let ownLead = false;
     let faceMine = { up: false, down: false };
     let faceTheirs = { up: false, down: false };
 
@@ -858,32 +855,16 @@ export default function Pong({
         const latestAt = link.rallyAt();
         playHead = stepPlayHead(playHead, dt, latestAt, link.serverNow());
         const view = playHead > 0 ? link.readRally(playHead) : null;
-        const mineUp = keyHeld(state.keys, 'w', 'W', 'ArrowUp');
-        const mineDown = keyHeld(state.keys, 's', 'S', 'ArrowDown');
-        const steering = mineUp || mineDown;
         if (view) {
           if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
           state.trail.push({ x: view.ballX, y: view.ballY });
           if (state.trail.length > 8) state.trail.shift();
           state.ball = { x: view.ballX, y: view.ballY, vx: 0, vy: 0 };
-          const serverOwn = you === 'p1' ? view.p1y : view.p2y;
-          state[them].y = you === 'p1' ? view.p2y : view.p1y;
-          if (!steering && (!ownLead || Math.abs(serverOwn - state[you].y) <= 3)) {
-            state[you].y = serverOwn;
-            ownLead = false;
-          }
+          state.p1.y = view.p1y;
+          state.p2.y = view.p2y;
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;
-        }
-        if (steering && !countdown) {
-          const steps = Math.min(1.2, dt / FRAME_MS);
-          if (mineUp) state[you].y = Math.max(minPaddle, state[you].y - 7 * steps);
-          if (mineDown) state[you].y = Math.min(maxPaddle, state[you].y + 7 * steps);
-          ownLead = true;
-          faceMine = { up: mineUp, down: mineDown };
-        } else if (!steering) {
-          faceMine = { up: false, down: false };
         }
         paint(countdown, 0);
         if (view && view.p1 >= 10) { ended = true; onGameEnd('p1'); return; }
