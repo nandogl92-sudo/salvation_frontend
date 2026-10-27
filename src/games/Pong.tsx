@@ -552,7 +552,7 @@ export default function Pong({
     let acc = 0;
     let ended = false;
     let playHead = 0;
-    let shownPaddle = paddleStart;
+    let shownLead = 0;
 
     const stepBall = () => {
       state.trail.push({ x: state.ball.x, y: state.ball.y });
@@ -805,23 +805,22 @@ export default function Pong({
         const latestAt = link.rallyAt();
         playHead = stepPlayHead(playHead, dt, latestAt, link.serverNow());
         const view = playHead > 0 ? link.readRally(playHead) : null;
-        const latest = latestAt > 0 ? link.readRally(latestAt) : null;
-        if (view && latest) {
-          let target = you === 'p1' ? latest.p1y : latest.p2y;
-          replayInputs(latestAt, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+        if (view) {
+          const base = you === 'p1' ? view.p1y : view.p2y;
+          let lead = 0;
+          replayInputs(playHead, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
             const frames = dtMs / FRAME_MS;
-            if (keyHeld(keys, 'w', 'W', 'ArrowUp')) target -= 7 * frames;
-            if (keyHeld(keys, 's', 'S', 'ArrowDown')) target += 7 * frames;
+            if (keyHeld(keys, 'w', 'W', 'ArrowUp')) lead -= 7 * frames;
+            if (keyHeld(keys, 's', 'S', 'ArrowDown')) lead += 7 * frames;
           });
-          target = Math.max(minPaddle, Math.min(maxPaddle, target));
-          shownPaddle = easeToward(shownPaddle, target, dt, 70);
+          shownLead = easeToward(shownLead, lead, dt, 48);
           if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
           state.trail.push({ x: view.ballX, y: view.ballY });
           if (state.trail.length > 8) state.trail.shift();
           state.ball = { x: view.ballX, y: view.ballY, vx: 0, vy: 0 };
           state.p1.y = view.p1y;
           state.p2.y = view.p2y;
-          state[you].y = shownPaddle;
+          state[you].y = Math.max(minPaddle, Math.min(maxPaddle, base + shownLead));
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;

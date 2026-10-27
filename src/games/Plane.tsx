@@ -482,21 +482,19 @@ export default function Plane({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        const latest = link.readScene(link.sceneAt());
         const countdown = rankedCountdown(world.startAt, link.serverNow());
-        if (scene?.kind === 'rings') applyRings(scene);
-        if (latest?.kind === 'rings') {
-          const actor = you === 'p1' ? latest.p1 : latest.p2;
+        if (scene?.kind === 'rings') {
+          applyRings(scene);
           const plane = you === 'p1' ? state.p1 : state.p2;
-          let y = actor.y;
-          let vy = actor.v;
-          const size = actor.a;
+          let y = plane.y;
+          let vy = plane.vy;
+          const size = plane.size;
           let flapReady = true;
           let lastFlap = -1;
           let clock = 0;
           let previous = false;
           let primed = false;
-          replayInputs(latest.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+          replayInputs(playHead, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
             const stepDt = dtMs / 1000;
             const down = keyHeld(keys, ' ', 'Space', 'ArrowUp');
             if (!primed) {
@@ -523,7 +521,7 @@ export default function Plane({
               vy = 0;
             }
           });
-          shownY = easeToward(shownY, y, dt, 120);
+          shownY = easeToward(shownY, y, dt, 80);
           plane.y = shownY;
           plane.vy = vy;
         }

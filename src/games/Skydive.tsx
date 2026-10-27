@@ -395,21 +395,20 @@ export default function Skydive({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, stepMs, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        const latest = link.readScene(link.sceneAt());
-        if (scene?.kind === 'drop') applyDrop(scene);
-        if (latest?.kind === 'drop') {
-          const actor = you === 'p1' ? latest.p1 : latest.p2;
+        if (scene?.kind === 'drop') {
+          applyDrop(scene);
           const jumper = you === 'p1' ? state.p1 : state.p2;
-          let x = actor.x;
-          let vx = actor.v;
-          replayInputs(latest.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+          const baseX = jumper.x;
+          let x = jumper.x;
+          let vx = jumper.vx;
+          replayInputs(playHead, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
             const steer = (keyHeld(keys, 'd', 'D', 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
             vx = steer * MOVE;
             x += vx * (dtMs / 1000);
             if (x < FIELD.left + 26) x = FIELD.left + 26;
             if (x > FIELD.right - 26) x = FIELD.right - 26;
           });
-          shownX = easeToward(shownX, x, stepMs, 80);
+          shownX = easeToward(shownX, baseX + (x - baseX), stepMs, 60);
           jumper.x = shownX;
           jumper.vx = vx;
         }

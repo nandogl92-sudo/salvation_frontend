@@ -648,19 +648,14 @@ export default function Racing({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        const latest = link.readScene(link.sceneAt());
-        if (scene?.kind === 'race') applyRace(scene);
-        if (latest?.kind === 'race') {
-          const actor = you === 'p1' ? latest.p1 : latest.p2;
+        if (scene?.kind === 'race') {
+          applyRace(scene);
           const car = you === 'p1' ? state.p1 : state.p2;
-          car.x = actor.x;
-          car.y = actor.y;
-          car.angle = actor.v;
-          car.laps = actor.n;
-          car.recover = actor.a;
-          car.progress = actor.p;
+          const baseX = car.x;
+          const baseY = car.y;
+          const baseAngle = car.angle;
           let bank = 0;
-          replayInputs(latest.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+          replayInputs(playHead, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
             bank += dtMs;
             const steer = (keyHeld(keys, 'd', 'D', 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
             const gas = keyHeld(keys, 'w', 'W', 'ArrowUp');
@@ -671,14 +666,14 @@ export default function Racing({
             }
           });
           if (!shownReady) {
-            shownX = car.x;
-            shownY = car.y;
-            shownAngle = car.angle;
+            shownX = baseX;
+            shownY = baseY;
+            shownAngle = baseAngle;
             shownReady = true;
           }
-          shownX = easeToward(shownX, car.x, dt, 140);
-          shownY = easeToward(shownY, car.y, dt, 140);
-          shownAngle = easeAngle(shownAngle, car.angle, dt);
+          shownX = easeToward(shownX, baseX + (car.x - baseX), dt, 80);
+          shownY = easeToward(shownY, baseY + (car.y - baseY), dt, 80);
+          shownAngle = easeAngle(shownAngle, baseAngle + (car.angle - baseAngle), dt);
           car.x = shownX;
           car.y = shownY;
           car.angle = shownAngle;
