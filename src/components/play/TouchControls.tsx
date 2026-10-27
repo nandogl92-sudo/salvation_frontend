@@ -107,7 +107,6 @@ const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }
 
 const STICK = 112
 const KNOB = 48
-const TRAVEL = (STICK - KNOB) / 2
 const DEAD = 0.22
 
 type StickAxis = {
@@ -138,9 +137,15 @@ const VirtualJoystick = ({ label, horizontal, vertical }: VirtualJoystickProps) 
     heldKeys.current = new Set()
   }
 
+  const onlyVertical = Boolean(vertical) && !horizontal
+  const trackW = onlyVertical ? 64 : STICK
+  const trackH = onlyVertical ? 168 : STICK
+  const travelX = (trackW - KNOB) / 2
+  const travelY = (trackH - KNOB) / 2
+
   const applyOffset = (x: number, y: number) => {
     const want = new Set(
-      [axisKey(x / TRAVEL, horizontal), axisKey(y / TRAVEL, vertical)].filter((key): key is string => key !== null),
+      [axisKey(x / travelX, horizontal), axisKey(y / travelY, vertical)].filter((key): key is string => key !== null),
     )
     heldKeys.current.forEach((key) => {
       if (!want.has(key)) sendKey('keyup', key)
@@ -161,13 +166,20 @@ const VirtualJoystick = ({ label, horizontal, vertical }: VirtualJoystickProps) 
 
   const placePointer = (event: PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect()
-    let dx = event.clientX - (rect.left + rect.width / 2)
-    let dy = event.clientY - (rect.top + rect.height / 2)
-    const distance = Math.hypot(dx, dy)
-    if (distance > TRAVEL) {
-      dx = (dx / distance) * TRAVEL
-      dy = (dy / distance) * TRAVEL
+    let dx = horizontal ? event.clientX - (rect.left + rect.width / 2) : 0
+    let dy = vertical ? event.clientY - (rect.top + rect.height / 2) : 0
+    if (horizontal && vertical) {
+      const distance = Math.hypot(dx, dy)
+      const limit = Math.min(travelX, travelY)
+      if (distance > limit) {
+        dx = (dx / distance) * limit
+        dy = (dy / distance) * limit
+      }
     }
+    if (!horizontal) dx = 0
+    if (!vertical) dy = 0
+    dy = Math.max(-travelY, Math.min(travelY, dy))
+    dx = Math.max(-travelX, Math.min(travelX, dx))
     applyOffset(dx, dy)
   }
 
@@ -181,15 +193,10 @@ const VirtualJoystick = ({ label, horizontal, vertical }: VirtualJoystickProps) 
   const placeArrows = () => {
     let x = 0
     let y = 0
-    if (arrows.current.left) x -= TRAVEL
-    if (arrows.current.right) x += TRAVEL
-    if (arrows.current.up) y -= TRAVEL
-    if (arrows.current.down) y += TRAVEL
-    const distance = Math.hypot(x, y)
-    if (distance > TRAVEL) {
-      x = (x / distance) * TRAVEL
-      y = (y / distance) * TRAVEL
-    }
+    if (horizontal && arrows.current.left) x -= travelX
+    if (horizontal && arrows.current.right) x += travelX
+    if (vertical && arrows.current.up) y -= travelY
+    if (vertical && arrows.current.down) y += travelY
     applyOffset(x, y)
   }
 
@@ -218,11 +225,10 @@ const VirtualJoystick = ({ label, horizontal, vertical }: VirtualJoystickProps) 
   }
 
   const active = [
-    axisKey(offset.x / TRAVEL, horizontal),
-    axisKey(offset.y / TRAVEL, vertical),
+    axisKey(offset.x / travelX, horizontal),
+    axisKey(offset.y / travelY, vertical),
   ].filter((key) => key !== null)
   const valueText = active.length > 0 ? active.join(' ') : 'Centro'
-  const onlyVertical = Boolean(vertical) && !horizontal
 
   return (
     <div
@@ -231,7 +237,7 @@ const VirtualJoystick = ({ label, horizontal, vertical }: VirtualJoystickProps) 
       aria-orientation={onlyVertical ? 'vertical' : undefined}
       aria-valuemin={onlyVertical ? -100 : undefined}
       aria-valuemax={onlyVertical ? 100 : undefined}
-      aria-valuenow={onlyVertical ? Math.round((offset.y / TRAVEL) * 100) : undefined}
+      aria-valuenow={onlyVertical ? Math.round((offset.y / travelY) * 100) : undefined}
       aria-valuetext={valueText}
       tabIndex={0}
       onPointerDown={handlePointerDown}
@@ -246,10 +252,10 @@ const VirtualJoystick = ({ label, horizontal, vertical }: VirtualJoystickProps) 
       onBlur={resetStick}
       onContextMenu={(event) => event.preventDefault()}
       className="relative rounded-full bg-[#12182c] border-2 border-[#f5c518]/70 touch-none select-none"
-      style={{ width: STICK, height: STICK }}
+      style={{ width: trackW, height: trackH }}
     >
       <span className="absolute left-1/2 top-3 bottom-3 w-px -translate-x-1/2 bg-[#f5c518]/30" aria-hidden="true" />
-      <span className="absolute top-1/2 left-3 right-3 h-px -translate-y-1/2 bg-[#f5c518]/30" aria-hidden="true" />
+      {horizontal ? <span className="absolute top-1/2 left-3 right-3 h-px -translate-y-1/2 bg-[#f5c518]/30" aria-hidden="true" /> : null}
       <span
         aria-hidden="true"
         className="absolute left-1/2 top-1/2 rounded-full bg-[#f5c518] shadow-[0_4px_0_#a16207]"
@@ -287,6 +293,10 @@ const DROP_BUTTONS: PadKey[] = [
 
 const BRAKE_BUTTON: PadKey = { key: ' ', label: 'FRENO', ariaLabel: 'Frenar' }
 
+const STICK_LEFT = 'flex items-center justify-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-3'
+
+const STICK_RIGHT = 'flex items-center justify-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-3'
+
 const FLOAT_ON_LANDSCAPE = '[@media(orientation:landscape)_and_(max-height:520px)]:absolute [@media(orientation:landscape)_and_(max-height:520px)]:inset-x-0 [@media(orientation:landscape)_and_(max-height:520px)]:bottom-0 [@media(orientation:landscape)_and_(max-height:520px)]:z-10 [@media(orientation:landscape)_and_(max-height:520px)]:bg-black/55 [@media(orientation:landscape)_and_(max-height:520px)]:py-2'
 
 const DirPad = ({ dirs }: { dirs: PadKey[] }) => {
@@ -321,15 +331,15 @@ const DirPad = ({ dirs }: { dirs: PadKey[] }) => {
   )
 }
 
-const TouchControls = ({ gameId }: { gameId: string }) => {
+const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSide?: 'left' | 'right' }) => {
   const pad = PADS[gameId]
   if (!pad) return null
 
   const rowClass = gameId === 'tetris'
     ? 'w-full flex lg:hidden items-stretch justify-between gap-3 px-2 py-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
-    : `${gameId === 'pong'
-      ? 'w-full flex lg:hidden items-center justify-center px-2 py-3 landscape:py-1'
-      : gameId === 'combat'
+    : gameId === 'pong'
+      ? 'w-full flex lg:hidden items-center justify-center px-2 py-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
+      : `${gameId === 'combat'
         ? 'w-full flex lg:hidden items-center justify-between gap-3 px-3 py-3 landscape:gap-2 landscape:px-2 landscape:py-1'
         : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'} ${FLOAT_ON_LANDSCAPE}`
 
@@ -339,7 +349,9 @@ const TouchControls = ({ gameId }: { gameId: string }) => {
       aria-label="Controles táctiles"
     >
       {gameId === 'pong' && (
-        <VirtualJoystick label="Joystick para mover la pala" vertical={{ minus: 'w', plus: 's' }} />
+        <div className={stickSide === 'right' ? STICK_RIGHT : STICK_LEFT}>
+          <VirtualJoystick label="Joystick para mover la pala" vertical={{ minus: 'w', plus: 's' }} />
+        </div>
       )}
       {gameId === 'tetris' && (
         <>

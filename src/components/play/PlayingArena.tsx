@@ -9,11 +9,12 @@ type PlayingArenaProps = {
   betAmount: number
   isRanked?: boolean
   gameId?: string
+  stickSide?: 'left' | 'right'
   children: ReactNode
   controlsHint?: string
 }
 
-const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, children, controlsHint }: PlayingArenaProps) => {
+const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, stickSide, children, controlsHint }: PlayingArenaProps) => {
   const opponentName = opponent?.username ?? 'Rival'
   const opponentLabel = opponent?.username === 'Bot de prueba (modo prueba)'
     ? 'Bot de prueba (modo prueba)'
@@ -86,11 +87,11 @@ const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, childre
         </div>
       </div>
 
-      <div className={`relative flex min-h-0 flex-1 flex-col overflow-hidden border-4 border-bg-100 rounded-xl bg-black [touch-action:none] ${gameId === 'tetris' ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-row [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:items-center' : ''}`}>
-        <div className={`flex h-full min-h-0 w-full min-w-0 flex-1 items-center justify-center overflow-hidden [&_canvas]:block [&_canvas]:max-h-full [&_canvas]:max-w-full [&_canvas]:min-h-0 [&_canvas]:min-w-0 [&_canvas]:!h-auto [&_canvas]:!w-auto ${gameId === 'tetris' ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full' : ''}`}>
+      <div className={`relative flex min-h-0 flex-1 flex-col overflow-hidden border-4 border-bg-100 rounded-xl bg-black [touch-action:none] ${gameId === 'tetris' || gameId === 'pong' ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-row [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:items-center' : ''}`}>
+        <div className={`flex h-full min-h-0 w-full min-w-0 flex-1 items-center justify-center overflow-hidden [&_canvas]:block [&_canvas]:max-h-full [&_canvas]:max-w-full [&_canvas]:min-h-0 [&_canvas]:min-w-0 [&_canvas]:!h-auto [&_canvas]:!w-auto ${gameId === 'tetris' || gameId === 'pong' ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full' : ''}`}>
           {children}
         </div>
-        {gameId ? <TouchControls gameId={gameId} /> : null}
+        {gameId ? <TouchControls gameId={gameId} stickSide={stickSide} /> : null}
       </div>
       <p className="shrink-0 text-center text-xs text-text-200 [@media(orientation:landscape)_and_(max-height:520px)]:hidden">
         {controlsHint ?? (

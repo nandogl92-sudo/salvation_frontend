@@ -719,6 +719,7 @@ export default function App() {
                 betAmount={betAmount}
                 isRanked={Boolean(activeMatch?.isRanked)}
                 gameId={selectedGame.id}
+                stickSide={activeMatch?.world?.localSide === 'p2' ? 'right' : 'left'}
                 controlsHint={
                   activeMatch?.isRanked
                     ? 'Ranqueada — tú mueves tu lado. El rival es otra persona, no un bot.'
