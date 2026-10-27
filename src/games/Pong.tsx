@@ -604,7 +604,7 @@ export default function Pong({
     };
     const hist: Hist[] = [];
     let simFrame = 0;
-    const INPUT_DELAY = 3;
+    const INPUT_DELAY = 0;
 
     const capture = (): Hist => ({
       p1y: state.p1.y,
