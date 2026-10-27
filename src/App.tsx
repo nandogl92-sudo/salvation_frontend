@@ -621,7 +621,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-200 text-text-100 font-sans">
+    <div className={view === 'playing' && !gameResult && !matchError ? 'flex h-dvh flex-col overflow-hidden bg-bg-200 text-text-100 font-sans' : 'min-h-screen bg-bg-200 text-text-100 font-sans'}>
       {subscriptionOpen && currentUser && (
         <SubscriptionPayDialog
           onClose={() => setSubscriptionOpen(false)}
@@ -655,7 +655,7 @@ export default function App() {
         }}
       />
 
-      <main>
+      <main className={view === 'playing' && !gameResult && !matchError ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : undefined}>
         {isChoosingPassword ? (
           <ResetPasswordScreen
             token={resetToken}
@@ -671,7 +671,7 @@ export default function App() {
         )}
 
         {!isChoosingPassword && view !== 'home' && (
-        <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className={view === 'playing' && !gameResult && !matchError ? 'mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-2 py-2' : 'max-w-6xl mx-auto px-4 py-8'}>
 
         {view === 'lobby' && selectedGame && currentUser && (
           <LobbyPanel
@@ -691,7 +691,7 @@ export default function App() {
         )}
 
         {view === 'playing' && selectedGame && currentUser && (
-          <div className="max-w-4xl mx-auto space-y-4 animate-fade-in">
+          <div className={gameResult || matchError ? 'max-w-4xl mx-auto space-y-4 animate-fade-in' : 'mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col'}>
             {gameResult ? (
               <GameResultPanel
                 result={gameResult}

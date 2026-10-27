@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import type { MatchPlayer } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
 import TouchControls from './TouchControls'
@@ -21,9 +21,34 @@ const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, childre
       ? 'Otra persona'
       : 'Rival'
 
+  useEffect(() => {
+    const root = document.documentElement
+    const previousRoot = root.style.overflow
+    const previousBody = document.body.style.overflow
+    root.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+    const stopPageScroll = (event: KeyboardEvent) => {
+      const scrolls = event.key === 'ArrowUp'
+        || event.key === 'ArrowDown'
+        || event.key === 'ArrowLeft'
+        || event.key === 'ArrowRight'
+        || event.key === ' '
+        || event.key === 'PageUp'
+        || event.key === 'PageDown'
+      if (!scrolls) return
+      event.preventDefault()
+    }
+    window.addEventListener('keydown', stopPageScroll)
+    return () => {
+      root.style.overflow = previousRoot
+      document.body.style.overflow = previousBody
+      window.removeEventListener('keydown', stopPageScroll)
+    }
+  }, [])
+
   return (
-    <>
-      <div className="bg-bg-100 rounded-2xl shadow-sm border border-bg-300 p-3 sm:p-4 flex justify-between items-center gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="shrink-0 bg-bg-100 rounded-2xl shadow-sm border border-bg-300 p-2 sm:p-4 landscape:py-2 flex justify-between items-center gap-2">
         <div className="flex items-center gap-3">
           <div
             className="w-10 h-10 bg-primary-300 text-primary-100 rounded-full flex items-center justify-center font-bold"
@@ -33,7 +58,7 @@ const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, childre
           </div>
           <div>
             <div className="font-bold">{username}</div>
-            <div className="text-xs text-text-200">Tú (Local)</div>
+            <div className="text-xs text-text-200 landscape:hidden">Tú (Local)</div>
           </div>
         </div>
 
@@ -42,7 +67,7 @@ const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, childre
             {isRanked ? 'Ranqueada' : 'Amistoso'}
           </span>
           <span className="text-xl font-bold text-accent-100">{formatPoints(betAmount * 2)} fichas</span>
-          <span className="mt-1 text-xs text-text-200">
+          <span className="mt-1 text-xs text-text-200 landscape:hidden">
             {isRanked ? 'Si ganas, +1 punto del mes' : 'No suma al premio'}
           </span>
         </div>
@@ -50,7 +75,7 @@ const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, childre
         <div className="flex items-center gap-3 text-right">
           <div>
             <div className="font-bold">{opponentName}</div>
-            <div className="text-xs text-text-200">{opponentLabel}</div>
+            <div className="text-xs text-text-200 landscape:hidden">{opponentLabel}</div>
           </div>
           <div
             className="w-10 h-10 bg-bg-300 text-text-100 rounded-full flex items-center justify-center font-bold"
@@ -61,18 +86,20 @@ const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, childre
         </div>
       </div>
 
-      <div className="w-full relative overflow-hidden flex flex-col items-center justify-center border-4 border-bg-100 rounded-xl bg-black [touch-action:none]">
-        {children}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-4 border-bg-100 rounded-xl bg-black [touch-action:none]">
+        <div className="flex h-full min-h-0 w-full min-w-0 flex-1 items-center justify-center overflow-hidden [&_canvas]:block [&_canvas]:max-h-full [&_canvas]:max-w-full [&_canvas]:min-h-0 [&_canvas]:min-w-0 [&_canvas]:!h-auto [&_canvas]:!w-auto">
+          {children}
+        </div>
         {gameId ? <TouchControls gameId={gameId} /> : null}
       </div>
-      <p className="text-center text-xs text-text-200">
+      <p className="shrink-0 text-center text-xs text-text-200 landscape:text-[10px]">
         {controlsHint ?? (
           <>
             Controles — <b>P1</b>: WASD / Espacio | <b>P2</b>: Flechas / Enter
           </>
         )}
       </p>
-    </>
+    </div>
   )
 }
 
