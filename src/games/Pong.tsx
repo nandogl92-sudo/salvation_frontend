@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { easeToward, keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead } from './liveInputs';
+import { easeToward, keyHeld, otherSide, startLiveInputs, stepPlayHead } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 /** Velocidad máxima del bot (píxeles por frame). Ajustar para cambiar dificultad. */
@@ -807,13 +807,9 @@ export default function Pong({
         const view = playHead > 0 ? link.readRally(playHead) : null;
         if (view) {
           const base = you === 'p1' ? view.p1y : view.p2y;
-          let lead = 0;
-          replayInputs(playHead, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
-            const frames = dtMs / FRAME_MS;
-            if (keyHeld(keys, 'w', 'W', 'ArrowUp')) lead -= 7 * frames;
-            if (keyHeld(keys, 's', 'S', 'ArrowDown')) lead += 7 * frames;
-          });
-          shownLead = easeToward(shownLead, lead, dt, 48);
+          const dir = (keyHeld(state.keys, 'w', 'W', 'ArrowUp') ? -1 : 0)
+            + (keyHeld(state.keys, 's', 'S', 'ArrowDown') ? 1 : 0);
+          shownLead = easeToward(shownLead, dir * 7, dt, 24);
           if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
           state.trail.push({ x: view.ballX, y: view.ballY });
           if (state.trail.length > 8) state.trail.shift();

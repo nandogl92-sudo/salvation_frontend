@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { easeAngle, easeToward, keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -540,10 +540,6 @@ export default function Racing({
 
     let raf = 0;
     let playHead = 0;
-    let shownX = 0;
-    let shownY = 0;
-    let shownAngle = 0;
-    let shownReady = false;
     let lastStamp = performance.now();
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
@@ -648,36 +644,7 @@ export default function Racing({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        if (scene?.kind === 'race') {
-          applyRace(scene);
-          const car = you === 'p1' ? state.p1 : state.p2;
-          const baseX = car.x;
-          const baseY = car.y;
-          const baseAngle = car.angle;
-          let bank = 0;
-          replayInputs(playHead, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
-            bank += dtMs;
-            const steer = (keyHeld(keys, 'd', 'D', 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
-            const gas = keyHeld(keys, 'w', 'W', 'ArrowUp');
-            const brake = keyHeld(keys, 's', 'S', 'ArrowDown', ' ');
-            while (bank >= 1000 / 60) {
-              bank -= 1000 / 60;
-              drive(car, gas, brake, steer);
-            }
-          });
-          if (!shownReady) {
-            shownX = baseX;
-            shownY = baseY;
-            shownAngle = baseAngle;
-            shownReady = true;
-          }
-          shownX = easeToward(shownX, baseX + (car.x - baseX), dt, 80);
-          shownY = easeToward(shownY, baseY + (car.y - baseY), dt, 80);
-          shownAngle = easeAngle(shownAngle, baseAngle + (car.angle - baseAngle), dt);
-          car.x = shownX;
-          car.y = shownY;
-          car.angle = shownAngle;
-        }
+        if (scene?.kind === 'race') applyRace(scene);
         state.frames += 1;
         drawWorld(ctx, track);
         const spin1 = state.p1.recover > 0 ? state.frames * 0.4 : 0;

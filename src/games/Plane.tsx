@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { easeToward, keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -251,7 +251,6 @@ export default function Plane({
     let ended = false;
     let nextRingId = 1;
     let playHead = 0;
-    let shownY = 270;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -483,48 +482,7 @@ export default function Plane({
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
         const countdown = rankedCountdown(world.startAt, link.serverNow());
-        if (scene?.kind === 'rings') {
-          applyRings(scene);
-          const plane = you === 'p1' ? state.p1 : state.p2;
-          let y = plane.y;
-          let vy = plane.vy;
-          const size = plane.size;
-          let flapReady = true;
-          let lastFlap = -1;
-          let clock = 0;
-          let previous = false;
-          let primed = false;
-          replayInputs(playHead, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
-            const stepDt = dtMs / 1000;
-            const down = keyHeld(keys, ' ', 'Space', 'ArrowUp');
-            if (!primed) {
-              previous = down;
-              primed = true;
-            } else if (down && !previous && flapReady && clock - lastFlap >= FLAP_GAP) {
-              vy = FLAP;
-              lastFlap = clock;
-              flapReady = false;
-            }
-            if (!down) flapReady = true;
-            previous = down;
-            clock += stepDt;
-            vy = Math.min(MAX_FALL, vy + GRAVITY * stepDt);
-            y += vy * stepDt;
-            const top = FIELD.top + size;
-            const bottom = FIELD.bottom - size;
-            if (y < top) {
-              y = top;
-              vy = 0;
-            }
-            if (y > bottom) {
-              y = bottom;
-              vy = 0;
-            }
-          });
-          shownY = easeToward(shownY, y, dt, 80);
-          plane.y = shownY;
-          plane.vy = vy;
-        }
+        if (scene?.kind === 'rings') applyRings(scene);
         paintRings(countdown);
         if (state.winner) {
           state.ko -= dt / 1000;
