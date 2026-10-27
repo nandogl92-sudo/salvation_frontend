@@ -30,7 +30,6 @@ const PADS: Record<string, GamePad> = {
     dirs: [
       { key: 'ArrowLeft', label: '◀', ariaLabel: 'Girar a la izquierda' },
       { key: 'ArrowRight', label: '▶', ariaLabel: 'Girar a la derecha' },
-      { key: ' ', label: 'TURBO', ariaLabel: 'Activar el turbo' },
     ],
     actions: [],
   },
@@ -125,9 +124,9 @@ const PADDLE_KEYS: PadKey[] = [
 
 const CAR_BUTTON = 'flex min-h-0 min-w-0 w-full flex-1 items-center justify-center self-stretch rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-lg font-bold leading-tight tracking-wide text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:text-sm'
 
-const STEER_ROW = 'flex min-h-0 min-w-0 flex-1 items-stretch gap-2 self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-col [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-2'
+const CAR_SIDE_LEFT = 'flex min-h-0 min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-2'
 
-const GAS_ROW = 'flex min-h-0 min-w-0 flex-1 items-stretch self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-2'
+const CAR_SIDE_RIGHT = 'flex min-h-0 min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-2'
 
 const STEER_BUTTONS: PadKey[] = [
   { key: 'ArrowLeft', label: 'IZQUIERDA', ariaLabel: 'Girar a la izquierda', vertical: true },
@@ -144,8 +143,6 @@ const DROP_BUTTONS: PadKey[] = [
   { key: 'a', label: '◀ IZQUIERDA', ariaLabel: 'Mover a la izquierda' },
   { key: 'd', label: 'DERECHA ▶', ariaLabel: 'Mover a la derecha' },
 ]
-
-const TURBO_BUTTON: PadKey = { key: ' ', label: 'TURBO', ariaLabel: 'Activar el turbo' }
 
 const PADDLE_LEFT = 'flex w-full max-w-xs flex-col gap-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:justify-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
 
@@ -216,13 +213,11 @@ const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSi
       )}
       {gameId === 'tetris' && (
         <>
-          <div className={STEER_ROW} aria-label="Girar el coche">
-            {STEER_BUTTONS.map((padKey) => (
-              <PadButton key={padKey.ariaLabel} padKey={padKey} className={CAR_BUTTON} />
-            ))}
+          <div className={CAR_SIDE_LEFT} aria-label="Girar a la izquierda">
+            <PadButton padKey={STEER_BUTTONS[0]} className={CAR_BUTTON} />
           </div>
-          <div className={GAS_ROW} aria-label="Activar el turbo">
-            <PadButton padKey={TURBO_BUTTON} className={CAR_BUTTON} />
+          <div className={CAR_SIDE_RIGHT} aria-label="Girar a la derecha">
+            <PadButton padKey={STEER_BUTTONS[1]} className={CAR_BUTTON} />
           </div>
         </>
       )}

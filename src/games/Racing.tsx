@@ -13,8 +13,8 @@ const COUNT_MS = 10_000;
 const KO_FRAMES = 100;
 const SPARK_MAX = 36;
 const ROAD_EDGE = (TRACK_W + 14) / 2 + 6;
-const TURBO = 1.4;
-const NORMAL = 1.15;
+const SPEED = 1.25;
+const RESCUE_FRAMES = 18;
 const STEP_MS = 1000 / 60;
 const FIELD = {
   left: ROAD_EDGE,
@@ -579,24 +579,31 @@ export default function Racing({
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
-    const resetCar = (car: Car) => {
+    const rescueCar = (car: Car) => {
       burst(state.sparks, car.x, car.y, car.light);
-      placeCar(car, track, 36);
+      const here = project(track, car.x, car.y);
+      const pose = sample(track, here.dist);
+      car.x = pose.x + pose.nx * car.lane;
+      car.y = pose.y + pose.ny * car.lane;
+      car.angle = Math.atan2(pose.ty, pose.tx);
+      car.speed = SPEED;
+      car.progress = here.dist;
+      car.recover = RESCUE_FRAMES;
     };
 
-    const drive = (car: Car, turbo: boolean, steer: number) => {
+    const drive = (car: Car, steer: number) => {
       if (car.recover > 0) {
         car.recover -= 1;
         car.speed = 0;
         return;
       }
-      car.speed = turbo ? TURBO : NORMAL;
+      car.speed = SPEED;
       car.angle += steer * (0.04 + car.speed * 0.013);
       car.x += Math.cos(car.angle) * car.speed * 2.6;
       car.y += Math.sin(car.angle) * car.speed * 2.6;
 
       if (hitsOrange(track, car.x, car.y)) {
-        resetCar(car);
+        rescueCar(car);
         return;
       }
 
@@ -615,9 +622,7 @@ export default function Racing({
       const want = Math.atan2(ahead.y - car.y, ahead.x - car.x);
       const err = wrapAngle(want - car.angle);
       const steer = err > 0.05 ? 1 : err < -0.05 ? -1 : 0;
-      const side = project(track, car.x, car.y);
-      const turbo = Math.abs(err) <= 0.72 && Math.abs(side.offset) <= HALF - 8;
-      drive(car, turbo, steer);
+      drive(car, steer);
     };
 
     const applyRace = (scene: SceneSnap) => {
@@ -654,7 +659,7 @@ export default function Racing({
         drawCar(ctx, state.p2, spin2);
         drawHud(ctx, state.p1, state.p2);
         const rankedWait = rankedCountdown(world.startAt, link.serverNow());
-        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO TURBO');
+        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN');
         if (state.winner) {
           const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
           drawBanner(ctx, 'META', `${name} GANA`);
@@ -682,18 +687,18 @@ export default function Racing({
           const drivePad = (side: Side, keys: Record<string, boolean>) => {
             const car = side === 'p1' ? state.p1 : state.p2;
             const steer = (keyHeld(keys, 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'ArrowLeft') ? 1 : 0);
-            drive(car, keyHeld(keys, ' '), steer);
+            drive(car, steer);
           };
           link?.setLocalKeys(state.keys);
           drivePad(you, state.keys);
           drivePad(them, link?.readRivalKeys() ?? {});
         } else {
           const p1Steer = (state.keys['ArrowRight'] ? 1 : 0) - (state.keys['ArrowLeft'] ? 1 : 0);
-          drive(state.p1, Boolean(state.keys[' ']), p1Steer);
+          drive(state.p1, p1Steer);
           if (botEnabled) botSteer(state.p2);
           else {
             const p2Steer = (state.keys['ArrowRight'] ? 1 : 0) - (state.keys['ArrowLeft'] ? 1 : 0);
-            drive(state.p2, Boolean(state.keys[' ']), p2Steer);
+            drive(state.p2, p2Steer);
           }
         }
           if (state.p1.laps >= LAPS) state.winner = 'p1';
@@ -720,9 +725,9 @@ export default function Racing({
       drawHud(ctx, state.p1, state.p2);
 
       if (rankedWait) {
-        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO TURBO');
+        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN');
       } else if (localWait) {
-        drawBanner(ctx, localWait, 'FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO TURBO');
+        drawBanner(ctx, localWait, 'FLECHA IZQUIERDA Y DERECHA GIRAN');
       }
       if (state.winner) {
         const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
