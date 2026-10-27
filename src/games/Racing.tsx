@@ -546,6 +546,7 @@ export default function Racing({
     let acc = 0;
     let raf = 0;
     let playHead = 0;
+    let ownServerAngle = Number.NaN;
     let lastStamp = performance.now();
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
@@ -645,7 +646,17 @@ export default function Racing({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        if (scene?.kind === 'race') applyRace(scene);
+        if (scene?.kind === 'race') {
+          applyRace(scene);
+          const own = you === 'p1' ? state.p1 : state.p2;
+          const steer = (keyHeld(state.keys, 'ArrowRight') ? 1 : 0) - (keyHeld(state.keys, 'ArrowLeft') ? 1 : 0);
+          const serverAngle = own.angle;
+          const speed = keyHeld(state.keys, ' ') ? TURBO : NORMAL;
+          if (steer !== 0 && serverAngle === ownServerAngle) {
+            own.angle = serverAngle + steer * (0.04 + speed * 0.013);
+          }
+          ownServerAngle = serverAngle;
+        }
         state.frames += 1;
         drawWorld(ctx, track);
         const spin1 = state.p1.recover > 0 ? state.frames * 0.4 : 0;

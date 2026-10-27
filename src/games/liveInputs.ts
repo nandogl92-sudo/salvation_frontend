@@ -7,18 +7,9 @@ const FRAME_MS = 1000 / 60
 
 const PREDICT_CAP_MS = 120
 
-const SHOW_BEHIND_MS = 34
-
-export const stepPlayHead = (playHead: number, dt: number, ceiling: number, serverNow: number): number => {
-  if (ceiling <= 0) return playHead
-  const desired = Math.min(serverNow - SHOW_BEHIND_MS, ceiling)
-  if (desired <= 0) return playHead
-  if (playHead <= 0) return desired
-  const gap = desired - playHead
-  if (gap > 120 || gap < -80) return desired
-  if (gap <= 0) return playHead
-  return Math.min(desired, playHead + Math.max(0, dt))
-}
+export const stepPlayHead = (playHead: number, _dt: number, ceiling: number, _serverNow: number): number => (
+  ceiling > 0 ? ceiling : playHead
+)
 
 export const easeToward = (current: number, target: number, dtMs: number, snap = 90): number => {
   const gap = target - current

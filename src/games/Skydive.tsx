@@ -246,6 +246,7 @@ export default function Skydive({
 
     let raf = 0;
     let playHead = 0;
+    let ownServerX = Number.NaN;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -396,7 +397,18 @@ export default function Skydive({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, stepMs, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        if (scene?.kind === 'drop') applyDrop(scene);
+        if (scene?.kind === 'drop') {
+          applyDrop(scene);
+          const own = you === 'p1' ? state.p1 : state.p2;
+          const steer = (keyHeld(state.keys, 'd', 'D', 'ArrowRight') ? 1 : 0)
+            - (keyHeld(state.keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
+          const serverX = own.x;
+          if (steer !== 0 && own.alive && serverX === ownServerX) {
+            const step = MOVE / 60;
+            own.x = Math.max(FIELD.left + 26, Math.min(FIELD.right - 26, serverX + steer * step));
+          }
+          ownServerX = serverX;
+        }
         const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
         drawSky(ctx, state.clouds, state.fall, state.gameTime);
         state.hazards.forEach((item) => drawHazard(ctx, item));

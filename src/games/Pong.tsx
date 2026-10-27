@@ -609,6 +609,7 @@ export default function Pong({
     let acc = 0;
     let ended = false;
     let playHead = 0;
+    let ownServerY = paddleStart;
 
     const stepBall = () => {
       state.trail.push({ x: state.ball.x, y: state.ball.y });
@@ -860,8 +861,15 @@ export default function Pong({
           state.trail.push({ x: view.ballX, y: view.ballY });
           if (state.trail.length > 8) state.trail.shift();
           state.ball = { x: view.ballX, y: view.ballY, vx: 0, vy: 0 };
-          state.p1.y = view.p1y;
-          state.p2.y = view.p2y;
+          const up = keyHeld(state.keys, 'w', 'W', 'ArrowUp');
+          const down = keyHeld(state.keys, 's', 'S', 'ArrowDown');
+          const serverOwn = you === 'p1' ? view.p1y : view.p2y;
+          const ownY = up === down || serverOwn !== ownServerY
+            ? serverOwn
+            : clampPaddle(serverOwn + (down ? 7 : -7));
+          ownServerY = serverOwn;
+          state.p1.y = you === 'p1' ? ownY : view.p1y;
+          state.p2.y = you === 'p2' ? ownY : view.p2y;
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;

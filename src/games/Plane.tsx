@@ -289,6 +289,8 @@ export default function Plane({
     let ended = false;
     let nextRingId = 1;
     let playHead = 0;
+    let spaceWas = false;
+    let showFlap = false;
     let holdFlapUntil = 0;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
@@ -546,7 +548,17 @@ export default function Plane({
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
         const countdown = rankedCountdown(world.startAt, link.serverNow());
-        if (scene?.kind === 'rings') applyRings(scene);
+        if (scene?.kind === 'rings') {
+          applyRings(scene);
+          const own = you === 'p1' ? state.p1 : state.p2;
+          const space = keyHeld(state.keys, ' ', 'Space', 'ArrowUp');
+          if (space && !spaceWas && own.alive) showFlap = true;
+          spaceWas = space;
+          if (showFlap) {
+            if (own.vy <= FLAP + 40) showFlap = false;
+            else own.vy = FLAP;
+          }
+        }
         paintRings(countdown);
         if (state.winner) {
           state.ko -= dt / 1000;
