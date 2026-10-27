@@ -4,6 +4,7 @@ type PadKey = {
   key: string
   label: string
   ariaLabel: string
+  vertical?: boolean
 }
 
 type GamePad = {
@@ -29,7 +30,7 @@ const PADS: Record<string, GamePad> = {
     dirs: [
       { key: 'ArrowLeft', label: '◀', ariaLabel: 'Girar a la izquierda' },
       { key: 'ArrowRight', label: '▶', ariaLabel: 'Girar a la derecha' },
-      { key: ' ', label: 'FRENO', ariaLabel: 'Reducir la velocidad' },
+      { key: ' ', label: 'TURBO', ariaLabel: 'Activar el turbo' },
     ],
     actions: [],
   },
@@ -62,6 +63,14 @@ const keyCode = (key: string): string => {
 const sendKey = (type: 'keydown' | 'keyup', key: string) => {
   window.dispatchEvent(new KeyboardEvent(type, { key, code: keyCode(key), bubbles: true }))
 }
+
+const VerticalWord = ({ text }: { text: string }) => (
+  <span className="flex flex-col items-center justify-center text-[11px] leading-none tracking-normal">
+    {Array.from(text).map((letter, index) => (
+      <span key={`${letter}-${index}`}>{letter}</span>
+    ))}
+  </span>
+)
 
 const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }) => {
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
@@ -99,7 +108,7 @@ const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }
       onKeyUp={handleKeyUp}
       className={className ?? 'min-w-12 min-h-12 px-3 rounded-xl bg-[#1a2340] border border-[#f5c518]/60 text-[#f5c518] text-[10px] font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'}
     >
-      {padKey.label}
+      {padKey.vertical ? <VerticalWord text={padKey.label} /> : padKey.label}
     </button>
   )
 }
@@ -114,15 +123,15 @@ const PADDLE_KEYS: PadKey[] = [
 ]
 
 
-const CAR_BUTTON = 'min-h-0 min-w-0 w-full flex-1 self-stretch rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-2 text-center text-lg font-bold leading-tight tracking-wide text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:text-sm'
+const CAR_BUTTON = 'flex min-h-0 min-w-0 w-full flex-1 items-center justify-center self-stretch rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-lg font-bold leading-tight tracking-wide text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:text-sm'
 
 const STEER_ROW = 'flex min-h-0 min-w-0 flex-1 items-stretch gap-2 self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-col [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-2'
 
 const GAS_ROW = 'flex min-h-0 min-w-0 flex-1 items-stretch self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-2'
 
 const STEER_BUTTONS: PadKey[] = [
-  { key: 'ArrowLeft', label: 'IZQUIERDA', ariaLabel: 'Girar a la izquierda' },
-  { key: 'ArrowRight', label: 'DERECHA', ariaLabel: 'Girar a la derecha' },
+  { key: 'ArrowLeft', label: 'IZQUIERDA', ariaLabel: 'Girar a la izquierda', vertical: true },
+  { key: 'ArrowRight', label: 'DERECHA', ariaLabel: 'Girar a la derecha', vertical: true },
 ]
 
 const DROP_BUTTON = 'min-h-24 w-full flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
@@ -136,7 +145,7 @@ const DROP_BUTTONS: PadKey[] = [
   { key: 'd', label: 'DERECHA ▶', ariaLabel: 'Mover a la derecha' },
 ]
 
-const BRAKE_BUTTON: PadKey = { key: ' ', label: 'FRENO', ariaLabel: 'Frenar' }
+const TURBO_BUTTON: PadKey = { key: ' ', label: 'TURBO', ariaLabel: 'Activar el turbo' }
 
 const PADDLE_LEFT = 'flex w-full max-w-xs flex-col gap-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:justify-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
 
@@ -210,8 +219,8 @@ const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSi
               <PadButton key={padKey.ariaLabel} padKey={padKey} className={CAR_BUTTON} />
             ))}
           </div>
-          <div className={GAS_ROW} aria-label="Reducir la velocidad">
-            <PadButton padKey={BRAKE_BUTTON} className={CAR_BUTTON} />
+          <div className={GAS_ROW} aria-label="Activar el turbo">
+            <PadButton padKey={TURBO_BUTTON} className={CAR_BUTTON} />
           </div>
         </>
       )}

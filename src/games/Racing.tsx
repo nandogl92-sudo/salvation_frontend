@@ -13,9 +13,9 @@ const COUNT_MS = 10_000;
 const KO_FRAMES = 100;
 const SPARK_MAX = 36;
 const ROAD_EDGE = (TRACK_W + 14) / 2 + 6;
-const CRUISE = 1.4;
+const TURBO = 1.4;
+const NORMAL = 1.15;
 const STEP_MS = 1000 / 60;
-const SLOW = 1.15;
 const FIELD = {
   left: ROAD_EDGE,
   top: 56 + ROAD_EDGE,
@@ -584,17 +584,14 @@ export default function Racing({
       placeCar(car, track, 36);
     };
 
-    const drive = (car: Car, brake: boolean, steer: number) => {
+    const drive = (car: Car, turbo: boolean, steer: number) => {
       if (car.recover > 0) {
         car.recover -= 1;
         car.speed = 0;
         return;
       }
-      car.angle += steer * (0.026 + car.speed * 0.008);
-      car.speed += 0.02;
-      if (brake) car.speed -= 0.055;
-      if (car.speed < SLOW) car.speed = SLOW;
-      if (car.speed > CRUISE) car.speed = CRUISE;
+      car.speed = turbo ? TURBO : NORMAL;
+      car.angle += steer * (0.04 + car.speed * 0.013);
       car.x += Math.cos(car.angle) * car.speed * 2.6;
       car.y += Math.sin(car.angle) * car.speed * 2.6;
 
@@ -619,8 +616,8 @@ export default function Racing({
       const err = wrapAngle(want - car.angle);
       const steer = err > 0.05 ? 1 : err < -0.05 ? -1 : 0;
       const side = project(track, car.x, car.y);
-      const brake = Math.abs(err) > 0.72 || Math.abs(side.offset) > HALF - 8;
-      drive(car, brake, steer);
+      const turbo = Math.abs(err) <= 0.72 && Math.abs(side.offset) <= HALF - 8;
+      drive(car, turbo, steer);
     };
 
     const applyRace = (scene: SceneSnap) => {
@@ -657,7 +654,7 @@ export default function Racing({
         drawCar(ctx, state.p2, spin2);
         drawHud(ctx, state.p1, state.p2);
         const rankedWait = rankedCountdown(world.startAt, link.serverNow());
-        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO FRENA');
+        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO TURBO');
         if (state.winner) {
           const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
           drawBanner(ctx, 'META', `${name} GANA`);
@@ -723,9 +720,9 @@ export default function Racing({
       drawHud(ctx, state.p1, state.p2);
 
       if (rankedWait) {
-        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO FRENA');
+        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO TURBO');
       } else if (localWait) {
-        drawBanner(ctx, localWait, 'ACELERA SOLO    FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO FRENA');
+        drawBanner(ctx, localWait, 'FLECHA IZQUIERDA Y DERECHA GIRAN  ESPACIO TURBO');
       }
       if (state.winner) {
         const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
