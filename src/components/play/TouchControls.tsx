@@ -271,7 +271,16 @@ const CAR_BUTTONS: PadKey[] = [
   { key: 'd', label: 'ABAJO', ariaLabel: 'Girar a la derecha' },
 ]
 
+const DROP_BUTTON = 'flex-1 min-h-20 landscape:min-h-16 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+
+const DROP_BUTTONS: PadKey[] = [
+  { key: 'a', label: '◀ IZQUIERDA', ariaLabel: 'Mover a la izquierda' },
+  { key: 'd', label: 'DERECHA ▶', ariaLabel: 'Mover a la derecha' },
+]
+
 const BRAKE_BUTTON: PadKey = { key: ' ', label: 'FRENO', ariaLabel: 'Frenar' }
+
+const FLOAT_ON_LANDSCAPE = '[@media(orientation:landscape)_and_(max-height:520px)]:absolute [@media(orientation:landscape)_and_(max-height:520px)]:inset-x-0 [@media(orientation:landscape)_and_(max-height:520px)]:bottom-0 [@media(orientation:landscape)_and_(max-height:520px)]:z-10 [@media(orientation:landscape)_and_(max-height:520px)]:bg-black/55 [@media(orientation:landscape)_and_(max-height:520px)]:py-2'
 
 const DirPad = ({ dirs }: { dirs: PadKey[] }) => {
   const byKey: Record<string, PadKey> = {}
@@ -309,11 +318,11 @@ const TouchControls = ({ gameId }: { gameId: string }) => {
   const pad = PADS[gameId]
   if (!pad) return null
 
-  const rowClass = gameId === 'pong'
+  const rowClass = `${gameId === 'pong'
     ? 'w-full flex lg:hidden items-center justify-center px-2 py-3 landscape:py-1'
-    : gameId === 'tetris'
+    : gameId === 'tetris' || gameId === 'combat'
       ? 'w-full flex lg:hidden items-center justify-between gap-3 px-3 py-3 landscape:gap-2 landscape:px-2 landscape:py-1'
-      : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'
+      : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'} ${FLOAT_ON_LANDSCAPE}`
 
   return (
     <div
@@ -336,7 +345,14 @@ const TouchControls = ({ gameId }: { gameId: string }) => {
           />
         </>
       )}
-      {gameId !== 'pong' && gameId !== 'tetris' && <DirPad dirs={pad.dirs} />}
+      {gameId === 'combat' && (
+        <div className="flex w-full flex-1 gap-3" aria-label="Mover el paracaídas">
+          {DROP_BUTTONS.map((padKey) => (
+            <PadButton key={padKey.ariaLabel} padKey={padKey} className={DROP_BUTTON} />
+          ))}
+        </div>
+      )}
+      {gameId !== 'pong' && gameId !== 'tetris' && gameId !== 'combat' && <DirPad dirs={pad.dirs} />}
       {pad.actions.length > 0 && (
         <div className="flex flex-wrap justify-end gap-2 max-w-[50%]">
           {pad.actions.map((action) => (
