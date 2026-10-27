@@ -6,7 +6,7 @@ const WIDTH = 960;
 const HEIGHT = 540;
 const PIX = '"Press Start 2P", monospace';
 const FIELD = { left: 18, top: 70, right: 942, bottom: 530 };
-const INTRO_S = 3;
+const INTRO_S = 10;
 const KO_S = 2.2;
 const PHASE_S = 10;
 const MAX_PHASE = 8;
@@ -527,7 +527,7 @@ export default function Skydive({
       if (rankedWait) {
         drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA');
       } else if (!world && state.intro > 0) {
-        const n = state.intro > 2 ? '3' : state.intro > 1 ? '2' : state.intro > 0.25 ? '1' : 'GO';
+        const n = String(Math.max(1, Math.ceil(state.intro)));
         drawBanner(ctx, n, 'QUIEN CHOCA PIERDE    CADA 10s BAJAS MAS');
       }
       if (state.winner === 'draw') {

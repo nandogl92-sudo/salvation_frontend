@@ -547,9 +547,13 @@ export default function Pong({
     const publishKeys = () => {
       link?.setLocalKeys(sentKeys());
     };
+    let steerNow = () => {};
     const handleKeyDown = (e: KeyboardEvent) => {
       state.keys[e.key] = true;
-      if (!e.repeat) armTap(e.key);
+      if (!e.repeat) {
+        armTap(e.key);
+        steerNow();
+      }
       publishKeys();
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -602,6 +606,7 @@ export default function Pong({
     const clampPaddle = (y: number) => Math.max(minPaddle, Math.min(maxPaddle, y));
 
     const FRAME_MS = 1000 / 60;
+    const openAt = Date.now();
     const isHost = !world || you === 'p1';
     let lastStamp = performance.now();
     let acc = 0;
@@ -658,8 +663,19 @@ export default function Pong({
     };
 
     let simFrame = 0;
+    let ownLead = false;
     let faceMine = { up: false, down: false };
     let faceTheirs = { up: false, down: false };
+    steerNow = () => {
+      if (!world) return;
+      if (rankedCountdown(world.startAt, link ? link.serverNow() : Date.now())) return;
+      const up = keyHeld(sentKeys(), 'w', 'W', 'ArrowUp');
+      const down = keyHeld(sentKeys(), 's', 'S', 'ArrowDown');
+      if (!up && !down) return;
+      movePaddle(you, up, down);
+      ownLead = true;
+      faceMine = { up, down };
+    };
 
     const finish = () => {
       if (state.p1.score >= 10) { ended = true; onGameEnd('p1'); return true; }
@@ -721,7 +737,7 @@ export default function Pong({
         return;
       }
       state.frames += 1;
-      const rankedWait = world ? rankedCountdown(world.startAt) : null;
+      const rankedWait = world ? rankedCountdown(world.startAt) : rankedCountdown(openAt + 10000);
       const p1Before = state.p1.y;
       const p2Before = state.p2.y;
 
@@ -855,27 +871,41 @@ export default function Pong({
       if (world && link) {
         const dt = Math.min(50, Math.max(0, now - lastStamp));
         lastStamp = now;
-        link.setLocalKeys(sentKeys(), state[you].y, null, link.serverFrame(world.startAt));
+        link.setLocalKeys(sentKeys());
         const countdown = rankedCountdown(world.startAt, link.serverNow());
         const latestAt = link.rallyAt();
         playHead = stepPlayHead(playHead, dt, latestAt, link.serverNow());
         const view = playHead > 0 ? link.readRally(playHead) : null;
+        const mineUp = keyHeld(sentKeys(), 'w', 'W', 'ArrowUp');
+        const mineDown = keyHeld(sentKeys(), 's', 'S', 'ArrowDown');
+        const steering = mineUp || mineDown;
         if (view) {
           if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
           state.trail.push({ x: view.ballX, y: view.ballY });
           if (state.trail.length > 8) state.trail.shift();
           state.ball = { x: view.ballX, y: view.ballY, vx: 0, vy: 0 };
-          state.p1.y = view.p1y;
-          state.p2.y = view.p2y;
+          const serverOwn = you === 'p1' ? view.p1y : view.p2y;
+          state[them].y = you === 'p1' ? view.p2y : view.p1y;
+          if (!steering && (!ownLead || Math.abs(serverOwn - state[you].y) <= 12)) {
+            state[you].y = serverOwn;
+            ownLead = false;
+          }
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;
-          paint(countdown, 0);
-          if (view.p1 >= 10) { ended = true; onGameEnd('p1'); return; }
-          if (view.p2 >= 10) { ended = true; onGameEnd('p2'); return; }
-        } else {
-          paint(countdown, 0);
         }
+        if (steering && !countdown) {
+          const steps = Math.min(2, dt / FRAME_MS);
+          if (mineUp) state[you].y = Math.max(minPaddle, state[you].y - 7 * steps);
+          if (mineDown) state[you].y = Math.min(maxPaddle, state[you].y + 7 * steps);
+          ownLead = true;
+          faceMine = { up: mineUp, down: mineDown };
+        } else if (!steering) {
+          faceMine = { up: false, down: false };
+        }
+        paint(countdown, 0);
+        if (view && view.p1 >= 10) { ended = true; onGameEnd('p1'); return; }
+        if (view && view.p2 >= 10) { ended = true; onGameEnd('p2'); return; }
         animationFrameId = requestAnimationFrame(tick);
         return;
       }
@@ -887,7 +917,7 @@ export default function Pong({
         if (ended) return;
       }
       const blend = Math.max(0, Math.min(1, acc / FRAME_MS));
-      paint(world ? rankedCountdown(world.startAt, link ? link.serverNow() : Date.now()) : null, blend);
+      paint(world ? rankedCountdown(world.startAt, link ? link.serverNow() : Date.now()) : rankedCountdown(openAt + 10000), blend);
       animationFrameId = requestAnimationFrame(tick);
     };
 

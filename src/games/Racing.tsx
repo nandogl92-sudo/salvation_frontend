@@ -9,7 +9,7 @@ const LAPS = 5;
 const TRACK_W = 76;
 const HALF = TRACK_W / 2;
 const ORANGE = '#ff8c1a';
-const COUNT_FRAMES = 180;
+const COUNT_MS = 10_000;
 const KO_FRAMES = 100;
 const SPARK_MAX = 36;
 const ROAD_EDGE = (TRACK_W + 14) / 2 + 6;
@@ -540,6 +540,7 @@ export default function Racing({
     if (!ctx) return;
     void document.fonts.load(`10px ${PIX}`);
 
+    const openAt = Date.now();
     let raf = 0;
     let playHead = 0;
     let lastStamp = performance.now();
@@ -668,7 +669,8 @@ export default function Racing({
       }
       state.frames += 1;
       const rankedWait = world ? rankedCountdown(world.startAt) : null;
-      const racing = !rankedWait && (world || state.frames >= COUNT_FRAMES) && !state.winner;
+      const localWait = world ? null : rankedCountdown(openAt + COUNT_MS);
+      const racing = !rankedWait && !localWait && !state.winner;
 
       if (racing) {
         if (world) {
@@ -713,10 +715,8 @@ export default function Racing({
 
       if (rankedWait) {
         drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    A/D GIRA  S FRENA');
-      } else if (!world && state.frames < COUNT_FRAMES) {
-        const left = COUNT_FRAMES - state.frames;
-        const n = left > 120 ? '3' : left > 60 ? '2' : left > 18 ? '1' : 'GO';
-        drawBanner(ctx, n, 'ACELERA SOLO    A/D GIRA  S FRENA');
+      } else if (localWait) {
+        drawBanner(ctx, localWait, 'ACELERA SOLO    A/D GIRA  S FRENA');
       }
       if (state.winner) {
         const name = state.winner === 'p1' ? state.p1.name : state.p2.name;

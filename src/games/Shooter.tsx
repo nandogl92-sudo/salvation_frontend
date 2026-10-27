@@ -7,7 +7,7 @@ const HEIGHT = 540;
 const FIELD = { left: 20, top: 118, right: 940, bottom: 424 };
 const BODY = { w: 28, h: 32 };
 const PIX = '"Press Start 2P", monospace';
-const INTRO_FRAMES = 78;
+const COUNT_MS = 10_000;
 const KO_FRAMES = 96;
 const SPARK_MAX = 42;
 
@@ -383,6 +383,7 @@ export default function Shooter({
 
     void document.fonts.load(`10px ${PIX}`);
 
+    const openAt = Date.now();
     let animationFrameId = 0;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -401,7 +402,7 @@ export default function Shooter({
     };
     if (link) link.setLocalKeys(state.keys);
 
-    const waiting = () => Boolean(world ? rankedCountdown(world.startAt) : state.frames < INTRO_FRAMES);
+    const waiting = () => Boolean(world ? rankedCountdown(world.startAt) : rankedCountdown(openAt + COUNT_MS));
 
     const shoot = (owner: Side) => {
       if (state.ko || waiting()) return;
@@ -475,11 +476,9 @@ export default function Shooter({
       });
       ctx.globalAlpha = 1;
       drawHud(ctx, state.p1, state.p2, state.frames, p1Name, p2Name);
-      const count = world ? rankedCountdown(world.startAt) : null;
+      const count = world ? rankedCountdown(world.startAt) : rankedCountdown(openAt + COUNT_MS);
       if (count) {
         drawBanner(ctx, count, 'MISMO PATIO    TU LADO SOLO', '#5cf0ff');
-      } else if (!world && state.frames < INTRO_FRAMES) {
-        drawBanner(ctx, 'LASER DUEL', 'CYAN PULSE  VS  AMBER BOLT', '#5cf0ff');
       }
       if (state.ko) {
         const winner = state.ko === 'p1' ? CYAN.name : AMBER.name;

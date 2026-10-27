@@ -8,7 +8,7 @@ export type SharedWorld = {
   rivalName: string
 }
 
-const COUNTDOWN_MS = 3500
+const COUNTDOWN_MS = 10_000
 
 export const hashSeed = (text: string): number => {
   let hash = 2166136261
@@ -65,10 +65,7 @@ export const buildSharedWorld = (input: {
 export const rankedCountdown = (startAt: number, now = Date.now()): string | null => {
   const left = startAt - now
   if (left <= 0) return null
-  if (left > 2500) return '3'
-  if (left > 1500) return '2'
-  if (left > 400) return '1'
-  return 'YA'
+  return String(Math.max(1, Math.ceil(left / 1000)))
 }
 
 export const sideLabel = (world: SharedWorld | null | undefined, side: 'p1' | 'p2', fallback: string): string => {

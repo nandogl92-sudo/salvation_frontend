@@ -6,7 +6,7 @@ const WIDTH = 960;
 const HEIGHT = 540;
 const PIX = '"Press Start 2P", monospace';
 const FIELD = { top: 58, bottom: 528 };
-const INTRO_S = 2.8;
+const INTRO_S = 10;
 const KO_S = 3.2;
 const RISE_G = 760;
 const FALL_G = 200;
@@ -647,7 +647,7 @@ export default function Plane({
       if (rankedWait) {
         drawBanner(ctx, rankedWait, 'MISMO CIELO    MISMO ARO    ESPACIO IMPULSO');
       } else if (!world && state.intro > 0) {
-        const n = state.intro > 1.9 ? '3' : state.intro > 1.1 ? '2' : state.intro > 0.35 ? '1' : 'YA';
+        const n = String(Math.max(1, Math.ceil(state.intro)));
         drawBanner(ctx, n, 'SUELO Y PINCHOS EXPLOTAN');
       } else if (!world && !state.started) {
         drawBanner(ctx, 'ESPACIO', 'CADA 10s CRECES Y ACELERAS');
