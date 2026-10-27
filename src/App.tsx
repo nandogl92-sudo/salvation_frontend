@@ -8,7 +8,7 @@ import Skydive from './games/Skydive';
 import Shooter from './games/Shooter';
 import { useAuth } from './auth/AuthContext';
 import ResetPasswordScreen from './auth/ResetPasswordScreen';
-import { cancelQueue, createBotMatch, joinQueue, startDirectMatch, tryMatch } from './api/matchmakingApi';
+import { cancelQueue, createBotMatch, fetchIncoming, joinQueue, startDirectMatch, tryMatch } from './api/matchmakingApi';
 import { cancelMatch, fetchMatchStatus, forfeitMatch, submitMatchResult, type MatchStatusView, type SettlementPlayer } from './api/matchesApi';
 import { getCurrentSession } from './api/authApi';
 import type { Game, MatchPlayer, MatchTicket, QueueStatus, UserProfile } from './types';
@@ -225,7 +225,11 @@ export default function App() {
 
   const enterMatchedQueue = (
     currentTicket: MatchTicket,
-    result: Extract<Awaited<ReturnType<typeof tryMatch>>, { status: 'matched' }>,
+    result: {
+      match: { id: string; createdAt: number };
+      opponent: MatchPlayer;
+      world: { seed: number; startAt: number; localSide?: 'p1' | 'p2' } | null;
+    },
     rankedSearch: boolean,
   ) => {
     const matchedBot = Boolean(result.opponent.isBot);
@@ -244,7 +248,7 @@ export default function App() {
       id: result.match.id,
       isBot: matchedBot,
       isRanked: ranked,
-      world: ranked
+      world: result.world
         ? buildSharedWorld({
             matchId: result.match.id,
             createdAt: result.match.createdAt,
@@ -252,8 +256,9 @@ export default function App() {
             rivalUserId: result.opponent.userId,
             youName: currentTicket.username,
             rivalName: result.opponent.username,
-            seed: result.world?.seed,
-            startAt: result.world?.startAt,
+            seed: result.world.seed,
+            startAt: result.world.startAt,
+            localSide: result.world.localSide,
           })
         : null,
     });
@@ -335,7 +340,23 @@ export default function App() {
     }
     setLastRivalId(rival.id);
     setOpponent({ ...result.opponent, isBot: false });
-    setActiveMatch({ id: result.match.id, isBot: false, isRanked: false, world: null });
+    setActiveMatch({
+      id: result.match.id,
+      isBot: false,
+      isRanked: result.ranked,
+      world: result.world
+        ? buildSharedWorld({
+            matchId: result.match.id,
+            localUserId: currentUser.id,
+            rivalUserId: result.opponent.userId,
+            youName: currentUser.username,
+            rivalName: result.opponent.username,
+            seed: result.world.seed,
+            startAt: result.world.startAt,
+            localSide: result.world.localSide,
+          })
+        : null,
+    });
     setQueueStatus('idle');
     setView('playing');
     await syncBalanceFromServer();
@@ -356,6 +377,32 @@ export default function App() {
     setView('playing');
     await syncBalanceFromServer();
   };
+
+  // Si la otra persona ya abrió la partida, este móvil entra en ella.
+  useEffect(() => {
+    if (view !== 'lobby' || queueStatus !== 'idle' || !currentUser) return;
+
+    let stopped = false;
+    let timer = 0;
+
+    const poll = async () => {
+      if (stopped) return;
+      const incoming = await fetchIncoming();
+      if (stopped || incoming.status !== 'matched') {
+        timer = window.setTimeout(() => {
+          void poll();
+        }, 1500);
+        return;
+      }
+      enterMatchedQueue(incoming.ticket, incoming, incoming.ranked);
+    };
+
+    void poll();
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    };
+  }, [view, queueStatus, currentUser]);
 
   // El servidor empareja al crear el ticket y al consultar. En móvil no usamos setInterval: se pausa.
   useEffect(() => {
