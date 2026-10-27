@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { easeToward, keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -244,6 +244,7 @@ export default function Skydive({
 
     let raf = 0;
     let playHead = 0;
+    let shownX = 480;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -394,20 +395,22 @@ export default function Skydive({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, stepMs, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        if (scene?.kind === 'drop') {
-          applyDrop(scene);
-          const actor = you === 'p1' ? scene.p1 : scene.p2;
+        const latest = link.readScene(link.sceneAt());
+        if (scene?.kind === 'drop') applyDrop(scene);
+        if (latest?.kind === 'drop') {
+          const actor = you === 'p1' ? latest.p1 : latest.p2;
           const jumper = you === 'p1' ? state.p1 : state.p2;
           let x = actor.x;
           let vx = actor.v;
-          replayInputs(scene.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+          replayInputs(latest.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
             const steer = (keyHeld(keys, 'd', 'D', 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
             vx = steer * MOVE;
             x += vx * (dtMs / 1000);
             if (x < FIELD.left + 26) x = FIELD.left + 26;
             if (x > FIELD.right - 26) x = FIELD.right - 26;
           });
-          jumper.x = x;
+          shownX = easeToward(shownX, x, stepMs, 80);
+          jumper.x = shownX;
           jumper.vx = vx;
         }
         const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));

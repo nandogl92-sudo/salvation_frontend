@@ -7,9 +7,30 @@ const FRAME_MS = 1000 / 60
 
 const PREDICT_CAP_MS = 120
 
-export const stepPlayHead = (_playHead: number, _dt: number, ceiling: number, serverNow: number): number => {
-  if (ceiling <= 0) return 0
-  return Math.min(serverNow, ceiling)
+export const stepPlayHead = (playHead: number, dt: number, ceiling: number, serverNow: number): number => {
+  const desired = ceiling > 0 ? Math.min(serverNow - 16, ceiling) : 0
+  if (desired <= 0) return playHead
+  if (playHead <= 0) return Math.max(0, desired - 16)
+  const gap = desired - playHead
+  if (gap > 100) return desired
+  if (gap > 0) return playHead + Math.min(gap, Math.max(0, dt))
+  return desired
+}
+
+export const easeToward = (current: number, target: number, dtMs: number, snap = 90): number => {
+  const gap = target - current
+  if (Math.abs(gap) > snap) return target
+  const follow = 1 - Math.exp(-Math.max(0, dtMs) / 12)
+  return current + gap * follow
+}
+
+export const easeAngle = (current: number, target: number, dtMs: number): number => {
+  let gap = target - current
+  while (gap > Math.PI) gap -= Math.PI * 2
+  while (gap < -Math.PI) gap += Math.PI * 2
+  if (Math.abs(gap) > 1.2) return target
+  const follow = 1 - Math.exp(-Math.max(0, dtMs) / 12)
+  return current + gap * follow
 }
 
 export type KeySample = {
@@ -330,7 +351,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     }
     const last = rally[rally.length - 1]
     const ahead = at - last.at
-    if (ahead > 0 && ahead < 18) {
+    if (ahead > 0 && ahead < 48) {
       return {
         ballX: last.ballX + last.ballVx * (ahead / FRAME_MS),
         ballY: last.ballY + last.ballVy * (ahead / FRAME_MS),

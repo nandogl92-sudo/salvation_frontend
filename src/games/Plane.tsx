@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { easeToward, keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -251,6 +251,7 @@ export default function Plane({
     let ended = false;
     let nextRingId = 1;
     let playHead = 0;
+    let shownY = 270;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -481,10 +482,11 @@ export default function Plane({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
+        const latest = link.readScene(link.sceneAt());
         const countdown = rankedCountdown(world.startAt, link.serverNow());
-        if (scene?.kind === 'rings') {
-          applyRings(scene);
-          const actor = you === 'p1' ? scene.p1 : scene.p2;
+        if (scene?.kind === 'rings') applyRings(scene);
+        if (latest?.kind === 'rings') {
+          const actor = you === 'p1' ? latest.p1 : latest.p2;
           const plane = you === 'p1' ? state.p1 : state.p2;
           let y = actor.y;
           let vy = actor.v;
@@ -494,8 +496,8 @@ export default function Plane({
           let clock = 0;
           let previous = false;
           let primed = false;
-          replayInputs(scene.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
-            const dt = dtMs / 1000;
+          replayInputs(latest.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+            const stepDt = dtMs / 1000;
             const down = keyHeld(keys, ' ', 'Space', 'ArrowUp');
             if (!primed) {
               previous = down;
@@ -507,9 +509,9 @@ export default function Plane({
             }
             if (!down) flapReady = true;
             previous = down;
-            clock += dt;
-            vy = Math.min(MAX_FALL, vy + GRAVITY * dt);
-            y += vy * dt;
+            clock += stepDt;
+            vy = Math.min(MAX_FALL, vy + GRAVITY * stepDt);
+            y += vy * stepDt;
             const top = FIELD.top + size;
             const bottom = FIELD.bottom - size;
             if (y < top) {
@@ -521,7 +523,8 @@ export default function Plane({
               vy = 0;
             }
           });
-          plane.y = y;
+          shownY = easeToward(shownY, y, dt, 120);
+          plane.y = shownY;
           plane.vy = vy;
         }
         paintRings(countdown);

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { easeAngle, easeToward, keyHeld, otherSide, replayInputs, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -540,6 +540,10 @@ export default function Racing({
 
     let raf = 0;
     let playHead = 0;
+    let shownX = 0;
+    let shownY = 0;
+    let shownAngle = 0;
+    let shownReady = false;
     let lastStamp = performance.now();
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
@@ -644,11 +648,19 @@ export default function Racing({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        if (scene?.kind === 'race') {
-          applyRace(scene);
+        const latest = link.readScene(link.sceneAt());
+        if (scene?.kind === 'race') applyRace(scene);
+        if (latest?.kind === 'race') {
+          const actor = you === 'p1' ? latest.p1 : latest.p2;
           const car = you === 'p1' ? state.p1 : state.p2;
+          car.x = actor.x;
+          car.y = actor.y;
+          car.angle = actor.v;
+          car.laps = actor.n;
+          car.recover = actor.a;
+          car.progress = actor.p;
           let bank = 0;
-          replayInputs(scene.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
+          replayInputs(latest.at, link.serverNow(), link.readKeyLog(), (keys, dtMs) => {
             bank += dtMs;
             const steer = (keyHeld(keys, 'd', 'D', 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
             const gas = keyHeld(keys, 'w', 'W', 'ArrowUp');
@@ -658,6 +670,18 @@ export default function Racing({
               drive(car, gas, brake, steer);
             }
           });
+          if (!shownReady) {
+            shownX = car.x;
+            shownY = car.y;
+            shownAngle = car.angle;
+            shownReady = true;
+          }
+          shownX = easeToward(shownX, car.x, dt, 140);
+          shownY = easeToward(shownY, car.y, dt, 140);
+          shownAngle = easeAngle(shownAngle, car.angle, dt);
+          car.x = shownX;
+          car.y = shownY;
+          car.angle = shownAngle;
         }
         state.frames += 1;
         drawWorld(ctx, track);
