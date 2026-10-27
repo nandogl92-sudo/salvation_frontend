@@ -13,6 +13,8 @@ const COUNT_FRAMES = 180;
 const KO_FRAMES = 100;
 const SPARK_MAX = 36;
 const ROAD_EDGE = (TRACK_W + 14) / 2 + 6;
+const CRUISE = 1.9;
+const SLOW = 1.15;
 const FIELD = {
   left: ROAD_EDGE,
   top: 56 + ROAD_EDGE,
@@ -584,12 +586,11 @@ export default function Racing({
         car.speed = 0;
         return;
       }
-      car.angle += steer * (0.034 + car.speed * 0.014);
-      car.speed += 0.12;
-      if (brake) car.speed -= 0.2;
-      car.speed -= 0.02;
-      if (car.speed < 0) car.speed = 0;
-      if (car.speed > 3.4) car.speed = 3.4;
+      car.angle += steer * (0.04 + car.speed * 0.013);
+      car.speed += 0.02;
+      if (brake) car.speed -= 0.055;
+      if (car.speed < SLOW) car.speed = SLOW;
+      if (car.speed > CRUISE) car.speed = CRUISE;
       car.x += Math.cos(car.angle) * car.speed * 2.6;
       car.y += Math.sin(car.angle) * car.speed * 2.6;
 
@@ -614,7 +615,7 @@ export default function Racing({
       const err = wrapAngle(want - car.angle);
       const steer = err > 0.05 ? 1 : err < -0.05 ? -1 : 0;
       const side = project(track, car.x, car.y);
-      const brake = Math.abs(err) > 0.5 || Math.abs(side.offset) > HALF - 10;
+      const brake = Math.abs(err) > 0.72 || Math.abs(side.offset) > HALF - 8;
       drive(car, brake, steer);
     };
 
