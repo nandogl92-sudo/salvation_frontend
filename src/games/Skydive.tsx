@@ -43,13 +43,14 @@ type Hazard = {
 type Cloud = { x: number; y: number; s: number; layer: number };
 type Spark = { x: number; y: number; vx: number; vy: number; life: number; color: string };
 
-const ART_SRC = '/sky-drop.jpg';
-const dropArt = new Image();
-let dropArtReady = false;
-dropArt.onload = () => {
-  dropArtReady = true;
-};
-dropArt.src = ART_SRC;
+const STRIP_SRC = ['/sky-drop-1.jpg', '/sky-drop-2.jpg', '/sky-drop-3.jpg', '/sky-drop-4.jpg'];
+const stripArt = STRIP_SRC.map((src) => {
+  const image = new Image();
+  image.src = src;
+  return image;
+});
+
+const stripReady = () => stripArt.every((image) => image.complete && image.naturalWidth > 0);
 
 const paint = (ctx: Ctx, x: number, y: number, w: number, h: number, color: string) => {
   ctx.fillStyle = color;
@@ -129,11 +130,26 @@ const drawSky = (ctx: Ctx, clouds: Cloud[], fall: number, time: number) => {
 };
 
 const drawBackdrop = (ctx: Ctx, clouds: Cloud[], fall: number, time: number) => {
-  if (!dropArtReady) {
+  if (!stripReady()) {
     drawSky(ctx, clouds, fall, time);
     return;
   }
-  drawCover(ctx, dropArt, 0, 0, WIDTH, HEIGHT);
+  const panel = HEIGHT;
+  const maxScroll = panel * (stripArt.length - 1);
+  const scroll = Math.max(0, Math.min(fall, maxScroll));
+  const smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  stripArt.forEach((image, index) => {
+    const y = index * panel - scroll;
+    if (y >= HEIGHT || y + panel <= 0) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, y, WIDTH, panel);
+    ctx.clip();
+    drawCover(ctx, image, 0, y, WIDTH, panel);
+    ctx.restore();
+  });
+  ctx.imageSmoothingEnabled = smooth;
 };
 
 const drawHazard = (ctx: Ctx, item: Hazard) => {
