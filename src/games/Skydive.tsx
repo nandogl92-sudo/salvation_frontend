@@ -246,7 +246,6 @@ export default function Skydive({
 
     let raf = 0;
     let playHead = 0;
-    let ownServerX = Number.NaN;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -353,10 +352,39 @@ export default function Skydive({
       return steerOf(target < jumper.x - 10, target > jumper.x + 10);
     };
 
-    const drive = (jumper: Jumper, steer: number, dt: number) => {
+    const TAP_X = 18;
+    const TAP_SPEED = 180;
+    const TAP_HOLD_S = 8 / 60;
+    const glide = {
+      p1: { left: 0, prev: 0, held: 0 },
+      p2: { left: 0, prev: 0, held: 0 },
+    };
+    const drive = (jumper: Jumper, steer: number, dt: number, who: 'p1' | 'p2') => {
       if (!jumper.alive) return;
-      jumper.vx = steer * MOVE;
-      jumper.x += jumper.vx * dt;
+      const pad = glide[who];
+      if (steer !== 0) {
+        if (pad.prev !== steer) {
+          pad.left = steer * TAP_X;
+          pad.held = 0;
+        }
+        pad.held += dt;
+        pad.prev = steer;
+        if (pad.held > TAP_HOLD_S) pad.left = 0;
+      } else {
+        pad.prev = 0;
+        pad.held = 0;
+      }
+      if (steer !== 0 && pad.left === 0) {
+        jumper.vx = steer * MOVE;
+        jumper.x += jumper.vx * dt;
+      } else if (pad.left !== 0) {
+        const step = Math.sign(pad.left) * Math.min(Math.abs(pad.left), TAP_SPEED * dt);
+        pad.left -= step;
+        jumper.vx = dt > 0 ? step / dt : 0;
+        jumper.x += step;
+      } else {
+        jumper.vx = 0;
+      }
       if (jumper.x < FIELD.left + 26) jumper.x = FIELD.left + 26;
       if (jumper.x > FIELD.right - 26) jumper.x = FIELD.right - 26;
     };
@@ -397,18 +425,7 @@ export default function Skydive({
         link.setLocalKeys(state.keys);
         playHead = stepPlayHead(playHead, stepMs, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
-        if (scene?.kind === 'drop') {
-          applyDrop(scene);
-          const own = you === 'p1' ? state.p1 : state.p2;
-          const steer = (keyHeld(state.keys, 'd', 'D', 'ArrowRight') ? 1 : 0)
-            - (keyHeld(state.keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
-          const serverX = own.x;
-          if (steer !== 0 && own.alive && serverX === ownServerX) {
-            const step = MOVE / 60;
-            own.x = Math.max(FIELD.left + 26, Math.min(FIELD.right - 26, serverX + steer * step));
-          }
-          ownServerX = serverX;
-        }
+        if (scene?.kind === 'drop') applyDrop(scene);
         const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
         drawSky(ctx, state.clouds, state.fall, state.gameTime);
         state.hazards.forEach((item) => drawHazard(ctx, item));
@@ -456,20 +473,22 @@ export default function Skydive({
           link?.setLocalKeys(state.keys);
           const padSteer = (keys: Record<string, boolean>) =>
             steerOf(keyHeld(keys, 'a', 'A', 'ArrowLeft'), keyHeld(keys, 'd', 'D', 'ArrowRight'));
-          drive(you === 'p1' ? state.p1 : state.p2, padSteer(state.keys), dt);
-          drive(them === 'p1' ? state.p1 : state.p2, padSteer(link?.readRivalKeys() ?? {}), dt);
+          drive(you === 'p1' ? state.p1 : state.p2, padSteer(state.keys), dt, you);
+          drive(them === 'p1' ? state.p1 : state.p2, padSteer(link?.readRivalKeys() ?? {}), dt, them);
         } else {
           drive(
             state.p1,
             steerOf(Boolean(state.keys['a'] || state.keys['A']), Boolean(state.keys['d'] || state.keys['D'])),
             dt,
+            'p1',
           );
-          if (botEnabled) drive(state.p2, botSteer(state.p2), dt);
+          if (botEnabled) drive(state.p2, botSteer(state.p2), dt, 'p2');
           else {
             drive(
               state.p2,
               steerOf(Boolean(state.keys['ArrowLeft']), Boolean(state.keys['ArrowRight'])),
               dt,
+              'p2',
             );
           }
         }

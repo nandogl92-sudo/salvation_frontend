@@ -490,67 +490,11 @@ export default function Pong({
     };
     if (link) link.setLocalKeys(state.keys);
 
-    const TAP_MS = 130;
-    let p1Tap = 0;
-    let p1TapUntil = 0;
-    let p2Tap = 0;
-    let p2TapUntil = 0;
-    const armTap = (key: string) => {
-      const until = performance.now() + TAP_MS;
-      if (!world) {
-        if (key === 'w' || key === 'W') {
-          p1Tap = -1;
-          p1TapUntil = until;
-        }
-        if (key === 's' || key === 'S') {
-          p1Tap = 1;
-          p1TapUntil = until;
-        }
-        if (key === 'ArrowUp') {
-          p2Tap = -1;
-          p2TapUntil = until;
-        }
-        if (key === 'ArrowDown') {
-          p2Tap = 1;
-          p2TapUntil = until;
-        }
-        return;
-      }
-      const mineUp = key === 'w' || key === 'W' || key === 'ArrowUp';
-      const mineDown = key === 's' || key === 'S' || key === 'ArrowDown';
-      if (you === 'p1' && mineUp) {
-        p1Tap = -1;
-        p1TapUntil = until;
-      }
-      if (you === 'p1' && mineDown) {
-        p1Tap = 1;
-        p1TapUntil = until;
-      }
-      if (you === 'p2' && mineUp) {
-        p2Tap = -1;
-        p2TapUntil = until;
-      }
-      if (you === 'p2' && mineDown) {
-        p2Tap = 1;
-        p2TapUntil = until;
-      }
-    };
-    const sentKeys = () => {
-      const keys = { ...state.keys };
-      if (world) return keys;
-      const now = performance.now();
-      const tap = you === 'p1' ? p1Tap : p2Tap;
-      const until = you === 'p1' ? p1TapUntil : p2TapUntil;
-      if (now < until && tap < 0) keys.w = true;
-      if (now < until && tap > 0) keys.s = true;
-      return keys;
-    };
     const publishKeys = () => {
-      link?.setLocalKeys(sentKeys());
+      link?.setLocalKeys(state.keys);
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       state.keys[e.key] = true;
-      if (!e.repeat) armTap(e.key);
       publishKeys();
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -595,9 +539,40 @@ export default function Pong({
       resetBall();
     };
 
+    const TAP_DIST = 14;
+    const TAP_STEP = 2;
+    const TAP_FRAMES = 8;
+    const paddleGlide = {
+      p1: { left: 0, prev: 0, held: 0 },
+      p2: { left: 0, prev: 0, held: 0 },
+    };
     const movePaddle = (side: 'p1' | 'p2', up: boolean, down: boolean) => {
       if (up) state[side].y = Math.max(minPaddle, state[side].y - 7);
       if (down) state[side].y = Math.min(maxPaddle, state[side].y + 7);
+    };
+    const slidePaddle = (side: 'p1' | 'p2', up: boolean, down: boolean) => {
+      const steer = up === down ? 0 : down ? 1 : -1;
+      const pad = paddleGlide[side];
+      if (steer !== 0) {
+        if (pad.prev !== steer) {
+          pad.left = steer * TAP_DIST;
+          pad.held = 0;
+        }
+        pad.held += 1;
+        pad.prev = steer;
+        if (pad.held > TAP_FRAMES) {
+          pad.left = 0;
+          movePaddle(side, up, down);
+          return;
+        }
+      } else {
+        pad.prev = 0;
+        pad.held = 0;
+      }
+      if (pad.left === 0) return;
+      const step = Math.sign(pad.left) * Math.min(TAP_STEP, Math.abs(pad.left));
+      pad.left -= step;
+      state[side].y = clampPaddle(state[side].y + step);
     };
 
     const clampPaddle = (y: number) => Math.max(minPaddle, Math.min(maxPaddle, y));
@@ -609,7 +584,6 @@ export default function Pong({
     let acc = 0;
     let ended = false;
     let playHead = 0;
-    let ownServerY = paddleStart;
 
     const stepBall = () => {
       state.trail.push({ x: state.ball.x, y: state.ball.y });
@@ -691,7 +665,7 @@ export default function Pong({
       const now = link.serverNow();
       const live = link.serverFrame(world.startAt);
       link.setLocalKeys(
-        sentKeys(),
+        state.keys,
         state[you].y,
         null,
         live,
@@ -743,20 +717,19 @@ export default function Pong({
             if (Math.abs(drift) > 2) state[them].y = clampPaddle(state[them].y + drift * 0.45);
           }
         } else {
-          const nowTap = performance.now();
-          const p1Up = Boolean(state.keys['w'] || state.keys['W']) || (nowTap < p1TapUntil && p1Tap < 0);
-          const p1Down = Boolean(state.keys['s'] || state.keys['S']) || (nowTap < p1TapUntil && p1Tap > 0);
-          const p2Up = Boolean(state.keys['ArrowUp']) || (nowTap < p2TapUntil && p2Tap < 0);
-          const p2Down = Boolean(state.keys['ArrowDown']) || (nowTap < p2TapUntil && p2Tap > 0);
+          const p1Up = Boolean(state.keys['w'] || state.keys['W']);
+          const p1Down = Boolean(state.keys['s'] || state.keys['S']);
+          const p2Up = Boolean(state.keys['ArrowUp']);
+          const p2Down = Boolean(state.keys['ArrowDown']);
           faceMine = { up: p1Up, down: p1Down };
           faceTheirs = botEnabled ? { up: false, down: false } : { up: p2Up, down: p2Down };
-          movePaddle('p1', p1Up, p1Down);
+          slidePaddle('p1', p1Up, p1Down);
           if (botEnabled) {
             const paddleCenter = state.p2.y + PADDLE_H / 2;
             if (state.ball.y > paddleCenter) state.p2.y = Math.min(maxPaddle, state.p2.y + BOT_SPEED);
             else if (state.ball.y < paddleCenter) state.p2.y = Math.max(minPaddle, state.p2.y - BOT_SPEED);
           } else {
-            movePaddle('p2', Boolean(state.keys['ArrowUp']), Boolean(state.keys['ArrowDown']));
+            slidePaddle('p2', p2Up, p2Down);
           }
         }
       }
@@ -771,7 +744,7 @@ export default function Pong({
 
       if (world) {
         link?.setLocalKeys(
-          sentKeys(),
+          state.keys,
           state[you].y,
           isHost
             ? {
@@ -861,15 +834,8 @@ export default function Pong({
           state.trail.push({ x: view.ballX, y: view.ballY });
           if (state.trail.length > 8) state.trail.shift();
           state.ball = { x: view.ballX, y: view.ballY, vx: 0, vy: 0 };
-          const up = keyHeld(state.keys, 'w', 'W', 'ArrowUp');
-          const down = keyHeld(state.keys, 's', 'S', 'ArrowDown');
-          const serverOwn = you === 'p1' ? view.p1y : view.p2y;
-          const ownY = up === down || serverOwn !== ownServerY
-            ? serverOwn
-            : clampPaddle(serverOwn + (down ? 7 : -7));
-          ownServerY = serverOwn;
-          state.p1.y = you === 'p1' ? ownY : view.p1y;
-          state.p2.y = you === 'p2' ? ownY : view.p2y;
+          state.p1.y = view.p1y;
+          state.p2.y = view.p2y;
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;
