@@ -592,43 +592,10 @@ export default function Pong({
       if (state.ball.x > WIDTH) scorePoint('p1');
     };
 
-    type Hist = {
-      p1y: number;
-      p2y: number;
-      p1s: number;
-      p2s: number;
-      bx: number;
-      by: number;
-      vx: number;
-      vy: number;
-    };
-    const hist: Hist[] = [];
     let simFrame = 0;
     let faceMine = { up: false, down: false };
     let faceTheirs = { up: false, down: false };
     const INPUT_DELAY = 2;
-
-    const capture = (): Hist => ({
-      p1y: state.p1.y,
-      p2y: state.p2.y,
-      p1s: state.p1.score,
-      p2s: state.p2.score,
-      bx: state.ball.x,
-      by: state.ball.y,
-      vx: state.ball.vx,
-      vy: state.ball.vy,
-    });
-
-    const restore = (snap: Hist) => {
-      state.p1.y = snap.p1y;
-      state.p2.y = snap.p2y;
-      state.p1.score = snap.p1s;
-      state.p2.score = snap.p2s;
-      state.ball.x = snap.bx;
-      state.ball.y = snap.by;
-      state.ball.vx = snap.vx;
-      state.ball.vy = snap.vy;
-    };
 
     const finish = () => {
       if (state.p1.score >= 10) { ended = true; onGameEnd('p1'); return true; }
@@ -652,21 +619,6 @@ export default function Pong({
       if (state.p2.swing > 0) state.p2.swing -= 1;
       if (state.shake > 0) state.shake -= 1;
       stepBall();
-      hist[frame] = capture();
-      if (frame > 90) delete hist[frame - 90];
-    };
-
-    const replay = (from: number) => {
-      const snap = hist[from - 1];
-      if (!snap || from < 1) return;
-      restore(snap);
-      for (let frame = from; frame <= simFrame; frame += 1) {
-        playFrame(frame);
-        if (state.p1.score >= 10 || state.p2.score >= 10) {
-          simFrame = frame;
-          return;
-        }
-      }
     };
 
     const catchUp = () => {
@@ -688,8 +640,6 @@ export default function Pong({
         live,
       );
       if (rankedCountdown(world.startAt)) return;
-      const rewind = link.pullRewind();
-      if (rewind !== null && rewind <= simFrame) replay(rewind);
       if (finish()) return;
       const target = Math.max(0, live - INPUT_DELAY);
       let guard = 0;
@@ -699,27 +649,6 @@ export default function Pong({
         playFrame(simFrame);
         if (finish()) return;
       }
-      if (isHost || !link) return;
-      const snap = link.readRivalSnap();
-      if (!snap || (snap.p1 === state.p1.score && snap.p2 === state.p2.score)) {
-        const far = snap
-          ? Math.abs(snap.ballX - state.ball.x) > 150 || Math.abs(snap.ballY - state.ball.y) > 110
-          : false;
-        if (!snap || !far) return;
-      }
-      if (!snap) return;
-      if (snap.p1 !== state.p1.score || snap.p2 !== state.p2.score) {
-        state.shake = SHAKE_FRAMES;
-        state.trail = [];
-      }
-      state.p1.score = snap.p1;
-      state.p2.score = snap.p2;
-      state.ball.x = snap.ballX;
-      state.ball.y = snap.ballY;
-      state.ball.vx = snap.ballVx;
-      state.ball.vy = snap.ballVy;
-      hist[simFrame] = capture();
-      if (finish()) return;
     };
 
     const step = () => {
@@ -864,10 +793,7 @@ export default function Pong({
       animationFrameId = requestAnimationFrame(tick);
     };
 
-    if (world) {
-      resetBall();
-      hist[0] = capture();
-    }
+    if (world) resetBall();
     animationFrameId = requestAnimationFrame(tick);
 
     return () => {
