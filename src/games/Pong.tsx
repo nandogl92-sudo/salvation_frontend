@@ -593,6 +593,7 @@ export default function Pong({
     };
 
     let simFrame = 0;
+    let simArmed = false;
     let faceMine = { up: false, down: false };
     let faceTheirs = { up: false, down: false };
 
@@ -622,28 +623,25 @@ export default function Pong({
 
     const catchUp = () => {
       if (!link || !world || ended) return;
+      const now = link.serverNow();
       const live = link.serverFrame(world.startAt);
       link.setLocalKeys(
         state.keys,
         state[you].y,
-        isHost
-          ? {
-              ballX: state.ball.x,
-              ballY: state.ball.y,
-              ballVx: state.ball.vx,
-              ballVy: state.ball.vy,
-              p1: state.p1.score,
-              p2: state.p2.score,
-            }
-          : null,
+        null,
         live,
       );
-      if (rankedCountdown(world.startAt)) return;
+      if (rankedCountdown(world.startAt, now)) return;
       if (finish()) return;
-      const heard = link.rivalHeardFrame();
-      const target = Math.max(0, Math.min(live, heard));
+      const target = Math.min(link.localHeardFrame(), link.rivalHeardFrame());
+      if (target <= 0) return;
+      if (!simArmed) {
+        simFrame = target;
+        simArmed = true;
+        return;
+      }
       let guard = 0;
-      while (simFrame < target && guard < 30) {
+      while (simFrame < target && guard < 4) {
         guard += 1;
         simFrame += 1;
         playFrame(simFrame);
@@ -789,7 +787,7 @@ export default function Pong({
         if (ended) return;
       }
       const blend = world ? Math.max(0, Math.min(1, acc / FRAME_MS)) : 0;
-      paint(world ? rankedCountdown(world.startAt) : null, blend);
+      paint(world ? rankedCountdown(world.startAt, link ? link.serverNow() : Date.now()) : null, blend);
       animationFrameId = requestAnimationFrame(tick);
     };
 

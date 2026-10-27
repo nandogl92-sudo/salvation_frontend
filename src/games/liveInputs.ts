@@ -21,7 +21,9 @@ export type LiveInputLink = {
   readRivalY: () => number | null
   readRivalSnap: () => WorldSnap | null
   serverFrame: (startAt: number) => number
+  serverNow: () => number
   readMove: (frame: number, who: 'local' | 'rival') => PaddleMove | null
+  localHeardFrame: () => number
   rivalHeardFrame: () => number
   pullRewind: () => number | null
   stop: () => void
@@ -128,25 +130,43 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   let clockOffset = 0
   let clockReady = false
   let clockLocked = false
-  const clockSamples: number[] = []
+  let bestRtt = 1_000
+  let pingTimer = 0
+  let pingHits = 0
   let rewindFrom = Number.POSITIVE_INFINITY
   let rivalHeard = 0
+  let localHeard = 0
+  let lastLocalSeq = 0
   const localLog: MoveSample[] = []
   const rivalLog: MoveSample[] = []
   const liveAbort = new AbortController()
   let socket: WebSocket | null = null
 
-  const noteClock = (serverNow: number) => {
-    if (!Number.isFinite(serverNow) || clockLocked) return
-    clockSamples.push(serverNow - Date.now())
-    clockReady = true
-    if (clockSamples.length < 5) {
-      clockOffset = clockSamples[clockSamples.length - 1]
-      return
+  const notePong = (sentAt: number, serverNow: number) => {
+    if (clockLocked) return
+    const now = Date.now()
+    const rtt = now - sentAt
+    if (rtt < 0 || rtt > 400) return
+    pingHits += 1
+    if (rtt < bestRtt) {
+      bestRtt = rtt
+      clockOffset = serverNow - (sentAt + now) / 2
+      clockReady = true
     }
-    const sorted = [...clockSamples].sort((left, right) => left - right)
-    clockOffset = sorted[2]
-    clockLocked = true
+    if (pingHits >= 5) clockLocked = true
+  }
+
+  const sendPing = () => {
+    if (clockLocked || !socket || socket.readyState !== WebSocket.OPEN) return
+    socket.send(JSON.stringify({ ping: Date.now() }))
+  }
+
+  const noteOwn = (pad: RemotePad) => {
+    if (pad.seq > 0 && pad.seq <= lastLocalSeq) return
+    if (pad.seq > 0) lastLocalSeq = pad.seq
+    if (pad.frame <= 0) return
+    if (pad.frame > localHeard) localHeard = pad.frame
+    remember(localLog, pad.frame, moveOf(unpackKeys(pad.keys)))
   }
 
   const noteRival = (pad: RemotePad) => {
@@ -163,9 +183,10 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   }
 
   const applyPads = (pads: RemotePad[]) => {
-    const rival = pads.find((pad) => pad.userId !== localUserId)
-    if (!rival) return
-    noteRival(rival)
+    pads.forEach((pad) => {
+      if (pad.userId === localUserId) noteOwn(pad)
+      else noteRival(pad)
+    })
   }
 
   const sendSocket = (): boolean => {
@@ -216,17 +237,19 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     socket = new WebSocket(socketUrl(matchId, token))
     socket.onopen = () => {
       sendSocket()
+      sendPing()
+      pingTimer = window.setInterval(sendPing, 80)
     }
     socket.onmessage = (event) => {
       try {
-        const body = JSON.parse(String(event.data)) as { serverNow?: unknown; players?: unknown }
-        if (typeof body.serverNow === 'number') noteClock(body.serverNow)
+        const body = JSON.parse(String(event.data)) as { serverNow?: unknown; players?: unknown; pong?: unknown }
+        if (typeof body.pong === 'number' && typeof body.serverNow === 'number') notePong(body.pong, body.serverNow)
         if (Array.isArray(body.players)) {
           body.players.forEach((item) => {
             if (!item || typeof item !== 'object') return
             const pad = item as RemotePad
-            if (pad.userId === localUserId || typeof pad.userId !== 'string' || !Array.isArray(pad.keys)) return
-            noteRival({
+            if (typeof pad.userId !== 'string' || !Array.isArray(pad.keys)) return
+            const parsed = {
               userId: pad.userId,
               keys: pad.keys.filter((key) => typeof key === 'string'),
               at: typeof pad.at === 'number' ? pad.at : 1,
@@ -234,7 +257,9 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
               pose: pad.pose && typeof pad.pose.ballX === 'number' ? pad.pose : null,
               seq: typeof pad.seq === 'number' ? pad.seq : 0,
               frame: typeof pad.frame === 'number' ? pad.frame : 0,
-            })
+            }
+            if (pad.userId === localUserId) noteOwn(parsed)
+            else noteRival(parsed)
           })
         }
       } catch {
@@ -259,21 +284,13 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     if (!stopped) sendSocket()
   }, HEARTBEAT_MS)
 
-  let lastPushedFrame = -1
-
   return {
     setLocalKeys: (keys, y, pose, frame) => {
       localKeys = keys
       if (typeof y === 'number') localY = y
       if (pose) localPose = pose
-      if (typeof frame === 'number') {
-        localFrame = frame
-        remember(localLog, frame, moveOf(keys))
-        if (frame !== lastPushedFrame) {
-          lastPushedFrame = frame
-          sendSocket()
-        }
-      }
+      if (typeof frame === 'number') localFrame = frame
+      if (sendSocket()) return
       const held = packKeys(keys)
       const sig = signatureOf(held)
       if (sig === lastHeldSig) return
@@ -283,12 +300,17 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     readRivalKeys: () => rivalKeys,
     readRivalY: () => rivalY,
     readRivalSnap: () => rivalSnap,
-    serverFrame: (startAt) => Math.max(0, Math.floor((Date.now() + clockOffset - startAt) / FRAME_MS)),
+    serverFrame: (startAt) => {
+      if (!clockReady) return 0
+      return Math.max(0, Math.floor((Date.now() + clockOffset - startAt) / FRAME_MS))
+    },
+    serverNow: () => Date.now() + clockOffset,
     readMove: (frame, who) => {
       const found = readList(who === 'local' ? localLog : rivalLog, frame)
       return found ? { up: found.up, down: found.down } : null
     },
     rivalHeardFrame: () => rivalHeard,
+    localHeardFrame: () => localHeard,
     pullRewind: () => {
       if (!Number.isFinite(rewindFrom)) return null
       const frame = rewindFrom
@@ -300,6 +322,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
       window.clearTimeout(timer)
       window.clearTimeout(pollTimer)
       window.clearInterval(beatTimer)
+      window.clearInterval(pingTimer)
       liveAbort.abort()
       sendSocket()
       socket?.close()
