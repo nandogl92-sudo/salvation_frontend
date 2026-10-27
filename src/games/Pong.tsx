@@ -604,7 +604,8 @@ export default function Pong({
     };
     const hist: Hist[] = [];
     let simFrame = 0;
-    const INPUT_DELAY = 0;
+    let shownRival = state[them].y;
+    const INPUT_DELAY = 2;
 
     const capture = (): Hist => ({
       p1y: state.p1.y,
@@ -695,6 +696,27 @@ export default function Pong({
         playFrame(simFrame);
         if (finish()) return;
       }
+      if (isHost || !link) return;
+      const snap = link.readRivalSnap();
+      if (!snap || (snap.p1 === state.p1.score && snap.p2 === state.p2.score)) {
+        const far = snap
+          ? Math.abs(snap.ballX - state.ball.x) > 150 || Math.abs(snap.ballY - state.ball.y) > 110
+          : false;
+        if (!snap || !far) return;
+      }
+      if (!snap) return;
+      if (snap.p1 !== state.p1.score || snap.p2 !== state.p2.score) {
+        state.shake = SHAKE_FRAMES;
+        state.trail = [];
+      }
+      state.p1.score = snap.p1;
+      state.p2.score = snap.p2;
+      state.ball.x = snap.ballX;
+      state.ball.y = snap.ballY;
+      state.ball.vx = snap.ballVx;
+      state.ball.vy = snap.ballVy;
+      hist[simFrame] = capture();
+      if (finish()) return;
     };
 
     const step = () => {
@@ -790,14 +812,16 @@ export default function Pong({
       ctx.clip();
       drawField(ctx);
 
+      const p1Draw = world && them === 'p1' ? shownRival : state.p1.y;
+      const p2Draw = world && them === 'p2' ? shownRival : state.p2.y;
       const p1SwingShift = state.p1.swing > 0 ? Math.round(Math.sin((state.p1.swing / SWING_FRAMES) * Math.PI) * 6) : 0;
       const p2SwingShift = state.p2.swing > 0 ? Math.round(Math.sin((state.p2.swing / SWING_FRAMES) * Math.PI) * 6) : 0;
-      const p1PlayerY = Math.round(state.p1.y + PADDLE_H / 2 - PLAYER_H / 2);
-      const p2PlayerY = Math.round(state.p2.y + PADDLE_H / 2 - PLAYER_H / 2);
+      const p1PlayerY = Math.round(p1Draw + PADDLE_H / 2 - PLAYER_H / 2);
+      const p2PlayerY = Math.round(p2Draw + PADDLE_H / 2 - PLAYER_H / 2);
       drawPlayer(ctx, P1_X - PLAYER_W - 2, p1PlayerY, 1, TEAM_P1, state.p1.moving, state.p1.swing);
       drawPlayer(ctx, P2_X + PADDLE_W + 2, p2PlayerY, -1, TEAM_P2, state.p2.moving, state.p2.swing);
-      drawRacket(ctx, P1_X + p1SwingShift, state.p1.y, TEAM_P1);
-      drawRacket(ctx, P2_X - p2SwingShift, state.p2.y, TEAM_P2);
+      drawRacket(ctx, P1_X + p1SwingShift, p1Draw, TEAM_P1);
+      drawRacket(ctx, P2_X - p2SwingShift, p2Draw, TEAM_P2);
       drawBall(ctx, state.ball.x, state.ball.y, state.trail);
       drawSparks(ctx, state.sparks);
       ctx.restore();
@@ -821,6 +845,11 @@ export default function Pong({
         acc -= FRAME_MS;
         step();
         if (ended) return;
+      }
+      if (world) {
+        const delta = state[them].y - shownRival;
+        if (Math.abs(delta) <= 14) shownRival = state[them].y;
+        else shownRival += Math.sign(delta) * 14;
       }
       paint(world ? rankedCountdown(world.startAt) : null);
       animationFrameId = requestAnimationFrame(tick);

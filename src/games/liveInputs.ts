@@ -126,6 +126,8 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   let beatTimer = 0
   let clockOffset = 0
   let clockReady = false
+  let clockLocked = false
+  const clockSamples: number[] = []
   let rewindFrom = Number.POSITIVE_INFINITY
   const localLog: MoveSample[] = []
   const rivalLog: MoveSample[] = []
@@ -133,10 +135,16 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   let socket: WebSocket | null = null
 
   const noteClock = (serverNow: number) => {
-    if (!Number.isFinite(serverNow)) return
-    const sample = serverNow - Date.now()
-    clockOffset = clockReady ? clockOffset * 0.85 + sample * 0.15 : sample
+    if (!Number.isFinite(serverNow) || clockLocked) return
+    clockSamples.push(serverNow - Date.now())
     clockReady = true
+    if (clockSamples.length < 5) {
+      clockOffset = clockSamples[clockSamples.length - 1]
+      return
+    }
+    const sorted = [...clockSamples].sort((left, right) => left - right)
+    clockOffset = sorted[2]
+    clockLocked = true
   }
 
   const noteRival = (pad: RemotePad) => {
