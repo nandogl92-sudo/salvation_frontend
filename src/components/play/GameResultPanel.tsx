@@ -16,7 +16,6 @@ type GameResultPanelProps = {
   result: GameResult
   betAmount: number
   balance: number
-  feePercent: number
   onGoHome: () => void
 }
 
@@ -24,7 +23,6 @@ const GameResultPanel = ({
   result,
   betAmount,
   balance,
-  feePercent,
   onGoHome,
 }: GameResultPanelProps) => {
   const handleGoHome = () => {
@@ -91,7 +89,7 @@ const GameResultPanel = ({
             <p className="text-text-200 text-sm text-center max-w-sm">{abandonMessage}</p>
           )}
           <div className="text-center space-y-1">
-            <p className="text-text-200 text-sm">Fichas ganadas (comisión {feePercent}% incluida)</p>
+            <p className="text-text-200 text-sm">Fichas ganadas</p>
             <p className="text-4xl font-bold text-accent-100">+{formatPoints(result.profit)}</p>
           </div>
           <p className="text-text-200 text-sm">

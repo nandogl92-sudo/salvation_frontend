@@ -1,4 +1,4 @@
-// Suscripción mensual: al pagarla, la cuenta recibe 10 fichas para jugar.
+// Suscripción mensual: al pagarla, la cuenta recibe 100 fichas para jugar.
 //   POST /purchases   { euros: 10 }
 //
 // Las fichas solo cambian si la sesión del servidor las refleja.
@@ -9,7 +9,7 @@ import { getAccessToken, getCurrentSession } from './authApi'
 import type { UserProfile } from '../types'
 
 export const SUBSCRIPTION_EUROS = 10
-export const SUBSCRIPTION_POINTS = 10
+export const SUBSCRIPTION_POINTS = 100
 
 export const currentSubscriptionMonth = (): string => {
   const now = new Date()

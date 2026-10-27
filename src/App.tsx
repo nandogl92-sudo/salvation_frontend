@@ -30,8 +30,6 @@ const QUEUE_POLL_INTERVAL_MS = 700;
 /** Consulta del cierre compartido. Más lento que el pad para no saturar el móvil. */
 const MATCH_STATUS_POLL_MS = 1500;
 /** Comisión de la plataforma sobre el pozo total (en porcentaje). */
-const PLATFORM_FEE_PERCENT = 5;
-
 const readResetToken = (): string | null => {
   if (window.location.pathname !== '/restablecer') return null;
   return new URLSearchParams(window.location.search).get('token')?.trim() ?? '';
@@ -697,7 +695,6 @@ export default function App() {
                 result={gameResult}
                 betAmount={betAmount}
                 balance={currentUser.balance}
-                feePercent={PLATFORM_FEE_PERCENT}
                 onGoHome={goHome}
               />
             ) : matchError ? (

@@ -175,7 +175,7 @@ const HomeLanding = ({
       <section id="info" className="max-w-3xl mx-auto px-4 pb-16 space-y-6 scroll-mt-20">
         <div className="bg-bg-100 border border-bg-300 rounded-2xl p-6 space-y-2">
           <h2 className="font-pixel text-[10px] text-[#f5c518]">Info</h2>
-          <p className="text-sm text-text-200">El ganador recibe las fichas del pozo menos el 5% de comisión.</p>
+          <p className="text-sm text-text-200">Si ganas, ganas 1 ficha. Si pierdes, pierdes 1 ficha.</p>
           <p className="text-sm text-text-200">Desconexión o abandono cuenta como derrota.</p>
           <p className="text-sm text-text-200">Error de plataforma: las fichas de esa partida se devuelven.</p>
           <h3 className="font-pixel text-[10px] text-[#f5c518] pt-3">Premio del mes</h3>
