@@ -263,12 +263,19 @@ const VirtualJoystick = ({ label, horizontal, vertical }: VirtualJoystickProps) 
   )
 }
 
-const DRIVE_BUTTON = 'flex-1 min-h-24 landscape:min-h-14 px-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-xs font-bold tracking-wide select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+const CAR_BUTTON = 'min-h-20 min-w-0 flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-xs font-bold leading-tight tracking-wide text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
 
-const CAR_BUTTONS: PadKey[] = [
+const STEER_ROW = 'flex min-w-0 flex-1 gap-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-[9rem] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-center'
+
+const GAS_ROW = 'flex min-w-0 flex-1 gap-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-[9rem] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-center'
+
+const STEER_BUTTONS: PadKey[] = [
   { key: 'a', label: 'ARRIBA', ariaLabel: 'Girar a la izquierda' },
-  { key: 'w', label: 'ADELANTE', ariaLabel: 'Acelerar' },
   { key: 'd', label: 'ABAJO', ariaLabel: 'Girar a la derecha' },
+]
+
+const GAS_BUTTONS: PadKey[] = [
+  { key: 'w', label: 'ADELANTE', ariaLabel: 'Acelerar' },
 ]
 
 const DROP_BUTTON = 'flex-1 min-h-20 landscape:min-h-16 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
@@ -318,11 +325,13 @@ const TouchControls = ({ gameId }: { gameId: string }) => {
   const pad = PADS[gameId]
   if (!pad) return null
 
-  const rowClass = `${gameId === 'pong'
-    ? 'w-full flex lg:hidden items-center justify-center px-2 py-3 landscape:py-1'
-    : gameId === 'tetris' || gameId === 'combat'
-      ? 'w-full flex lg:hidden items-center justify-between gap-3 px-3 py-3 landscape:gap-2 landscape:px-2 landscape:py-1'
-      : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'} ${FLOAT_ON_LANDSCAPE}`
+  const rowClass = gameId === 'tetris'
+    ? 'w-full flex lg:hidden items-stretch justify-between gap-3 px-2 py-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
+    : `${gameId === 'pong'
+      ? 'w-full flex lg:hidden items-center justify-center px-2 py-3 landscape:py-1'
+      : gameId === 'combat'
+        ? 'w-full flex lg:hidden items-center justify-between gap-3 px-3 py-3 landscape:gap-2 landscape:px-2 landscape:py-1'
+        : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'} ${FLOAT_ON_LANDSCAPE}`
 
   return (
     <div
@@ -334,15 +343,17 @@ const TouchControls = ({ gameId }: { gameId: string }) => {
       )}
       {gameId === 'tetris' && (
         <>
-          <div className="flex flex-1 gap-3 min-w-0" aria-label="Controles del coche">
-            {CAR_BUTTONS.map((padKey) => (
-              <PadButton key={padKey.ariaLabel} padKey={padKey} className={DRIVE_BUTTON} />
+          <div className={STEER_ROW} aria-label="Girar el coche">
+            {STEER_BUTTONS.map((padKey) => (
+              <PadButton key={padKey.ariaLabel} padKey={padKey} className={CAR_BUTTON} />
             ))}
           </div>
-          <PadButton
-            padKey={BRAKE_BUTTON}
-            className="shrink-0 w-14 h-14 rounded-xl bg-[#1a2340] border border-[#f5c518]/60 text-[#f5c518] text-[9px] font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]"
-          />
+          <div className={GAS_ROW} aria-label="Acelerar y frenar">
+            {GAS_BUTTONS.map((padKey) => (
+              <PadButton key={padKey.ariaLabel} padKey={padKey} className={CAR_BUTTON} />
+            ))}
+            <PadButton padKey={BRAKE_BUTTON} className={CAR_BUTTON} />
+          </div>
         </>
       )}
       {gameId === 'combat' && (
