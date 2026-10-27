@@ -110,86 +110,134 @@ const KNOB = 48
 const TRAVEL = (STICK - KNOB) / 2
 const DEAD = 0.22
 
-const PaddleJoystick = () => {
-  const heldKey = useRef<string | null>(null)
+type StickAxis = {
+  minus: string
+  plus: string
+}
+
+type VirtualJoystickProps = {
+  label: string
+  horizontal?: StickAxis
+  vertical?: StickAxis
+}
+
+const axisKey = (amount: number, axis: StickAxis | undefined): string | null => {
+  if (!axis) return null
+  if (amount <= -DEAD) return axis.minus
+  if (amount >= DEAD) return axis.plus
+  return null
+}
+
+const VirtualJoystick = ({ label, horizontal, vertical }: VirtualJoystickProps) => {
+  const heldKeys = useRef<Set<string>>(new Set())
+  const arrows = useRef({ left: false, right: false, up: false, down: false })
   const [offset, setOffset] = useState({ x: 0, y: 0 })
 
-  const releaseHeld = () => {
-    if (!heldKey.current) return
-    sendKey('keyup', heldKey.current)
-    heldKey.current = null
+  const releaseAll = () => {
+    heldKeys.current.forEach((key) => sendKey('keyup', key))
+    heldKeys.current = new Set()
   }
 
-  const holdKey = (key: string | null) => {
-    if (heldKey.current === key) return
-    releaseHeld()
-    if (!key) return
-    sendKey('keydown', key)
-    heldKey.current = key
+  const applyOffset = (x: number, y: number) => {
+    const want = new Set(
+      [axisKey(x / TRAVEL, horizontal), axisKey(y / TRAVEL, vertical)].filter((key): key is string => key !== null),
+    )
+    heldKeys.current.forEach((key) => {
+      if (!want.has(key)) sendKey('keyup', key)
+    })
+    want.forEach((key) => {
+      if (!heldKeys.current.has(key)) sendKey('keydown', key)
+    })
+    heldKeys.current = want
+    setOffset({ x, y })
   }
 
-  useEffect(() => releaseHeld, [])
+  useEffect(() => releaseAll, [])
 
   const resetStick = () => {
-    setOffset({ x: 0, y: 0 })
-    holdKey(null)
+    arrows.current = { left: false, right: false, up: false, down: false }
+    applyOffset(0, 0)
   }
 
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    moveStick(event)
-  }
-
-  const moveStick = (event: PointerEvent<HTMLDivElement>) => {
+  const placePointer = (event: PointerEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    let dx = event.clientX - centerX
-    let dy = event.clientY - centerY
+    let dx = event.clientX - (rect.left + rect.width / 2)
+    let dy = event.clientY - (rect.top + rect.height / 2)
     const distance = Math.hypot(dx, dy)
     if (distance > TRAVEL) {
       dx = (dx / distance) * TRAVEL
       dy = (dy / distance) * TRAVEL
     }
-    setOffset({ x: dx, y: dy })
-    const vertical = dy / TRAVEL
-    if (vertical <= -DEAD) holdKey('w')
-    else if (vertical >= DEAD) holdKey('s')
-    else holdKey(null)
+    applyOffset(dx, dy)
+  }
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    arrows.current = { left: false, right: false, up: false, down: false }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    placePointer(event)
+  }
+
+  const placeArrows = () => {
+    let x = 0
+    let y = 0
+    if (arrows.current.left) x -= TRAVEL
+    if (arrows.current.right) x += TRAVEL
+    if (arrows.current.up) y -= TRAVEL
+    if (arrows.current.down) y += TRAVEL
+    const distance = Math.hypot(x, y)
+    if (distance > TRAVEL) {
+      x = (x / distance) * TRAVEL
+      y = (y / distance) * TRAVEL
+    }
+    applyOffset(x, y)
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+    const arrow = event.key
+    if (arrow !== 'ArrowUp' && arrow !== 'ArrowDown' && arrow !== 'ArrowLeft' && arrow !== 'ArrowRight') return
+    if ((arrow === 'ArrowLeft' || arrow === 'ArrowRight') && !horizontal) return
+    if ((arrow === 'ArrowUp' || arrow === 'ArrowDown') && !vertical) return
     event.preventDefault()
-    const up = event.key === 'ArrowUp'
-    holdKey(up ? 'w' : 's')
-    setOffset({ x: 0, y: up ? -TRAVEL : TRAVEL })
+    if (arrow === 'ArrowLeft') arrows.current.left = true
+    if (arrow === 'ArrowRight') arrows.current.right = true
+    if (arrow === 'ArrowUp') arrows.current.up = true
+    if (arrow === 'ArrowDown') arrows.current.down = true
+    placeArrows()
   }
 
   const handleKeyUp = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+    const arrow = event.key
+    if (arrow !== 'ArrowUp' && arrow !== 'ArrowDown' && arrow !== 'ArrowLeft' && arrow !== 'ArrowRight') return
     event.preventDefault()
-    resetStick()
+    if (arrow === 'ArrowLeft') arrows.current.left = false
+    if (arrow === 'ArrowRight') arrows.current.right = false
+    if (arrow === 'ArrowUp') arrows.current.up = false
+    if (arrow === 'ArrowDown') arrows.current.down = false
+    placeArrows()
   }
 
-  const vertical = offset.y / TRAVEL
-  const valueText = vertical <= -DEAD ? 'Arriba' : vertical >= DEAD ? 'Abajo' : 'Centro'
+  const active = [
+    axisKey(offset.x / TRAVEL, horizontal),
+    axisKey(offset.y / TRAVEL, vertical),
+  ].filter((key) => key !== null)
+  const valueText = active.length > 0 ? active.join(' ') : 'Centro'
+  const onlyVertical = Boolean(vertical) && !horizontal
 
   return (
     <div
-      role="slider"
-      aria-label="Joystick para mover la pala"
-      aria-orientation="vertical"
-      aria-valuemin={-100}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(vertical * 100)}
+      role={onlyVertical ? 'slider' : 'application'}
+      aria-label={label}
+      aria-orientation={onlyVertical ? 'vertical' : undefined}
+      aria-valuemin={onlyVertical ? -100 : undefined}
+      aria-valuemax={onlyVertical ? 100 : undefined}
+      aria-valuenow={onlyVertical ? Math.round((offset.y / TRAVEL) * 100) : undefined}
       aria-valuetext={valueText}
       tabIndex={0}
       onPointerDown={handlePointerDown}
       onPointerMove={(event) => {
         if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
-        moveStick(event)
+        placePointer(event)
       }}
       onPointerUp={resetStick}
       onPointerCancel={resetStick}
@@ -251,7 +299,8 @@ const TouchControls = ({ gameId }: { gameId: string }) => {
   const pad = PADS[gameId]
   if (!pad) return null
 
-  const rowClass = gameId === 'pong'
+  const stick = gameId === 'pong' || gameId === 'tetris'
+  const rowClass = stick
     ? 'w-full flex lg:hidden items-center justify-center px-2 py-3'
     : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'
 
@@ -260,7 +309,17 @@ const TouchControls = ({ gameId }: { gameId: string }) => {
       className={rowClass}
       aria-label="Controles táctiles"
     >
-      {gameId === 'pong' ? <PaddleJoystick /> : <DirPad dirs={pad.dirs} />}
+      {gameId === 'pong' && (
+        <VirtualJoystick label="Joystick para mover la pala" vertical={{ minus: 'w', plus: 's' }} />
+      )}
+      {gameId === 'tetris' && (
+        <VirtualJoystick
+          label="Joystick del coche. Arriba acelera, abajo frena, los lados giran"
+          horizontal={{ minus: 'a', plus: 'd' }}
+          vertical={{ minus: 'w', plus: 's' }}
+        />
+      )}
+      {!stick && <DirPad dirs={pad.dirs} />}
       {pad.actions.length > 0 && (
         <div className="flex flex-wrap justify-end gap-2 max-w-[50%]">
           {pad.actions.map((action) => (

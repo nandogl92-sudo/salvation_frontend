@@ -477,7 +477,7 @@ export default function Pong({
     const paddleStart = (PLAY_TOP + PLAY_BOTTOM - PADDLE_H) / 2;
     const minPaddle = PLAY_TOP + 6;
     const maxPaddle = PLAY_BOTTOM - PADDLE_H - 6;
-
+    
     const state = {
       p1: { y: paddleStart, score: 0, swing: 0, moving: 0 },
       p2: { y: paddleStart, score: 0, swing: 0, moving: 0 },

@@ -6,7 +6,7 @@ const WIDTH = 960;
 const HEIGHT = 540;
 const PIX = '"Press Start 2P", monospace';
 const LAPS = 5;
-const TRACK_W = 52;
+const TRACK_W = 76;
 const HALF = TRACK_W / 2;
 const ORANGE = '#ff8c1a';
 const COUNT_FRAMES = 180;
@@ -406,7 +406,7 @@ const drawWorld = (ctx: Ctx, track: Track) => {
 
   const start = sample(track, 0);
   for (let i = 0; i < 8; i += 1) {
-    const along = (i - 3.5) * 6;
+    const along = (i - 3.5) * 8;
     const px = start.x + start.nx * along;
     const py = start.y + start.ny * along;
     paint(ctx, px - 4, py - 4, 8, 8, i % 2 === 0 ? '#f4f4f4' : '#111');
@@ -541,8 +541,8 @@ export default function Racing({
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const track = makeTrack(rand);
     const state = {
-      p1: makeCar(-12, '#e11d48', '#9f1239', '#fecdd3', sideLabel(world, 'p1', 'RED SLOT')),
-      p2: makeCar(12, '#2563eb', '#1e3a8a', '#bfdbfe', sideLabel(world, 'p2', 'BLUE SLOT')),
+      p1: makeCar(-18, '#e11d48', '#9f1239', '#fecdd3', sideLabel(world, 'p1', 'RED SLOT')),
+      p2: makeCar(18, '#2563eb', '#1e3a8a', '#bfdbfe', sideLabel(world, 'p2', 'BLUE SLOT')),
       keys: {} as Record<string, boolean>,
       frames: 0,
       winner: null as Side | null,
