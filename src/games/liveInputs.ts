@@ -39,6 +39,7 @@ export type LiveInputLink = {
   serverNow: () => number
   readMove: (frame: number, who: 'local' | 'rival') => PaddleMove | null
   readRally: (at: number) => RallyView | null
+  rallyAt: () => number
   localHeardFrame: () => number
   rivalHeardFrame: () => number
   pullRewind: () => number | null
@@ -238,7 +239,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
     }
     const last = rally[rally.length - 1]
     const ahead = at - last.at
-    if (ahead > 0 && ahead < 40) {
+    if (ahead > 0 && ahead < 18) {
       return {
         ballX: last.ballX + last.ballVx * (ahead / FRAME_MS),
         ballY: last.ballY + last.ballVy * (ahead / FRAME_MS),
@@ -401,6 +402,7 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
       return found ? { up: found.up, down: found.down } : null
     },
     readRally: (at) => readRallyAt(at),
+    rallyAt: () => (rally.length > 0 ? rally[rally.length - 1].at : 0),
     rivalHeardFrame: () => rivalHeard,
     localHeardFrame: () => localHeard,
     pullRewind: () => {

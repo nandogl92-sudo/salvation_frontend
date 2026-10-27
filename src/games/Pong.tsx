@@ -542,6 +542,7 @@ export default function Pong({
     let lastStamp = performance.now();
     let acc = 0;
     let ended = false;
+    let playHead = 0;
 
     const stepBall = () => {
       state.trail.push({ x: state.ball.x, y: state.ball.y });
@@ -781,8 +782,22 @@ export default function Pong({
     const tick = (now: number) => {
       if (ended) return;
       if (world && link) {
+        const dt = Math.min(50, Math.max(0, now - lastStamp));
+        lastStamp = now;
         link.setLocalKeys(state.keys, state[you].y, null, link.serverFrame(world.startAt));
-        const view = link.readRally(link.serverNow() - 70);
+        const countdown = rankedCountdown(world.startAt, link.serverNow());
+        const ceiling = link.rallyAt();
+        const shared = link.serverNow() - 32;
+        const desired = ceiling > 0 ? Math.min(shared, ceiling) : 0;
+        if (desired > 0) {
+          if (playHead <= 0) playHead = desired;
+          else {
+            const gap = desired - playHead;
+            if (gap > 0) playHead += Math.min(gap, dt * (gap > 48 ? 1.2 : 1));
+            else playHead = desired;
+          }
+        }
+        const view = desired > 0 ? link.readRally(playHead) : null;
         if (view) {
           if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
           state.trail.push({ x: view.ballX, y: view.ballY });
@@ -793,12 +808,11 @@ export default function Pong({
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;
-          const countdown = rankedCountdown(world.startAt, link.serverNow());
           paint(countdown, 0);
           if (view.p1 >= 10) { ended = true; onGameEnd('p1'); return; }
           if (view.p2 >= 10) { ended = true; onGameEnd('p2'); return; }
         } else {
-          paint(rankedCountdown(world.startAt, link.serverNow()), 0);
+          paint(countdown, 0);
         }
         animationFrameId = requestAnimationFrame(tick);
         return;
