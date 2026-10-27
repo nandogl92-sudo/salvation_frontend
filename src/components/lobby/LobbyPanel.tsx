@@ -122,9 +122,17 @@ const LobbyPanel = ({
   return (
     <div className="max-w-md mx-auto bg-bg-100 rounded-3xl shadow-sm border border-bg-300 p-8 animate-fade-in">
       <div className="text-center mb-8">
-        <div className="bg-primary-300 w-20 h-20 rounded-2xl flex items-center justify-center text-primary-100 mx-auto mb-4">
-          {selectedGame.icon}
-        </div>
+        {selectedGame.id === 'pong' ? (
+          <img
+            src="/paddle-duel.jpg"
+            alt=""
+            className="mb-4 w-full rounded-2xl object-cover object-center"
+          />
+        ) : (
+          <div className="bg-primary-300 w-20 h-20 rounded-2xl flex items-center justify-center text-primary-100 mx-auto mb-4">
+            {selectedGame.icon}
+          </div>
+        )}
         <h2 className="text-2xl font-bold">{selectedGame.name}</h2>
         <p className="text-text-200 text-sm mt-2">
           Ranking: otra persona. Amistoso: bot o práctica. Cada partida se juega por 1 ficha.

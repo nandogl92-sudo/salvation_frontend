@@ -28,6 +28,15 @@ const scrollToGames = () => {
 }
 
 const GameArt = ({ gameId }: { gameId: string }) => {
+  if (gameId === 'pong') {
+    return (
+      <img
+        src="/paddle-duel.jpg"
+        alt=""
+        className="aspect-[1024/571] w-full object-cover object-center"
+      />
+    )
+  }
   if (gameId === 'snake') {
     return (
       <div className="h-28 bg-[#7ec8ea] relative overflow-hidden">

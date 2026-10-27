@@ -28,6 +28,21 @@ const SHAKE_FRAMES = 12;
 const CYAN = '#3ec8ff';
 const ORANGE = '#ff8c24';
 const BALL_COLOR = '#d9f23c';
+const COURT_ART_SRC = '/paddle-duel.jpg';
+
+const courtArt = new Image();
+let courtArtReady = false;
+courtArt.onload = () => {
+  courtArtReady = true;
+};
+courtArt.src = COURT_ART_SRC;
+
+const drawCover = (ctx: Ctx, image: HTMLImageElement, x: number, y: number, w: number, h: number) => {
+  const scale = Math.max(w / image.width, h / image.height);
+  const dw = image.width * scale;
+  const dh = image.height * scale;
+  ctx.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+};
 
 const STARS: [number, number][] = [
   [48, 100], [120, 112], [200, 96], [300, 118], [380, 102], [600, 108],
@@ -785,9 +800,10 @@ export default function Pong({
         const power = state.shake / SHAKE_FRAMES;
         ctx.translate((Math.random() - 0.5) * 6 * power, (Math.random() - 0.5) * 6 * power);
       }
+      if (courtArtReady) drawCover(ctx, courtArt, 0, 0, WIDTH, HEIGHT);
       traceChamfer(ctx, FRAME.x, FRAME.y, FRAME.w, FRAME.h, FRAME.cut);
       ctx.clip();
-      drawField(ctx);
+      if (!courtArtReady) drawField(ctx);
 
       const p1Draw = state.p1.y;
       const p2Draw = state.p2.y;
@@ -875,7 +891,7 @@ export default function Pong({
       width={WIDTH}
       height={HEIGHT}
       aria-label="Paddle Duel"
-      className="w-full max-w-full aspect-video rounded-xl [image-rendering:pixelated]"
+      className="w-full max-w-full aspect-video rounded-xl"
     />
   );
 }
