@@ -8,18 +8,19 @@ const PIX = '"Press Start 2P", monospace';
 const FIELD = { top: 58, bottom: 528 };
 const INTRO_S = 2.8;
 const KO_S = 3.2;
-const GRAVITY = 860;
-const FLAP = -400;
+const RISE_G = 760;
+const FALL_G = 200;
+const FLAP = -520;
 const FLAP_GAP = 0.14;
-const MAX_FALL = 500;
+const MAX_FALL = 170;
 const START_SIZE = 16;
 const GROW_STEP = 5;
 const GROW_EVERY = 10;
 const MAX_GROWS = 6;
 const RING_THICK = 12;
 const SCROLL0 = 210;
-const SCROLL_GAIN = 7;
-const SCROLL_MAX = 330;
+const SPEED_STEP = 36;
+const SCROLL_MAX = 426;
 
 type Ctx = CanvasRenderingContext2D;
 type Side = 'p1' | 'p2';
@@ -31,6 +32,7 @@ type PlaneUnit = {
   size: number;
   grows: number;
   score: number;
+  fed: number;
   alive: boolean;
   lastFlap: number;
   flapReady: boolean;
@@ -63,6 +65,7 @@ const makePlane = (x: number, color: string, dark: string, name: string): PlaneU
   size: START_SIZE,
   grows: 0,
   score: 0,
+  fed: 0,
   alive: true,
   lastFlap: -1,
   flapReady: true,
@@ -90,6 +93,16 @@ const outsideRing = (plane: PlaneUnit, ring: Ring) => Math.abs(plane.y - ring.y)
 const hitsRim = (plane: PlaneUnit, ring: Ring) => atRing(plane, ring) && !inHole(plane, ring) && !outsideRing(plane, ring);
 
 const canPass = (plane: PlaneUnit, ring: Ring) => ring.inner > plane.size + 8;
+
+const pullOf = (vy: number) => (vy < 0 ? RISE_G : FALL_G);
+
+const scrollSpeed = (gameTime: number) => (
+  Math.min(SCROLL_MAX, SCROLL0 + Math.floor(gameTime / GROW_EVERY) * SPEED_STEP)
+);
+
+const resize = (plane: PlaneUnit) => {
+  plane.size = START_SIZE + plane.grows * GROW_STEP;
+};
 
 const drawSky = (ctx: Ctx, clouds: Cloud[]) => {
   const sky = ctx.createLinearGradient(0, 0, 0, HEIGHT);
@@ -251,6 +264,9 @@ export default function Plane({
     let ended = false;
     let nextRingId = 1;
     let playHead = 0;
+    let liftY = 0;
+    let liftFrom = 0;
+    let liftLeft = 0;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -290,6 +306,12 @@ export default function Plane({
     const publishKeys = () => {
       link?.setLocalKeys(state.keys);
     };
+    const armLocalLift = () => {
+      if (!world || world.startAt > Date.now()) return;
+      const plane = localPlane();
+      liftFrom = plane.vy;
+      liftLeft = 0.2;
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'Space' || event.key === ' ' || event.key === 'ArrowUp') event.preventDefault();
       if (event.repeat) return;
@@ -299,6 +321,7 @@ export default function Plane({
       const now = performance.now() / 1000;
       if (event.code === 'Space' || event.key === ' ') {
         beginIfNeeded();
+        armLocalLift();
         const plane = localPlane();
         plane.flapReady = true;
         flap(plane, now, true);
@@ -320,6 +343,7 @@ export default function Plane({
       state.keys.Space = true;
       state.keys[' '] = true;
       beginIfNeeded();
+      armLocalLift();
       const plane = localPlane();
       plane.flapReady = true;
       flap(plane, performance.now() / 1000, true);
@@ -364,8 +388,9 @@ export default function Plane({
 
     const isBot = (plane: PlaneUnit) => botEnabled && plane === state.p2;
 
-    const explode = (plane: PlaneUnit) => {
-      if (!plane.alive || isBot(plane)) return;
+    const explode = (plane: PlaneUnit, fromSize = false) => {
+      if (!plane.alive) return;
+      if (isBot(plane) && !fromSize) return;
       plane.alive = false;
       burst(plane.x, plane.y, plane.color);
     };
@@ -381,8 +406,8 @@ export default function Plane({
         else target = next.y < HEIGHT / 2 ? floor - 8 : ceil + 8;
       }
       const look = next ? Math.max(0.08, (next.x - plane.x) / Math.max(80, scroll)) : 0.35;
-      const pred = plane.y + plane.vy * look + 0.5 * GRAVITY * look * look;
-      const danger = plane.y > floor - 10 || plane.vy > 380;
+      const pred = plane.y + plane.vy * look + 0.5 * pullOf(plane.vy) * look * look;
+      const danger = plane.y > floor - 10 || plane.vy > 70;
       if (danger || pred > target + 14) {
         if (Math.random() > 0.12) flap(plane, now, false);
       }
@@ -390,16 +415,21 @@ export default function Plane({
 
     const growIfDue = (plane: PlaneUnit, gameTime: number) => {
       if (!plane.alive) return;
-      const due = Math.min(MAX_GROWS, Math.floor(gameTime / GROW_EVERY));
-      if (due <= plane.grows) return;
-      plane.grows = due;
-      plane.size = START_SIZE + plane.grows * GROW_STEP;
-      if (plane.grows >= MAX_GROWS) explode(plane);
+      const ticks = Math.floor(gameTime / GROW_EVERY);
+      while (plane.fed < ticks) {
+        plane.fed += 1;
+        plane.grows += 1;
+        resize(plane);
+        if (plane.grows >= MAX_GROWS) {
+          explode(plane, true);
+          return;
+        }
+      }
     };
 
     const fly = (plane: PlaneUnit, dt: number) => {
       if (!plane.alive) return;
-      plane.vy = Math.min(MAX_FALL, plane.vy + GRAVITY * dt);
+      plane.vy = Math.min(MAX_FALL, plane.vy + pullOf(plane.vy) * dt);
       plane.y += plane.vy * dt;
       const top = FIELD.top + plane.size;
       const bottom = FIELD.bottom - plane.size;
@@ -419,7 +449,11 @@ export default function Plane({
         if (hitsRim(plane, ring)) explode(plane);
         if (!plane.alive || ring.seen[side] || plane.x < ring.x) return;
         ring.seen[side] = true;
-        if (inHole(plane, ring)) plane.score += 1;
+        if (!inHole(plane, ring)) return;
+        plane.score += 1;
+        if (plane.grows <= 0) return;
+        plane.grows -= 1;
+        resize(plane);
       });
     };
 
@@ -483,6 +517,26 @@ export default function Plane({
         const scene = link.readScene(playHead);
         const countdown = rankedCountdown(world.startAt, link.serverNow());
         if (scene?.kind === 'rings') applyRings(scene);
+        const mine = localPlane();
+        const dtSec = dt / 1000;
+        if (!mine.alive) {
+          liftY = 0;
+          liftLeft = 0;
+        } else if (liftLeft > 0) {
+          const caught = mine.vy < liftFrom - 120;
+          if (caught) liftLeft = 0;
+          else {
+            const follow = 1 - Math.exp(-Math.max(0, dt) / 28);
+            liftY += (-34 - liftY) * follow;
+            liftLeft -= dtSec;
+          }
+        }
+        if (liftLeft <= 0 && liftY !== 0) {
+          const follow = 1 - Math.exp(-Math.max(0, dt) / 180);
+          liftY += (0 - liftY) * follow;
+          if (Math.abs(liftY) < 0.4) liftY = 0;
+        }
+        mine.y += liftY;
         paintRings(countdown);
         if (state.winner) {
           state.ko -= dt / 1000;
@@ -499,7 +553,6 @@ export default function Plane({
       const now = nowMs / 1000;
       const dt = Math.min(0.05, (nowMs - state.last) / 1000);
       state.last = nowMs;
-      const scroll = Math.min(SCROLL_MAX, SCROLL0 + state.gameTime * SCROLL_GAIN);
 
       const rankedWait = world ? rankedCountdown(world.startAt) : null;
       if (rankedWait) {
@@ -516,6 +569,7 @@ export default function Plane({
         state.started = true;
       } else if (!state.winner) {
         state.gameTime += dt;
+        const scroll = scrollSpeed(state.gameTime);
         state.spawnWait += dt;
         const every = Math.max(1.15, 1.7 - state.gameTime * 0.018);
         if (state.spawnWait >= every) {
@@ -533,8 +587,6 @@ export default function Plane({
           else other.flapReady = true;
         }
 
-        growIfDue(state.p1, state.gameTime);
-        growIfDue(state.p2, state.gameTime);
         fly(state.p1, dt);
         fly(state.p2, dt);
         state.rings.forEach((ring) => {
@@ -543,8 +595,10 @@ export default function Plane({
         state.rings = state.rings.filter((ring) => ring.x > -ring.outer - 20);
         judge(state.p1, 'p1');
         judge(state.p2, 'p2');
+        growIfDue(state.p1, state.gameTime);
+        growIfDue(state.p2, state.gameTime);
 
-        if (!state.p1.alive || (!botEnabled && !state.p2.alive)) {
+        if (!state.p1.alive || !state.p2.alive) {
           state.winner = pickWinner();
           state.ko = KO_S;
         }
@@ -584,9 +638,9 @@ export default function Plane({
         drawBanner(ctx, rankedWait, 'MISMO CIELO    MISMO ARO    ESPACIO IMPULSO');
       } else if (!world && state.intro > 0) {
         const n = state.intro > 1.9 ? '3' : state.intro > 1.1 ? '2' : state.intro > 0.35 ? '1' : 'YA';
-        drawBanner(ctx, n, 'PASA POR EL HUECO    CHOCA EL BORDE Y PIERDES');
+        drawBanner(ctx, n, 'PASA EL ARO Y BAJAS    AL TOPE EXPLOTAS');
       } else if (!world && !state.started) {
-        drawBanner(ctx, 'ESPACIO', 'CRECE CADA 10s    6 VECES Y EXPLOTA');
+        drawBanner(ctx, 'ESPACIO', 'CADA 10s CRECES Y ACELERAS');
       } else if (state.winner) {
         const title = state.winner === you ? 'VICTORIA' : 'GANA EL RIVAL';
         drawBanner(ctx, title, `${state.p1.name} ${state.p1.score}   ${state.p2.name} ${state.p2.score}`);

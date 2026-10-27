@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { type KeyboardEvent, type PointerEvent } from 'react'
 
 type PadKey = {
   key: string
@@ -105,169 +105,13 @@ const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }
   )
 }
 
-const STICK = 112
-const KNOB = 48
-const DEAD = 0.22
+const PADDLE_BUTTON = 'min-h-24 w-full flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold tracking-wide select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
 
-type StickAxis = {
-  minus: string
-  plus: string
-}
+const PADDLE_KEYS: PadKey[] = [
+  { key: 'w', label: '▲ ARRIBA', ariaLabel: 'Subir la pala' },
+  { key: 's', label: '▼ ABAJO', ariaLabel: 'Bajar la pala' },
+]
 
-type VirtualJoystickProps = {
-  label: string
-  horizontal?: StickAxis
-  vertical?: StickAxis
-}
-
-const axisKey = (amount: number, axis: StickAxis | undefined): string | null => {
-  if (!axis) return null
-  if (amount <= -DEAD) return axis.minus
-  if (amount >= DEAD) return axis.plus
-  return null
-}
-
-const VirtualJoystick = ({ label, horizontal, vertical }: VirtualJoystickProps) => {
-  const heldKeys = useRef<Set<string>>(new Set())
-  const arrows = useRef({ left: false, right: false, up: false, down: false })
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
-
-  const releaseAll = () => {
-    heldKeys.current.forEach((key) => sendKey('keyup', key))
-    heldKeys.current = new Set()
-  }
-
-  const onlyVertical = Boolean(vertical) && !horizontal
-  const trackW = onlyVertical ? 64 : STICK
-  const trackH = onlyVertical ? 168 : STICK
-  const travelX = (trackW - KNOB) / 2
-  const travelY = (trackH - KNOB) / 2
-
-  const applyOffset = (x: number, y: number) => {
-    const want = new Set(
-      [axisKey(x / travelX, horizontal), axisKey(y / travelY, vertical)].filter((key): key is string => key !== null),
-    )
-    heldKeys.current.forEach((key) => {
-      if (!want.has(key)) sendKey('keyup', key)
-    })
-    want.forEach((key) => {
-      if (!heldKeys.current.has(key)) sendKey('keydown', key)
-    })
-    heldKeys.current = want
-    setOffset({ x, y })
-  }
-
-  useEffect(() => releaseAll, [])
-
-  const resetStick = () => {
-    arrows.current = { left: false, right: false, up: false, down: false }
-    applyOffset(0, 0)
-  }
-
-  const placePointer = (event: PointerEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    let dx = horizontal ? event.clientX - (rect.left + rect.width / 2) : 0
-    let dy = vertical ? event.clientY - (rect.top + rect.height / 2) : 0
-    if (horizontal && vertical) {
-      const distance = Math.hypot(dx, dy)
-      const limit = Math.min(travelX, travelY)
-      if (distance > limit) {
-        dx = (dx / distance) * limit
-        dy = (dy / distance) * limit
-      }
-    }
-    if (!horizontal) dx = 0
-    if (!vertical) dy = 0
-    dy = Math.max(-travelY, Math.min(travelY, dy))
-    dx = Math.max(-travelX, Math.min(travelX, dx))
-    applyOffset(dx, dy)
-  }
-
-  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    arrows.current = { left: false, right: false, up: false, down: false }
-    event.currentTarget.setPointerCapture(event.pointerId)
-    placePointer(event)
-  }
-
-  const placeArrows = () => {
-    let x = 0
-    let y = 0
-    if (horizontal && arrows.current.left) x -= travelX
-    if (horizontal && arrows.current.right) x += travelX
-    if (vertical && arrows.current.up) y -= travelY
-    if (vertical && arrows.current.down) y += travelY
-    applyOffset(x, y)
-  }
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const arrow = event.key
-    if (arrow !== 'ArrowUp' && arrow !== 'ArrowDown' && arrow !== 'ArrowLeft' && arrow !== 'ArrowRight') return
-    if ((arrow === 'ArrowLeft' || arrow === 'ArrowRight') && !horizontal) return
-    if ((arrow === 'ArrowUp' || arrow === 'ArrowDown') && !vertical) return
-    event.preventDefault()
-    if (arrow === 'ArrowLeft') arrows.current.left = true
-    if (arrow === 'ArrowRight') arrows.current.right = true
-    if (arrow === 'ArrowUp') arrows.current.up = true
-    if (arrow === 'ArrowDown') arrows.current.down = true
-    placeArrows()
-  }
-
-  const handleKeyUp = (event: KeyboardEvent<HTMLDivElement>) => {
-    const arrow = event.key
-    if (arrow !== 'ArrowUp' && arrow !== 'ArrowDown' && arrow !== 'ArrowLeft' && arrow !== 'ArrowRight') return
-    event.preventDefault()
-    if (arrow === 'ArrowLeft') arrows.current.left = false
-    if (arrow === 'ArrowRight') arrows.current.right = false
-    if (arrow === 'ArrowUp') arrows.current.up = false
-    if (arrow === 'ArrowDown') arrows.current.down = false
-    placeArrows()
-  }
-
-  const active = [
-    axisKey(offset.x / travelX, horizontal),
-    axisKey(offset.y / travelY, vertical),
-  ].filter((key) => key !== null)
-  const valueText = active.length > 0 ? active.join(' ') : 'Centro'
-
-  return (
-    <div
-      role={onlyVertical ? 'slider' : 'application'}
-      aria-label={label}
-      aria-orientation={onlyVertical ? 'vertical' : undefined}
-      aria-valuemin={onlyVertical ? -100 : undefined}
-      aria-valuemax={onlyVertical ? 100 : undefined}
-      aria-valuenow={onlyVertical ? Math.round((offset.y / travelY) * 100) : undefined}
-      aria-valuetext={valueText}
-      tabIndex={0}
-      onPointerDown={handlePointerDown}
-      onPointerMove={(event) => {
-        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
-        placePointer(event)
-      }}
-      onPointerUp={resetStick}
-      onPointerCancel={resetStick}
-      onKeyDown={handleKeyDown}
-      onKeyUp={handleKeyUp}
-      onBlur={resetStick}
-      onContextMenu={(event) => event.preventDefault()}
-      className="relative rounded-full bg-[#12182c] border-2 border-[#f5c518]/70 touch-none select-none"
-      style={{ width: trackW, height: trackH }}
-    >
-      <span className="absolute left-1/2 top-3 bottom-3 w-px -translate-x-1/2 bg-[#f5c518]/30" aria-hidden="true" />
-      {horizontal ? <span className="absolute top-1/2 left-3 right-3 h-px -translate-y-1/2 bg-[#f5c518]/30" aria-hidden="true" /> : null}
-      <span
-        aria-hidden="true"
-        className="absolute left-1/2 top-1/2 rounded-full bg-[#f5c518] shadow-[0_4px_0_#a16207]"
-        style={{
-          width: KNOB,
-          height: KNOB,
-          transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
-        }}
-      />
-    </div>
-  )
-}
 
 const CAR_BUTTON = 'min-h-20 min-w-0 flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-xs font-bold leading-tight tracking-wide text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
 
@@ -293,9 +137,9 @@ const DROP_BUTTONS: PadKey[] = [
 
 const BRAKE_BUTTON: PadKey = { key: ' ', label: 'FRENO', ariaLabel: 'Frenar' }
 
-const STICK_LEFT = 'flex items-center justify-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-3'
+const PADDLE_LEFT = 'flex w-full max-w-xs flex-col gap-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:justify-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
 
-const STICK_RIGHT = 'flex items-center justify-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-3'
+const PADDLE_RIGHT = 'flex w-full max-w-xs flex-col gap-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:justify-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
 
 const FLOAT_ON_LANDSCAPE = '[@media(orientation:landscape)_and_(max-height:520px)]:absolute [@media(orientation:landscape)_and_(max-height:520px)]:inset-x-0 [@media(orientation:landscape)_and_(max-height:520px)]:bottom-0 [@media(orientation:landscape)_and_(max-height:520px)]:z-10 [@media(orientation:landscape)_and_(max-height:520px)]:bg-black/55 [@media(orientation:landscape)_and_(max-height:520px)]:py-2'
 
@@ -349,8 +193,13 @@ const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSi
       aria-label="Controles táctiles"
     >
       {gameId === 'pong' && (
-        <div className={stickSide === 'right' ? STICK_RIGHT : STICK_LEFT}>
-          <VirtualJoystick label="Joystick para mover la pala" vertical={{ minus: 'w', plus: 's' }} />
+        <div
+          className={stickSide === 'right' ? PADDLE_RIGHT : PADDLE_LEFT}
+          aria-label="Mover la pala"
+        >
+          {PADDLE_KEYS.map((padKey) => (
+            <PadButton key={padKey.ariaLabel} padKey={padKey} className={PADDLE_BUTTON} />
+          ))}
         </div>
       )}
       {gameId === 'tetris' && (
