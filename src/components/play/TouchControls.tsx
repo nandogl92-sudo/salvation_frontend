@@ -115,7 +115,7 @@ const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }
 
 const PADDLE_BUTTON = 'min-h-24 w-full flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold tracking-wide select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
 
-const PLANE_BUTTON = 'min-h-32 w-full rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-xl font-bold tracking-wide select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+const PLANE_BUTTON = 'min-h-32 w-full rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-xl font-bold tracking-wide select-none touch-none active:bg-[#f5c518] active:text-[#1a1403] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-h-16 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:text-base'
 
 const PADDLE_KEYS: PadKey[] = [
   { key: 'w', label: '▲ ARRIBA', ariaLabel: 'Subir la pala' },
@@ -193,9 +193,11 @@ const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSi
     ? 'flex min-h-0 w-full flex-1 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
     : gameId === 'pong'
       ? 'w-full flex lg:hidden items-center justify-center px-2 py-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
-      : `${gameId === 'combat'
-        ? 'w-full flex lg:hidden items-stretch justify-between gap-3 px-3 py-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
-        : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'} ${gameId === 'combat' ? '' : FLOAT_ON_LANDSCAPE}`
+      : gameId === 'snake'
+        ? 'flex w-full shrink-0 lg:hidden px-2 pb-2 pt-1'
+        : `${gameId === 'combat'
+          ? 'w-full flex lg:hidden items-stretch justify-between gap-3 px-3 py-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
+          : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'} ${gameId === 'combat' ? '' : FLOAT_ON_LANDSCAPE}`
 
   return (
     <div
