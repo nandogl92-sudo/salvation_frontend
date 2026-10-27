@@ -27,8 +27,8 @@ const PADS: Record<string, GamePad> = {
   },
   tetris: {
     dirs: [
-      { key: 'a', label: '◀', ariaLabel: 'Girar a la izquierda' },
-      { key: 'd', label: '▶', ariaLabel: 'Girar a la derecha' },
+      { key: 'ArrowUp', label: '▲', ariaLabel: 'Girar hacia arriba' },
+      { key: 'ArrowDown', label: '▼', ariaLabel: 'Girar hacia abajo' },
       { key: ' ', label: 'FRENO', ariaLabel: 'Reducir la velocidad' },
     ],
     actions: [],
@@ -121,8 +121,8 @@ const STEER_ROW = 'flex min-h-0 min-w-0 flex-1 items-stretch gap-2 self-stretch 
 const GAS_ROW = 'flex min-h-0 min-w-0 flex-1 items-stretch self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-2'
 
 const STEER_BUTTONS: PadKey[] = [
-  { key: 'a', label: 'ARRIBA', ariaLabel: 'Girar a la izquierda' },
-  { key: 'd', label: 'ABAJO', ariaLabel: 'Girar a la derecha' },
+  { key: 'ArrowUp', label: 'ARRIBA', ariaLabel: 'Girar hacia arriba' },
+  { key: 'ArrowDown', label: 'ABAJO', ariaLabel: 'Girar hacia abajo' },
 ]
 
 const DROP_BUTTON = 'min-h-24 w-full flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'

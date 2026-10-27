@@ -537,6 +537,7 @@ export default function Pong({
     };
     const sentKeys = () => {
       const keys = { ...state.keys };
+      if (world) return keys;
       const now = performance.now();
       const tap = you === 'p1' ? p1Tap : p2Tap;
       const until = you === 'p1' ? p1TapUntil : p2TapUntil;
@@ -547,13 +548,9 @@ export default function Pong({
     const publishKeys = () => {
       link?.setLocalKeys(sentKeys());
     };
-    let steerNow = () => {};
     const handleKeyDown = (e: KeyboardEvent) => {
       state.keys[e.key] = true;
-      if (!e.repeat) {
-        armTap(e.key);
-        steerNow();
-      }
+      if (!e.repeat) armTap(e.key);
       publishKeys();
     };
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -666,16 +663,6 @@ export default function Pong({
     let ownLead = false;
     let faceMine = { up: false, down: false };
     let faceTheirs = { up: false, down: false };
-    steerNow = () => {
-      if (!world) return;
-      if (rankedCountdown(world.startAt, link ? link.serverNow() : Date.now())) return;
-      const up = keyHeld(sentKeys(), 'w', 'W', 'ArrowUp');
-      const down = keyHeld(sentKeys(), 's', 'S', 'ArrowDown');
-      if (!up && !down) return;
-      movePaddle(you, up, down);
-      ownLead = true;
-      faceMine = { up, down };
-    };
 
     const finish = () => {
       if (state.p1.score >= 10) { ended = true; onGameEnd('p1'); return true; }
@@ -831,13 +818,8 @@ export default function Pong({
       ctx.clip();
       drawField(ctx);
 
-      const glide = (side: 'p1' | 'p2') => {
-        const move = side === you ? faceMine : faceTheirs;
-        const dir = (move.up ? -7 : 0) + (move.down ? 7 : 0);
-        return clampPaddle(state[side].y + dir * blend);
-      };
-      const p1Draw = glide('p1');
-      const p2Draw = glide('p2');
+      const p1Draw = state.p1.y;
+      const p2Draw = state.p2.y;
       const ballX = state.ball.x + state.ball.vx * blend;
       const ballY = Math.max(
         PLAY_TOP + BALL_R,
@@ -871,13 +853,13 @@ export default function Pong({
       if (world && link) {
         const dt = Math.min(50, Math.max(0, now - lastStamp));
         lastStamp = now;
-        link.setLocalKeys(sentKeys());
+        link.setLocalKeys(state.keys);
         const countdown = rankedCountdown(world.startAt, link.serverNow());
         const latestAt = link.rallyAt();
         playHead = stepPlayHead(playHead, dt, latestAt, link.serverNow());
         const view = playHead > 0 ? link.readRally(playHead) : null;
-        const mineUp = keyHeld(sentKeys(), 'w', 'W', 'ArrowUp');
-        const mineDown = keyHeld(sentKeys(), 's', 'S', 'ArrowDown');
+        const mineUp = keyHeld(state.keys, 'w', 'W', 'ArrowUp');
+        const mineDown = keyHeld(state.keys, 's', 'S', 'ArrowDown');
         const steering = mineUp || mineDown;
         if (view) {
           if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
@@ -886,7 +868,7 @@ export default function Pong({
           state.ball = { x: view.ballX, y: view.ballY, vx: 0, vy: 0 };
           const serverOwn = you === 'p1' ? view.p1y : view.p2y;
           state[them].y = you === 'p1' ? view.p2y : view.p1y;
-          if (!steering && (!ownLead || Math.abs(serverOwn - state[you].y) <= 12)) {
+          if (!steering && (!ownLead || Math.abs(serverOwn - state[you].y) <= 3)) {
             state[you].y = serverOwn;
             ownLead = false;
           }
@@ -895,7 +877,7 @@ export default function Pong({
           if (state.shake > 0) state.shake -= 1;
         }
         if (steering && !countdown) {
-          const steps = Math.min(2, dt / FRAME_MS);
+          const steps = Math.min(1.2, dt / FRAME_MS);
           if (mineUp) state[you].y = Math.max(minPaddle, state[you].y - 7 * steps);
           if (mineDown) state[you].y = Math.min(maxPaddle, state[you].y + 7 * steps);
           ownLead = true;

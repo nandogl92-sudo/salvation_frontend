@@ -13,7 +13,7 @@ const COUNT_MS = 10_000;
 const KO_FRAMES = 100;
 const SPARK_MAX = 36;
 const ROAD_EDGE = (TRACK_W + 14) / 2 + 6;
-const CRUISE = 1.9;
+const CRUISE = 1.6;
 const SLOW = 1.15;
 const FIELD = {
   left: ROAD_EDGE,
@@ -266,7 +266,8 @@ const startOnStraight = (track: Track): Track => {
       best = i;
     }
   }
-  return buildTrack(rotatePts(track.pts, best));
+  const earlier = (best - 6 + track.pts.length) % track.pts.length;
+  return buildTrack(rotatePts(track.pts, earlier));
 };
 
 const pointOnFrame = (t: number, x0: number, y0: number, w: number, h: number, rad: number) => {
@@ -654,7 +655,7 @@ export default function Racing({
         drawCar(ctx, state.p2, spin2);
         drawHud(ctx, state.p1, state.p2);
         const rankedWait = rankedCountdown(world.startAt, link.serverNow());
-        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    A/D GIRA  S FRENA');
+        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA ARRIBA Y ABAJO GIRAN  ESPACIO FRENA');
         if (state.winner) {
           const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
           drawBanner(ctx, 'META', `${name} GANA`);
@@ -676,19 +677,19 @@ export default function Racing({
         if (world) {
           const drivePad = (side: Side, keys: Record<string, boolean>) => {
             const car = side === 'p1' ? state.p1 : state.p2;
-            const steer = (keyHeld(keys, 'd', 'D', 'ArrowRight') ? 1 : 0) - (keyHeld(keys, 'a', 'A', 'ArrowLeft') ? 1 : 0);
-            drive(car, keyHeld(keys, 's', 'S', 'ArrowDown', ' '), steer);
+            const steer = (keyHeld(keys, 'ArrowDown', 's', 'S') ? 1 : 0) - (keyHeld(keys, 'ArrowUp', 'w', 'W') ? 1 : 0);
+            drive(car, keyHeld(keys, ' '), steer);
           };
           link?.setLocalKeys(state.keys);
           drivePad(you, state.keys);
           drivePad(them, link?.readRivalKeys() ?? {});
         } else {
-          const p1Steer = (state.keys['d'] || state.keys['D'] ? 1 : 0) - (state.keys['a'] || state.keys['A'] ? 1 : 0);
-          drive(state.p1, Boolean(state.keys['s'] || state.keys['S'] || state.keys[' ']), p1Steer);
+          const p1Steer = (state.keys['ArrowDown'] || state.keys['s'] || state.keys['S'] ? 1 : 0) - (state.keys['ArrowUp'] || state.keys['w'] || state.keys['W'] ? 1 : 0);
+          drive(state.p1, Boolean(state.keys[' ']), p1Steer);
           if (botEnabled) botSteer(state.p2);
           else {
-            const p2Steer = (state.keys['ArrowRight'] ? 1 : 0) - (state.keys['ArrowLeft'] ? 1 : 0);
-            drive(state.p2, Boolean(state.keys['ArrowDown']), p2Steer);
+            const p2Steer = (state.keys['ArrowDown'] ? 1 : 0) - (state.keys['ArrowUp'] ? 1 : 0);
+            drive(state.p2, Boolean(state.keys[' ']), p2Steer);
           }
         }
         if (state.p1.laps >= LAPS) state.winner = 'p1';
@@ -714,9 +715,9 @@ export default function Racing({
       drawHud(ctx, state.p1, state.p2);
 
       if (rankedWait) {
-        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    A/D GIRA  S FRENA');
+        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA ARRIBA Y ABAJO GIRAN  ESPACIO FRENA');
       } else if (localWait) {
-        drawBanner(ctx, localWait, 'ACELERA SOLO    A/D GIRA  S FRENA');
+        drawBanner(ctx, localWait, 'ACELERA SOLO    FLECHA ARRIBA Y ABAJO GIRAN  ESPACIO FRENA');
       }
       if (state.winner) {
         const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
