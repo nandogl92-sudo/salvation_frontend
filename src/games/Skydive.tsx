@@ -8,12 +8,12 @@ const PIX = '"Press Start 2P", monospace';
 const FIELD = { left: 18, top: 70, right: 942, bottom: 530 };
 const INTRO_S = 10;
 const KO_S = 0.35;
-const PHASE_S = 10;
+const PHASE_S = 5;
 const MAX_PHASE = 8;
 const MIN_GAP = 112;
 const MOVE = 310;
 
-const fallSpeedOf = (phase: number) => 75 + phase * 65;
+const fallSpeedOf = (phase: number) => 160 + phase * 65;
 
 type Ctx = CanvasRenderingContext2D;
 type Side = 'p1' | 'p2';
