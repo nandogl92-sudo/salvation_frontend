@@ -133,6 +133,7 @@ export default function App() {
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const settlingRef = useRef(false);
   const settledMatchIdRef = useRef<string | null>(null);
+  const resultSeqRef = useRef(0);
   const searchLockRef = useRef(false);
   const endGameRef = useRef<(winner: 'p1' | 'p2') => void>(() => {});
   const handleEnd = useCallback((winner: 'p1' | 'p2') => {
@@ -155,6 +156,7 @@ export default function App() {
 
   /** Vuelve a home y limpia el estado de resultado de partida. */
   const goHome = () => {
+    resultSeqRef.current += 1;
     setGameResult(null);
     setMatchError(null);
     setOpponent(null);
@@ -187,6 +189,7 @@ export default function App() {
     setActiveMatch(null);
     setMatchError(null);
     setSelectedGame(null);
+    resultSeqRef.current += 1;
     setGameResult(null);
     setView('home');
     logout();
@@ -444,11 +447,13 @@ export default function App() {
     endReason: 'play' | 'forfeit' | null;
     isRefund: boolean;
     players: SettlementPlayer[];
+    uiSeq?: number;
   }) => {
     if (!currentUser) return;
     if (settledMatchIdRef.current === input.matchId) return;
     settledMatchIdRef.current = input.matchId;
     settlingRef.current = true;
+    const uiSeq = input.uiSeq ?? resultSeqRef.current;
     const won = input.winnerUserId === currentUser.id;
     const rivalUserId = rankedPlayRef.current.rivalUserId;
     if (!input.isRefund && rivalUserId) recordRankedPlay(currentUser.id, rivalUserId);
@@ -457,16 +462,18 @@ export default function App() {
     const profit = input.isRefund || !me ? 0 : me.balance - (currentUser.balance + betAmount);
     const month = await applyRankedMonthPoints(true, won, input.isRefund);
     searchLockRef.current = false;
-    setGameResult({
-      won: input.isRefund ? false : won,
-      profit,
-      isRefund: input.isRefund,
-      isRanked: true,
-      byAbandon: input.endReason === 'forfeit',
-      ...month,
-    });
-    setOpponent(null);
-    setActiveMatch(null);
+    if (resultSeqRef.current === uiSeq) {
+      setGameResult({
+        won: input.isRefund ? false : won,
+        profit,
+        isRefund: input.isRefund,
+        isRanked: true,
+        byAbandon: input.endReason === 'forfeit',
+        ...month,
+      });
+      setOpponent(null);
+      setActiveMatch(null);
+    }
     settlingRef.current = false;
   };
 
@@ -490,16 +497,20 @@ export default function App() {
 
     settlingRef.current = true;
     setMatchError(null);
+    const uiSeq = resultSeqRef.current;
     const isRefund = reason === 'platform_error';
     const isRanked = activeMatch.isRanked && !activeMatch.isBot;
     const endReason = reason === 'forfeit' ? 'forfeit' : 'play';
+    const stillShowing = () => resultSeqRef.current === uiSeq;
 
     if (activeMatch.isBot) {
       const month = await applyRankedMonthPoints(false, won, false);
       searchLockRef.current = false;
-      setGameResult({ won, profit: 0, isRefund: false, isRanked: false, ...month });
-      setOpponent(null);
-      setActiveMatch(null);
+      if (stillShowing()) {
+        setGameResult({ won, profit: 0, isRefund: false, isRanked: false, ...month });
+        setOpponent(null);
+        setActiveMatch(null);
+      }
       settlingRef.current = false;
       return;
     }
@@ -512,6 +523,18 @@ export default function App() {
     }
 
     const matchId = activeMatch.id;
+    if (stillShowing()) {
+      setGameResult({
+        won: isRefund ? false : won,
+        profit: 0,
+        isRefund,
+        isRanked,
+        monthPoints: monthTotalOf(currentUser.id),
+        monthPointsDelta: 0,
+        byAbandon: endReason === 'forfeit',
+        pending: true,
+      });
+    }
     const settlement = isRefund
       ? await cancelMatch(matchId)
       : await submitMatchResult(matchId, winnerUserId ?? '', endReason);
@@ -521,11 +544,21 @@ export default function App() {
         const status = await fetchMatchStatus(matchId);
         if (status.ok) {
           settlingRef.current = false;
-          await applyServerStatus(matchId, status.status);
+          await closeRankedMatch({
+            matchId,
+            winnerUserId: status.status.winnerUserId,
+            endReason: status.status.endReason,
+            isRefund: status.status.settlement === 'refunded',
+            players: status.status.players,
+            uiSeq,
+          });
           return;
         }
       }
-      setMatchError(settlement.message);
+      if (stillShowing()) {
+        setGameResult(null);
+        setMatchError(settlement.message);
+      }
       settlingRef.current = false;
       return;
     }
@@ -538,13 +571,17 @@ export default function App() {
         endReason: isRefund ? null : endReason,
         isRefund,
         players: settlement.players,
+        uiSeq,
       });
       return;
     }
 
     const me = settlement.players.find((player) => player.id === currentUser.id);
     if (!me) {
-      setMatchError('La respuesta no incluye tus fichas.');
+      if (stillShowing()) {
+        setGameResult(null);
+        setMatchError('La respuesta no incluye tus fichas.');
+      }
       settlingRef.current = false;
       return;
     }
@@ -553,15 +590,17 @@ export default function App() {
     await setBalance(me.balance);
     const month = await applyRankedMonthPoints(false, won, isRefund);
     searchLockRef.current = false;
-    setGameResult({
-      won: isRefund ? false : won,
-      profit,
-      isRefund,
-      isRanked: false,
-      ...month,
-    });
-    setOpponent(null);
-    setActiveMatch(null);
+    if (stillShowing()) {
+      setGameResult({
+        won: isRefund ? false : won,
+        profit,
+        isRefund,
+        isRanked: false,
+        ...month,
+      });
+      setOpponent(null);
+      setActiveMatch(null);
+    }
     settlingRef.current = false;
   };
 

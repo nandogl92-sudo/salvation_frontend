@@ -10,6 +10,7 @@ export type GameResult = {
   monthPoints: number
   monthPointsDelta: number
   byAbandon?: boolean
+  pending?: boolean
 }
 
 type GameResultPanelProps = {
@@ -53,7 +54,15 @@ const GameResultPanel = ({
 
   return (
     <div className="flex flex-col items-center justify-center py-16 space-y-6">
-      {result.isRefund ? (
+      {result.pending ? (
+        <>
+          <div className="bg-bg-300 text-text-200 p-5 rounded-full">
+            <Trophy className="w-12 h-12" aria-hidden="true" />
+          </div>
+          <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
+          <p className="text-text-200 text-center max-w-sm">Guardando las fichas...</p>
+        </>
+      ) : result.isRefund ? (
         <>
           <div className="bg-bg-300 text-text-200 p-5 rounded-full">
             <RefreshCcw className="w-12 h-12" aria-hidden="true" />

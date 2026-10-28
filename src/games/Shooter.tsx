@@ -8,7 +8,7 @@ const FIELD = { left: 20, top: 118, right: 940, bottom: 424 };
 const BODY = { w: 28, h: 32 };
 const PIX = '"Press Start 2P", monospace';
 const COUNT_MS = 10_000;
-const KO_FRAMES = 96;
+const KO_FRAMES = 18;
 const SPARK_MAX = 42;
 
 type Ctx = CanvasRenderingContext2D;
