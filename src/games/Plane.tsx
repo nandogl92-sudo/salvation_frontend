@@ -126,9 +126,26 @@ const scrollDistance = (gameTime: number) => {
   return distance;
 };
 
-const ringEvery = (gameTime: number) => {
-  const phase = Math.min(SPEED_PHASES, Math.floor(gameTime / GROW_EVERY));
-  return Math.max(0.85, 1.6 - phase * 0.09);
+const ringEvery = (gameTime: number) => 520 / scrollSpeed(gameTime);
+
+const pickInner = (gameTime: number, rand: () => number) => {
+  if (gameTime < 12) return rand() < 0.5 ? 72 : 62;
+  if (gameTime < 28) return [56, 66, 74][Math.floor(rand() * 3)];
+  return [46, 56, 66, 76][Math.floor(rand() * 4)];
+};
+
+const spawnRing = (id: number, gameTime: number, rand: () => number): Ring => {
+  const inner = pickInner(gameTime, rand);
+  const outer = inner + 16;
+  const pad = 36;
+  const minY = FIELD.top + outer + pad;
+  const maxY = FIELD.bottom - outer - pad;
+  const lane = id % 3;
+  const slot = lane === 0 ? 0.22 : lane === 1 ? 0.5 : 0.78;
+  const jitter = (rand() - 0.5) * 32;
+  const y = Math.max(minY, Math.min(maxY, minY + (maxY - minY) * slot + jitter));
+  const owner: Side = id % 2 === 0 ? 'p2' : 'p1';
+  return { id, x: WIDTH + outer + 8, y, inner, outer, owner, seen: { p1: false, p2: false } };
 };
 
 const resize = (plane: PlaneUnit) => {
@@ -143,9 +160,9 @@ const drawSky = (ctx: Ctx, clouds: Cloud[]) => {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
   clouds.forEach((cloud) => {
-    ctx.fillStyle = 'rgba(255,255,255,0.72)';
-    paint(ctx, cloud.x, cloud.y, cloud.w, cloud.h, 'rgba(255,255,255,0.72)');
-    paint(ctx, cloud.x + cloud.w * 0.28, cloud.y - cloud.h * 0.45, cloud.w * 0.55, cloud.h * 0.9, 'rgba(255,255,255,0.8)');
+    ctx.fillStyle = 'rgba(255,255,255,0.38)';
+    paint(ctx, cloud.x, cloud.y, cloud.w, cloud.h, 'rgba(255,255,255,0.38)');
+    paint(ctx, cloud.x + cloud.w * 0.28, cloud.y - cloud.h * 0.45, cloud.w * 0.55, cloud.h * 0.9, 'rgba(255,255,255,0.46)');
   });
   drawHazards(ctx);
 };
@@ -300,26 +317,6 @@ const drawBanner = (ctx: Ctx, title: string, sub: string) => {
   ctx.fillText(sub, 480, 290);
 };
 
-const pickInner = (gameTime: number, rand: () => number) => {
-  if (gameTime < 12) return rand() < 0.5 ? 86 : 74;
-  if (gameTime < 28) return [62, 74, 88][Math.floor(rand() * 3)];
-  return [48, 62, 78, 90][Math.floor(rand() * 4)];
-};
-
-const spawnRing = (id: number, gameTime: number, rand: () => number): Ring => {
-  const inner = pickInner(gameTime, rand);
-  const outer = inner + 16;
-  const dodge = START_SIZE + GROW_STEP * 5 + 28;
-  const leaveBottom = rand() < 0.5;
-  const minY = FIELD.top + outer + 16;
-  const maxY = FIELD.bottom - outer - 16;
-  let y = minY + rand() * Math.max(12, maxY - minY);
-  if (leaveBottom) y = Math.min(y, FIELD.bottom - outer - dodge);
-  else y = Math.max(y, FIELD.top + outer + dodge);
-  const owner: Side = id % 2 === 0 ? 'p2' : 'p1';
-  return { id, x: WIDTH + outer + 8, y, inner, outer, owner, seen: { p1: false, p2: false } };
-};
-
 export default function Plane({
   onGameEnd,
   matchId,
@@ -364,17 +361,17 @@ export default function Plane({
       keys: {} as Record<string, boolean>,
       rings: [] as Ring[],
       sparks: [] as Spark[],
-      clouds: Array.from({ length: 8 }, (_, i) => ({
-        x: (i * 140) % WIDTH,
-        y: 70 + (i * 47) % 280,
-        w: 70 + (i % 3) * 24,
-        h: 18 + (i % 2) * 8,
-        v: 18 + (i % 4) * 10,
+      clouds: Array.from({ length: 4 }, (_, i) => ({
+        x: (i * 280) % WIDTH,
+        y: 90 + (i * 70) % 220,
+        w: 54 + (i % 2) * 16,
+        h: 14,
+        v: 14 + i * 4,
       })),
       intro: INTRO_S,
       started: false,
       gameTime: 0,
-      spawnWait: -0.6,
+      spawnWait: 1.5,
       winner: null as Side | null,
       ko: 0,
       last: performance.now(),
