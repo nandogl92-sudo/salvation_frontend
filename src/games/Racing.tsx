@@ -73,7 +73,7 @@ type Spark = {
   color: string;
 };
 
-const ART_SRC = '/slot-car.jpg';
+const ART_SRC = '/slot-car-grass.jpg';
 const raceArt = new Image();
 let raceArtReady = false;
 raceArt.onload = () => {
@@ -397,7 +397,12 @@ const placeCar = (car: Car, track: Track, recover: number) => {
 const hitsOrange = (track: Track, x: number, y: number) => Math.abs(project(track, x, y).offset) >= HALF + 6;
 
 const drawWorld = (ctx: Ctx, track: Track) => {
-  if (raceArtReady) drawCover(ctx, raceArt, 0, 0, WIDTH, HEIGHT);
+  if (raceArtReady) {
+    const smooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false;
+    drawCover(ctx, raceArt, 0, 0, WIDTH, HEIGHT);
+    ctx.imageSmoothingEnabled = smooth;
+  }
   else {
     paint(ctx, 0, 0, WIDTH, HEIGHT, '#3f8a3a');
     ctx.fillStyle = '#4ea34a';
