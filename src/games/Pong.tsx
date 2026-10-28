@@ -28,7 +28,7 @@ const SHAKE_FRAMES = 12;
 const CYAN = '#3ec8ff';
 const ORANGE = '#ff8c24';
 const BALL_COLOR = '#d9f23c';
-const COURT_ART_SRC = '/paddle-duel.jpg';
+const COURT_ART_SRC = '/paddle-duel-court.jpg';
 
 const courtArt = new Image();
 let courtArtReady = false;

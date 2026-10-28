@@ -73,7 +73,7 @@ type Spark = {
   color: string;
 };
 
-const ART_SRC = '/slot-car-grass.jpg';
+const ART_SRC = '/slot-car-field.jpg';
 const raceArt = new Image();
 let raceArtReady = false;
 raceArt.onload = () => {
