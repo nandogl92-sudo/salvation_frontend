@@ -609,10 +609,10 @@ export default function App() {
     const botEnabled = Boolean(opponent) && !activeMatch?.isRanked;
 
     switch(selectedGame?.id) {
-      case 'pong': return <Pong onGameEnd={handleEnd} botEnabled={botEnabled} world={world} />;
-      case 'snake': return <AeroRings onGameEnd={handleEnd} botEnabled={botEnabled} world={world} />;
-      case 'tetris': return <Racing onGameEnd={handleEnd} botEnabled={botEnabled} world={world} />;
-      case 'combat': return <Skydive onGameEnd={handleEnd} botEnabled={botEnabled} world={world} />;
+      case 'pong': return <Pong onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'snake': return <AeroRings onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'tetris': return <Racing onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'combat': return <Skydive onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
       case 'shooter': return <Shooter onGameEnd={handleEnd} botEnabled={botEnabled} world={world} />;
       default: return <div className="text-white text-center p-8">Juego no encontrado</div>;
     }
@@ -645,6 +645,7 @@ export default function App() {
         onLogout={handleLogout}
         isAuthReady={isAuthReady}
         pendingGame={pendingGame}
+        compact={view === 'playing' && !gameResult && !matchError}
         onNavigate={(section) => {
           if (isChoosingPassword) leavePasswordReset();
           forfeitRankedLeave(false);
@@ -718,15 +719,17 @@ export default function App() {
                 gameId={selectedGame.id}
                 stickSide={activeMatch?.world?.localSide === 'p2' ? 'right' : 'left'}
                 controlsHint={
-                  activeMatch?.isRanked
-                    ? 'Ranqueada — tú mueves tu lado. El rival es otra persona, no un bot.'
+                  selectedGame.id === 'pong'
+                    ? activeMatch?.isRanked
+                      ? 'Tu pala: W y S, o flecha arriba y abajo.'
+                      : 'Tu pala: W y S. El otro lado lo juega el bot.'
                     : selectedGame.id === 'combat'
-                    ? 'Controles — P1: A/D para moverte | P2: Flechas. Quien choca pierde. Cada 10s la caída es más rápida.'
-                    : selectedGame.id === 'snake'
-                      ? 'Controles — P1: Espacio o toque para impulso | P2: Flecha arriba. Pasa un aro para bajar de tamaño. El suelo, los pinchos y el tamaño máximo explotan el avión.'
-                      : selectedGame.id === 'tetris'
-                        ? 'Controles — Flecha izquierda y flecha derecha para girar. El coche va solo. Tocar el borde naranja te devuelve al centro de la pista.'
-                        : undefined}
+                      ? activeMatch?.isRanked
+                        ? 'Tu paracaídas: A y D, o flecha izquierda y derecha.'
+                        : 'Tu paracaídas: A y D. El otro lado lo juega el bot.'
+                      : selectedGame.id === 'snake'
+                        ? 'Impulso: Espacio, flecha arriba, el botón o un toque en la pantalla.'
+                        : 'Gira con flecha izquierda y flecha derecha. El coche va solo. El borde naranja te devuelve al centro.'}
               >
                 {renderGame()}
               </PlayingArena>

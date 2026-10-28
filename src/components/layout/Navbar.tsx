@@ -18,6 +18,7 @@ type NavbarProps = {
   onOpenProfile: () => void
   onLogout: () => void
   onNavigate: (section: NavSection) => void
+  compact?: boolean
 }
 
 const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
@@ -27,7 +28,7 @@ const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
   { id: 'info', label: 'Info', icon: Info },
 ]
 
-const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLogout, onNavigate }: NavbarProps) => {
+const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLogout, onNavigate, compact = false }: NavbarProps) => {
   const headerRef = useRef<HTMLElement>(null)
   const [isLight, setIsLight] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
@@ -114,8 +115,8 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
     : 'text-[#d5dcf0] hover:text-white'
 
   return (
-    <header ref={headerRef} className="relative bg-[#0c1224]/95 border-b border-[#243056] sticky top-0 z-20 backdrop-blur">
-      <div className="max-w-6xl mx-auto px-3 py-2 flex flex-wrap items-center justify-between gap-2 min-h-16">
+    <header ref={headerRef} className="relative shrink-0 bg-[#0c1224]/95 border-b border-[#243056] sticky top-0 z-20 backdrop-blur">
+      <div className={`max-w-6xl mx-auto px-3 py-2 flex flex-wrap items-center justify-between gap-2 min-h-16 ${compact ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-nowrap [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-h-12 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1' : ''}`}>
         <button
           type="button"
           aria-label="Ir al inicio de Retro Hub"
@@ -132,7 +133,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
           </span>
         </button>
 
-        <nav className="flex items-center gap-1 order-3 w-full sm:order-none sm:w-auto sm:flex-1 sm:justify-center overflow-x-auto" aria-label="Secciones">
+        <nav className={`flex items-center gap-1 order-3 w-full sm:order-none sm:w-auto sm:flex-1 sm:justify-center overflow-x-auto ${compact ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:hidden' : ''}`} aria-label="Secciones">
           {LINKS.map(({ id, label, icon: Icon }) => {
             const handleNavigate = () => {
               onNavigate(id)

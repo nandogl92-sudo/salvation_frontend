@@ -68,9 +68,27 @@ export const rankedCountdown = (startAt: number, now = Date.now()): string | nul
   return String(Math.max(1, Math.ceil(left / 1000)))
 }
 
-export const sideLabel = (world: SharedWorld | null | undefined, side: 'p1' | 'p2', fallback: string): string => {
-  if (!world) return fallback
-  if (world.localSide === side) return 'TU'
-  const name = world.rivalName.trim()
-  return name.length > 0 ? name.slice(0, 10).toUpperCase() : 'RIVAL'
+const NAME_LIMIT = 10
+
+export const fitPlayerName = (name: string): string => {
+  const clean = name.trim()
+  if (!clean) return ''
+  if (clean.toLowerCase().startsWith('bot de prueba')) return 'BOT'
+  const upper = clean.toUpperCase()
+  return upper.length > NAME_LIMIT ? upper.slice(0, NAME_LIMIT) : upper
+}
+
+export const sideLabel = (
+  world: SharedWorld | null | undefined,
+  side: 'p1' | 'p2',
+  fallback: string,
+  names?: { you: string; rival: string },
+): string => {
+  if (world) {
+    const raw = world.localSide === side ? world.youName : world.rivalName
+    return fitPlayerName(raw) || (world.localSide === side ? 'TU' : 'RIVAL')
+  }
+  if (!names) return fallback
+  const raw = side === 'p1' ? names.you : names.rival
+  return fitPlayerName(raw) || fallback
 }

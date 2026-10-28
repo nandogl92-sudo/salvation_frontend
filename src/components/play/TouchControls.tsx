@@ -5,6 +5,7 @@ type PadKey = {
   label: string
   ariaLabel: string
   vertical?: boolean
+  mark?: string
 }
 
 type GamePad = {
@@ -107,22 +108,27 @@ const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }
       onKeyUp={handleKeyUp}
       className={className ?? 'min-w-12 min-h-12 px-3 rounded-xl bg-[#1a2340] border border-[#f5c518]/60 text-[#f5c518] text-[10px] font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'}
     >
-      {padKey.vertical ? <VerticalWord text={padKey.label} /> : padKey.label}
+      {padKey.mark ? (
+        <span className="flex max-w-full flex-col items-center justify-center gap-1 leading-none">
+          <span className="text-2xl leading-none">{padKey.mark}</span>
+          <span className="max-w-full text-center text-[10px] leading-tight tracking-normal">{padKey.label}</span>
+        </span>
+      ) : padKey.vertical ? <VerticalWord text={padKey.label} /> : padKey.label}
     </button>
   )
 }
 
-const PADDLE_BUTTON = 'min-h-24 w-full flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold tracking-wide select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+const PADDLE_BUTTON = 'flex min-h-24 w-full min-w-0 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-[#f5c518] text-base font-bold tracking-wide select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
 
 const PLANE_BUTTON = 'min-h-32 w-full rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-xl font-bold tracking-wide select-none touch-none active:bg-[#f5c518] active:text-[#1a1403] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-h-16 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:text-base'
 
 const PADDLE_KEYS: PadKey[] = [
-  { key: 'w', label: '▲ ARRIBA', ariaLabel: 'Subir la pala' },
-  { key: 's', label: '▼ ABAJO', ariaLabel: 'Bajar la pala' },
+  { key: 'w', label: 'ARRIBA', mark: '▲', ariaLabel: 'Subir la pala' },
+  { key: 's', label: 'ABAJO', mark: '▼', ariaLabel: 'Bajar la pala' },
 ]
 
 
-const CAR_BUTTON = 'flex min-h-0 min-w-0 w-full flex-1 items-center justify-center self-stretch rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-lg font-bold leading-tight tracking-wide text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:text-sm'
+const CAR_BUTTON = 'flex min-h-0 min-w-0 w-full flex-1 items-center justify-center self-stretch overflow-hidden rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-lg font-bold leading-tight tracking-wide text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:text-sm'
 
 const CAR_SIDE_LEFT = 'flex min-h-0 min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-2'
 
@@ -133,15 +139,15 @@ const STEER_BUTTONS: PadKey[] = [
   { key: 'ArrowRight', label: 'DERECHA', ariaLabel: 'Girar a la derecha', vertical: true },
 ]
 
-const DROP_BUTTON = 'min-h-24 w-full flex-1 rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 text-[#f5c518] text-base font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+const DROP_BUTTON = 'flex min-h-24 w-full min-w-0 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-[#f5c518] text-base font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
 
 const DROP_LEFT = 'flex min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
 
 const DROP_RIGHT = 'flex min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
 
 const DROP_BUTTONS: PadKey[] = [
-  { key: 'a', label: '◀ IZQUIERDA', ariaLabel: 'Mover a la izquierda' },
-  { key: 'd', label: 'DERECHA ▶', ariaLabel: 'Mover a la derecha' },
+  { key: 'a', label: 'IZQUIERDA', mark: '◀', ariaLabel: 'Mover a la izquierda' },
+  { key: 'd', label: 'DERECHA', mark: '▶', ariaLabel: 'Mover a la derecha' },
 ]
 
 const PADDLE_UP = 'flex w-full max-w-xs [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'

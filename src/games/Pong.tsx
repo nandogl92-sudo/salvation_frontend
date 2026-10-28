@@ -100,9 +100,10 @@ const drawHud = (
   ctx: Ctx,
   leftScore: number,
   rightScore: number,
-  botEnabled: boolean,
   leftName = 'P1',
   rightName = 'P2',
+  leftHint = '',
+  rightHint = '',
 ) => {
   const y = 12;
   const h = 66;
@@ -110,14 +111,12 @@ const drawHud = (
 
   drawPanel(ctx, 16, y, 292, h, CYAN);
   ctx.textAlign = 'left';
-  ctx.font = '18px "Press Start 2P", monospace';
+  ctx.font = '10px "Press Start 2P", monospace';
   ctx.fillStyle = CYAN;
-  ctx.fillText(leftName, 40, 46);
+  ctx.fillText(leftName, 32, 34);
   ctx.font = '8px "Press Start 2P", monospace';
   ctx.fillStyle = '#9fb3c8';
-  ctx.fillText('W / S', 104, 38);
-  ctx.fillStyle = '#f6f1e8';
-  ctx.fillText('PRIMERO A 10', 104, 56);
+  ctx.fillText(leftHint, 32, 58);
 
   const fade = ctx.createLinearGradient(324, 0, 636, 0);
   fade.addColorStop(0, CYAN);
@@ -137,14 +136,12 @@ const drawHud = (
 
   drawPanel(ctx, 652, y, 292, h, ORANGE);
   ctx.textAlign = 'right';
-  ctx.font = '18px "Press Start 2P", monospace';
+  ctx.font = '10px "Press Start 2P", monospace';
   ctx.fillStyle = ORANGE;
-  ctx.fillText(rightName, 920, 46);
+  ctx.fillText(rightName, 928, 34);
   ctx.font = '8px "Press Start 2P", monospace';
   ctx.fillStyle = '#9fb3c8';
-  ctx.fillText(botEnabled ? 'BOT' : 'FLECHAS', 856, 38);
-  ctx.fillStyle = '#f6f1e8';
-  ctx.fillText('PRIMERO A 10', 856, 56);
+  ctx.fillText(rightHint, 928, 58);
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -419,10 +416,14 @@ export default function Pong({
   onGameEnd,
   botEnabled = false,
   world = null,
+  youName = '',
+  rivalName = '',
 }: {
   onGameEnd: (winner: 'p1' | 'p2') => void;
   botEnabled?: boolean;
   world?: SharedWorld | null;
+  youName?: string;
+  rivalName?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -438,6 +439,15 @@ export default function Pong({
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
+    const names = { you: youName, rival: rivalName };
+    const label = (side: 'p1' | 'p2', fallback: string) => sideLabel(world, side, fallback, names);
+    const hintFor = (side: 'p1' | 'p2') => {
+      if (!world && botEnabled && side === 'p2') return 'BOT';
+      const mine = world ? world.localSide === side : side === 'p1';
+      if (mine) return 'W / S';
+      if (!world && !botEnabled) return 'FLECHAS';
+      return '';
+    };
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const paddleStart = (PLAY_TOP + PLAY_BOTTOM - PADDLE_H) / 2;
     const minPaddle = PLAY_TOP + 6;
@@ -777,9 +787,10 @@ export default function Pong({
         ctx,
         state.p1.score,
         state.p2.score,
-        botEnabled,
-        sideLabel(world, 'p1', 'P1'),
-        sideLabel(world, 'p2', 'P2'),
+        label('p1', 'P1'),
+        label('p2', 'P2'),
+        hintFor('p1'),
+        hintFor('p2'),
       );
       if (rankedWait) drawCountBanner(ctx, rankedWait);
     };
@@ -832,7 +843,7 @@ export default function Pong({
       link?.stop();
       cancelAnimationFrame(animationFrameId);
     };
-  }, [onGameEnd, botEnabled, world]);
+  }, [onGameEnd, botEnabled, world, youName, rivalName]);
 
   return (
     <canvas
@@ -840,7 +851,7 @@ export default function Pong({
       width={WIDTH}
       height={HEIGHT}
       aria-label="Paddle Duel"
-      className="w-full max-w-full aspect-video rounded-xl"
+      className="max-h-full max-w-full rounded-xl"
     />
   );
 }

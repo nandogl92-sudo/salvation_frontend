@@ -551,10 +551,14 @@ export default function Racing({
   onGameEnd,
   botEnabled = false,
   world = null,
+  youName = '',
+  rivalName = '',
 }: {
   onGameEnd: (winner: 'p1' | 'p2') => void;
   botEnabled?: boolean;
   world?: SharedWorld | null;
+  youName?: string;
+  rivalName?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -576,8 +580,8 @@ export default function Racing({
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const track = makeTrack(rand);
     const state = {
-      p1: makeCar(-18, '#ec4899', '#9d174d', '#fbcfe8', sideLabel(world, 'p1', 'FUCSIA')),
-      p2: makeCar(18, '#22d3ee', '#0e7490', '#cffafe', sideLabel(world, 'p2', 'CIAN')),
+      p1: makeCar(-18, '#ec4899', '#9d174d', '#fbcfe8', sideLabel(world, 'p1', 'FUCSIA', { you: youName, rival: rivalName })),
+      p2: makeCar(18, '#22d3ee', '#0e7490', '#cffafe', sideLabel(world, 'p2', 'CIAN', { you: youName, rival: rivalName })),
       keys: {} as Record<string, boolean>,
       frames: 0,
       winner: null as Side | null,
@@ -772,7 +776,7 @@ export default function Racing({
       link?.stop();
       cancelAnimationFrame(raf);
     };
-  }, [onGameEnd, botEnabled, world]);
+  }, [onGameEnd, botEnabled, world, youName, rivalName]);
 
   return (
     <canvas

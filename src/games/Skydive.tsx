@@ -291,10 +291,14 @@ export default function Skydive({
   onGameEnd,
   botEnabled = false,
   world = null,
+  youName = '',
+  rivalName = '',
 }: {
   onGameEnd: (winner: 'p1' | 'p2') => void;
   botEnabled?: boolean;
   world?: SharedWorld | null;
+  youName?: string;
+  rivalName?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -312,8 +316,8 @@ export default function Skydive({
     const them = otherSide(you);
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const state = {
-      p1: makeJumper(300, '#c026d3', '#86198f', '#e879f9', sideLabel(world, 'p1', 'MORADO')),
-      p2: makeJumper(660, '#facc15', '#8a7a2a', '#fde047', sideLabel(world, 'p2', 'AMARILLO')),
+      p1: makeJumper(300, '#c026d3', '#86198f', '#e879f9', sideLabel(world, 'p1', 'MORADO', { you: youName, rival: rivalName })),
+      p2: makeJumper(660, '#facc15', '#8a7a2a', '#fde047', sideLabel(world, 'p2', 'AMARILLO', { you: youName, rival: rivalName })),
       keys: {} as Record<string, boolean>,
       hazards: [] as Hazard[],
       sparks: [] as Spark[],
@@ -630,7 +634,7 @@ export default function Skydive({
       link?.stop();
       cancelAnimationFrame(raf);
     };
-  }, [onGameEnd, botEnabled, world]);
+  }, [onGameEnd, botEnabled, world, youName, rivalName]);
 
   return (
     <canvas

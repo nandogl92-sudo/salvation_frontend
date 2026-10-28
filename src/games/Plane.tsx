@@ -294,10 +294,7 @@ const drawBanner = (ctx: Ctx, title: string, sub: string) => {
   ctx.fillText(title, 480, 240);
   ctx.fillStyle = '#e2e8f0';
   ctx.font = `9px ${PIX}`;
-  ctx.fillText(sub, 480, 280);
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = `8px ${PIX}`;
-  ctx.fillText('ESPACIO IMPULSO    P2 FLECHA ARRIBA', 480, 318);
+  ctx.fillText(sub, 480, 290);
 };
 
 const pickInner = (gameTime: number, rand: () => number) => {
@@ -323,10 +320,14 @@ export default function Plane({
   onGameEnd,
   botEnabled = false,
   world = null,
+  youName = '',
+  rivalName = '',
 }: {
   onGameEnd: (winner: 'p1' | 'p2') => void;
   botEnabled?: boolean;
   world?: SharedWorld | null;
+  youName?: string;
+  rivalName?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -349,8 +350,8 @@ export default function Plane({
     const them = otherSide(you);
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const state = {
-      p1: makePlane(168, '#ec4899', '#9d174d', sideLabel(world, 'p1', 'TU')),
-      p2: makePlane(258, '#84cc16', '#3f6212', sideLabel(world, 'p2', 'RIVAL')),
+      p1: makePlane(168, '#ec4899', '#9d174d', sideLabel(world, 'p1', 'TU', { you: youName, rival: rivalName })),
+      p2: makePlane(258, '#84cc16', '#3f6212', sideLabel(world, 'p2', 'RIVAL', { you: youName, rival: rivalName })),
       keys: {} as Record<string, boolean>,
       rings: [] as Ring[],
       sparks: [] as Spark[],
@@ -407,8 +408,16 @@ export default function Plane({
         flap(plane, now, true);
       }
       if (!world && event.key === 'ArrowUp') {
-        state.p2.flapReady = true;
-        flap(state.p2, now, true);
+        if (botEnabled) {
+          beginIfNeeded();
+          noteFlap();
+          const plane = localPlane();
+          plane.flapReady = true;
+          flap(plane, now, true);
+        } else {
+          state.p2.flapReady = true;
+          flap(state.p2, now, true);
+        }
       }
     };
     const handleKeyUp = (event: KeyboardEvent) => {
@@ -416,7 +425,8 @@ export default function Plane({
       state.keys[event.key] = false;
       publishKeys();
       if (event.code === 'Space' || event.key === ' ') localPlane().flapReady = true;
-      if (!world && event.key === 'ArrowUp') state.p2.flapReady = true;
+      if (!world && event.key === 'ArrowUp' && botEnabled) localPlane().flapReady = true;
+      if (!world && event.key === 'ArrowUp' && !botEnabled) state.p2.flapReady = true;
     };
     const handlePointer = (event: PointerEvent) => {
       event.preventDefault();
@@ -733,7 +743,7 @@ export default function Plane({
       link?.stop();
       cancelAnimationFrame(raf);
     };
-  }, [onGameEnd, botEnabled, world]);
+  }, [onGameEnd, botEnabled, world, youName, rivalName]);
 
   return (
     <canvas
