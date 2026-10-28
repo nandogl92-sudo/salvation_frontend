@@ -366,10 +366,12 @@ const makeFighter = (x: number, y: number, magSize: number, reserve: number): Fi
 
 export default function Shooter({
   onGameEnd,
+  matchId,
   botEnabled = false,
   world = null,
 }: {
-  onGameEnd: (winner: 'p1' | 'p2') => void;
+  onGameEnd: (winner: 'p1' | 'p2', matchId: string) => void;
+  matchId: string;
   botEnabled?: boolean;
   world?: SharedWorld | null;
 }) {
@@ -385,6 +387,9 @@ export default function Shooter({
 
     const openAt = Date.now();
     let ended = false;
+    const endMatch = (winner: 'p1' | 'p2') => {
+      onGameEnd(winner, matchId);
+    };
     let animationFrameId = 0;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -494,7 +499,7 @@ export default function Shooter({
       if (state.ko) {
         ended = true;
         cancelAnimationFrame(animationFrameId);
-        onGameEnd(state.ko);
+        endMatch(state.ko);
         return;
       }
 
@@ -607,7 +612,7 @@ export default function Shooter({
       link?.stop();
       cancelAnimationFrame(animationFrameId);
     };
-  }, [onGameEnd, botEnabled, world]);
+  }, [onGameEnd, matchId, botEnabled, world]);
 
   return (
     <canvas

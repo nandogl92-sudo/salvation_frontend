@@ -414,12 +414,14 @@ const drawCountBanner = (ctx: Ctx, title: string) => {
 
 export default function Pong({
   onGameEnd,
+  matchId,
   botEnabled = false,
   world = null,
   youName = '',
   rivalName = '',
 }: {
-  onGameEnd: (winner: 'p1' | 'p2') => void;
+  onGameEnd: (winner: 'p1' | 'p2', matchId: string) => void;
+  matchId: string;
   botEnabled?: boolean;
   world?: SharedWorld | null;
   youName?: string;
@@ -558,6 +560,9 @@ export default function Pong({
     let lastStamp = performance.now();
     let acc = 0;
     let ended = false;
+    const endMatch = (winner: 'p1' | 'p2') => {
+      onGameEnd(winner, matchId);
+    };
     let playHead = 0;
 
     const stepBall = () => {
@@ -612,8 +617,8 @@ export default function Pong({
     let faceTheirs = { up: false, down: false };
 
     const finish = () => {
-      if (state.p1.score >= 10) { ended = true; onGameEnd('p1'); return true; }
-      if (state.p2.score >= 10) { ended = true; onGameEnd('p2'); return true; }
+      if (state.p1.score >= 10) { ended = true; endMatch('p1'); return true; }
+      if (state.p2.score >= 10) { ended = true; endMatch('p2'); return true; }
       return false;
     };
 
@@ -743,13 +748,13 @@ export default function Pong({
       });
 
       if (isHost) {
-        if (state.p1.score >= 10) { ended = true; onGameEnd('p1'); return; }
-        if (state.p2.score >= 10) { ended = true; onGameEnd('p2'); return; }
+        if (state.p1.score >= 10) { ended = true; endMatch('p1'); return; }
+        if (state.p2.score >= 10) { ended = true; endMatch('p2'); return; }
         return;
       }
       const snap = link?.readRivalSnap();
-      if (snap && snap.p1 >= 10) { ended = true; onGameEnd('p1'); return; }
-      if (snap && snap.p2 >= 10) { ended = true; onGameEnd('p2'); return; }
+      if (snap && snap.p1 >= 10) { ended = true; endMatch('p1'); return; }
+      if (snap && snap.p2 >= 10) { ended = true; endMatch('p2'); return; }
     };
 
     const paint = (rankedWait: string | null, blend: number) => {
@@ -817,8 +822,8 @@ export default function Pong({
           if (state.shake > 0) state.shake -= 1;
         }
         paint(countdown, 0);
-        if (view && view.p1 >= 10) { ended = true; onGameEnd('p1'); return; }
-        if (view && view.p2 >= 10) { ended = true; onGameEnd('p2'); return; }
+        if (view && view.p1 >= 10) { ended = true; endMatch('p1'); return; }
+        if (view && view.p2 >= 10) { ended = true; endMatch('p2'); return; }
         animationFrameId = requestAnimationFrame(tick);
         return;
       }
@@ -844,7 +849,7 @@ export default function Pong({
       link?.stop();
       cancelAnimationFrame(animationFrameId);
     };
-  }, [onGameEnd, botEnabled, world, youName, rivalName]);
+  }, [onGameEnd, matchId, botEnabled, world, youName, rivalName]);
 
   return (
     <canvas

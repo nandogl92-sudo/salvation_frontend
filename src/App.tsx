@@ -131,13 +131,14 @@ export default function App() {
   // Null mientras no hay resultado pendiente de mostrar.
   // ==========================================
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
+  const [playSerial, setPlaySerial] = useState(0);
   const settlingRef = useRef(false);
   const settledMatchIdRef = useRef<string | null>(null);
   const resultSeqRef = useRef(0);
   const searchLockRef = useRef(false);
-  const endGameRef = useRef<(winner: 'p1' | 'p2') => void>(() => {});
-  const handleEnd = useCallback((winner: 'p1' | 'p2') => {
-    endGameRef.current(winner);
+  const endGameRef = useRef<(winner: 'p1' | 'p2', matchId: string) => void>(() => {});
+  const handleEnd = useCallback((winner: 'p1' | 'p2', matchId: string) => {
+    endGameRef.current(winner, matchId);
   }, []);
   const rankedPlayRef = useRef({
     matchId: null as string | null,
@@ -247,6 +248,7 @@ export default function App() {
     setOpponent(result.opponent);
     settledMatchIdRef.current = null;
     settlingRef.current = false;
+    setPlaySerial((value) => value + 1);
     setActiveMatch({
       id: result.match.id,
       isBot: matchedBot,
@@ -341,6 +343,9 @@ export default function App() {
       return;
     }
     searchLockRef.current = false;
+    settledMatchIdRef.current = null;
+    settlingRef.current = false;
+    setPlaySerial((value) => value + 1);
     setLastRivalId(rival.id);
     setOpponent({ ...result.opponent, isBot: false });
     setActiveMatch({ id: result.match.id, isBot: false, isRanked: false, world: null });
@@ -357,6 +362,9 @@ export default function App() {
       return;
     }
     searchLockRef.current = false;
+    settledMatchIdRef.current = null;
+    settlingRef.current = false;
+    setPlaySerial((value) => value + 1);
     setOpponent(result.opponent);
     setActiveMatch({ id: result.match.id, isBot: true, isRanked: false, world: null });
     setTicket(null);
@@ -646,24 +654,26 @@ export default function App() {
     };
   }, [view, activeMatch, gameResult, currentUser]);
 
-  endGameRef.current = (winner) => {
-    const localSide = activeMatch?.world?.localSide ?? 'p1';
+  endGameRef.current = (winner, matchId) => {
+    if (!activeMatch || matchId !== activeMatch.id) return;
+    const localSide = activeMatch.world?.localSide ?? 'p1';
     void handleGameEnd(winner === localSide);
   };
 
   const renderGame = () => {
     const world = activeMatch?.world ?? null;
-    const matchKey = activeMatch?.id ?? 'local';
+    const matchKey = `${activeMatch?.id ?? 'local'}:${playSerial}`;
+    const matchId = activeMatch?.id ?? 'local';
 
     // IA local solo en amistoso. Ranking comparte el mundo; el rival no es un bot.
     const botEnabled = Boolean(opponent) && !activeMatch?.isRanked;
 
     switch(selectedGame?.id) {
-      case 'pong': return <Pong key={matchKey} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
-      case 'snake': return <AeroRings key={matchKey} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
-      case 'tetris': return <Racing key={matchKey} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
-      case 'combat': return <Skydive key={matchKey} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
-      case 'shooter': return <Shooter key={matchKey} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} />;
+      case 'pong': return <Pong key={matchKey} matchId={matchId} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'snake': return <AeroRings key={matchKey} matchId={matchId} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'tetris': return <Racing key={matchKey} matchId={matchId} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'combat': return <Skydive key={matchKey} matchId={matchId} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'shooter': return <Shooter key={matchKey} matchId={matchId} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} />;
       default: return <div className="text-white text-center p-8">Juego no encontrado</div>;
     }
   };

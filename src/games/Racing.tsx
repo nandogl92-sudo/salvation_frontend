@@ -549,12 +549,14 @@ const burst = (sparks: Spark[], x: number, y: number, color: string) => {
 
 export default function Racing({
   onGameEnd,
+  matchId,
   botEnabled = false,
   world = null,
   youName = '',
   rivalName = '',
 }: {
-  onGameEnd: (winner: 'p1' | 'p2') => void;
+  onGameEnd: (winner: 'p1' | 'p2', matchId: string) => void;
+  matchId: string;
   botEnabled?: boolean;
   world?: SharedWorld | null;
   youName?: string;
@@ -571,6 +573,9 @@ export default function Racing({
 
     const openAt = Date.now();
     let ended = false;
+    const endMatch = (winner: 'p1' | 'p2') => {
+      onGameEnd(winner, matchId);
+    };
     let acc = 0;
     let raf = 0;
     let playHead = 0;
@@ -692,7 +697,7 @@ export default function Racing({
         if (state.winner) {
           ended = true;
           cancelAnimationFrame(raf);
-          onGameEnd(state.winner);
+          endMatch(state.winner);
           return;
         }
         raf = requestAnimationFrame(update);
@@ -758,7 +763,7 @@ export default function Racing({
       if (state.winner) {
         ended = true;
         cancelAnimationFrame(raf);
-        onGameEnd(state.winner);
+        endMatch(state.winner);
         return;
       }
 
@@ -773,7 +778,7 @@ export default function Racing({
       link?.stop();
       cancelAnimationFrame(raf);
     };
-  }, [onGameEnd, botEnabled, world, youName, rivalName]);
+  }, [onGameEnd, matchId, botEnabled, world, youName, rivalName]);
 
   return (
     <canvas

@@ -289,12 +289,14 @@ const hitsJumper = (jumper: Jumper, item: Hazard, sway: number) => {
 
 export default function Skydive({
   onGameEnd,
+  matchId,
   botEnabled = false,
   world = null,
   youName = '',
   rivalName = '',
 }: {
-  onGameEnd: (winner: 'p1' | 'p2') => void;
+  onGameEnd: (winner: 'p1' | 'p2', matchId: string) => void;
+  matchId: string;
   botEnabled?: boolean;
   world?: SharedWorld | null;
   youName?: string;
@@ -310,6 +312,9 @@ export default function Skydive({
     void document.fonts.load(`10px ${PIX}`);
 
     let ended = false;
+    const endMatch = (winner: 'p1' | 'p2') => {
+      onGameEnd(winner, matchId);
+    };
     let raf = 0;
     let playHead = 0;
     const rand = world ? makeRng(world.seed) : Math.random;
@@ -510,7 +515,7 @@ export default function Skydive({
         if (state.winner) {
           ended = true;
           cancelAnimationFrame(raf);
-          onGameEnd(state.winner === 'p2' ? 'p2' : 'p1');
+          endMatch(state.winner === 'p2' ? 'p2' : 'p1');
           return;
         }
         raf = requestAnimationFrame(update);
@@ -589,13 +594,13 @@ export default function Skydive({
           }
           ended = true;
           cancelAnimationFrame(raf);
-          onGameEnd(state.winner === 'p2' ? 'p2' : 'p1');
+          endMatch(state.winner === 'p2' ? 'p2' : 'p1');
           return;
         }
       } else if (state.winner) {
         ended = true;
         cancelAnimationFrame(raf);
-        onGameEnd(state.winner === 'p2' ? 'p2' : 'p1');
+        endMatch(state.winner === 'p2' ? 'p2' : 'p1');
         return;
       }
 
@@ -638,7 +643,7 @@ export default function Skydive({
       link?.stop();
       cancelAnimationFrame(raf);
     };
-  }, [onGameEnd, botEnabled, world, youName, rivalName]);
+  }, [onGameEnd, matchId, botEnabled, world, youName, rivalName]);
 
   return (
     <canvas

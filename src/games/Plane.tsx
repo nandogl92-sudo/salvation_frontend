@@ -322,12 +322,14 @@ const spawnRing = (id: number, gameTime: number, rand: () => number): Ring => {
 
 export default function Plane({
   onGameEnd,
+  matchId,
   botEnabled = false,
   world = null,
   youName = '',
   rivalName = '',
 }: {
-  onGameEnd: (winner: 'p1' | 'p2') => void;
+  onGameEnd: (winner: 'p1' | 'p2', matchId: string) => void;
+  matchId: string;
   botEnabled?: boolean;
   world?: SharedWorld | null;
   youName?: string;
@@ -344,6 +346,9 @@ export default function Plane({
 
     let raf = 0;
     let ended = false;
+    const endMatch = (winner: 'p1' | 'p2') => {
+      onGameEnd(winner, matchId);
+    };
     let nextRingId = 1;
     let playHead = 0;
     let spaceWas = false;
@@ -654,7 +659,7 @@ export default function Plane({
         if (state.winner) {
           ended = true;
           cancelAnimationFrame(raf);
-          onGameEnd(state.winner);
+          endMatch(state.winner);
           return;
         }
         raf = requestAnimationFrame(update);
@@ -712,13 +717,13 @@ export default function Plane({
           state.winner = pickWinner();
           ended = true;
           cancelAnimationFrame(raf);
-          onGameEnd(state.winner);
+          endMatch(state.winner);
           return;
         }
       } else if (state.winner) {
         ended = true;
         cancelAnimationFrame(raf);
-        onGameEnd(state.winner);
+        endMatch(state.winner);
         return;
       }
 
@@ -769,7 +774,7 @@ export default function Plane({
       link?.stop();
       cancelAnimationFrame(raf);
     };
-  }, [onGameEnd, botEnabled, world, youName, rivalName]);
+  }, [onGameEnd, matchId, botEnabled, world, youName, rivalName]);
 
   return (
     <canvas
