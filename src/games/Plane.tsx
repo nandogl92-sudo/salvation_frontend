@@ -263,13 +263,13 @@ const drawHud = (ctx: Ctx, p1: PlaneUnit, p2: PlaneUnit) => {
   ctx.font = `12px ${PIX}`;
   ctx.fillText('AERO RINGS', 480, 22);
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#fdba74';
+  ctx.fillStyle = p1.color;
   ctx.font = `8px ${PIX}`;
   ctx.fillText(`${p1.name} ${p1.score}`, 16, 22);
   ctx.fillStyle = '#94a3b8';
   ctx.fillText(`CRECE ${p1.grows}/${MAX_GROWS}`, 16, 40);
   ctx.textAlign = 'right';
-  ctx.fillStyle = '#7dd3fc';
+  ctx.fillStyle = p2.color;
   ctx.fillText(`${p2.name} ${p2.score}`, 944, 22);
   ctx.fillStyle = '#94a3b8';
   ctx.fillText(`CRECE ${p2.grows}/${MAX_GROWS}`, 944, 40);
@@ -278,8 +278,8 @@ const drawHud = (ctx: Ctx, p1: PlaneUnit, p2: PlaneUnit) => {
     const w = Math.round((grows / MAX_GROWS) * 116);
     paint(ctx, x + 2, 36, w, 4, color);
   };
-  meter(148, p1.grows, shadeTowardBlack('#fdba74', p1.grows / MAX_GROWS));
-  meter(686, p2.grows, shadeTowardBlack('#7dd3fc', p2.grows / MAX_GROWS));
+  meter(148, p1.grows, shadeTowardBlack(p1.color, p1.grows / MAX_GROWS));
+  meter(686, p2.grows, shadeTowardBlack(p2.color, p2.grows / MAX_GROWS));
 };
 
 const drawBanner = (ctx: Ctx, title: string, sub: string) => {
@@ -349,8 +349,8 @@ export default function Plane({
     const them = otherSide(you);
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const state = {
-      p1: makePlane(168, '#fdba74', '#c2410c', sideLabel(world, 'p1', 'TU')),
-      p2: makePlane(258, '#7dd3fc', '#1d4ed8', sideLabel(world, 'p2', 'RIVAL')),
+      p1: makePlane(168, '#ec4899', '#9d174d', sideLabel(world, 'p1', 'TU')),
+      p2: makePlane(258, '#84cc16', '#3f6212', sideLabel(world, 'p2', 'RIVAL')),
       keys: {} as Record<string, boolean>,
       rings: [] as Ring[],
       sparks: [] as Spark[],

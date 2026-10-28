@@ -576,8 +576,8 @@ export default function Racing({
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const track = makeTrack(rand);
     const state = {
-      p1: makeCar(-18, '#e11d48', '#9f1239', '#fecdd3', sideLabel(world, 'p1', 'RED SLOT')),
-      p2: makeCar(18, '#2563eb', '#1e3a8a', '#bfdbfe', sideLabel(world, 'p2', 'BLUE SLOT')),
+      p1: makeCar(-18, '#ec4899', '#9d174d', '#fbcfe8', sideLabel(world, 'p1', 'FUCSIA')),
+      p2: makeCar(18, '#22d3ee', '#0e7490', '#cffafe', sideLabel(world, 'p2', 'CIAN')),
       keys: {} as Record<string, boolean>,
       frames: 0,
       winner: null as Side | null,

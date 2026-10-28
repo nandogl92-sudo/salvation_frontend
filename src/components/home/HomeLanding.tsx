@@ -31,7 +31,7 @@ const GameArt = ({ gameId }: { gameId: string }) => {
   if (gameId === 'pong') {
     return (
       <img
-        src="/paddle-duel.jpg"
+        src="/paddle-duel-cover.jpg"
         alt=""
         className="aspect-[1024/571] w-full object-cover object-center"
       />
@@ -40,7 +40,7 @@ const GameArt = ({ gameId }: { gameId: string }) => {
   if (gameId === 'snake') {
     return (
       <img
-        src="/aero-rings.jpg"
+        src="/aero-rings-cover.jpg"
         alt=""
         className="aspect-[1024/571] w-full object-cover object-center"
       />
@@ -49,7 +49,7 @@ const GameArt = ({ gameId }: { gameId: string }) => {
   if (gameId === 'tetris') {
     return (
       <img
-        src="/slot-car.jpg"
+        src="/slot-car-cover-2.jpg"
         alt=""
         className="aspect-[1024/571] w-full object-cover object-center"
       />
@@ -58,7 +58,7 @@ const GameArt = ({ gameId }: { gameId: string }) => {
   if (gameId === 'combat') {
     return (
       <img
-        src="/sky-drop.jpg"
+        src="/sky-drop-cover.jpg"
         alt=""
         className="aspect-[1024/571] w-full object-cover object-center"
       />

@@ -178,28 +178,50 @@ const drawHazard = (ctx: Ctx, item: Hazard) => {
 };
 
 const drawJumper = (ctx: Ctx, jumper: Jumper, time: number, sway: number) => {
-  const x = jumper.x + sway;
-  const y = jumper.y;
+  const x = Math.round(jumper.x + sway);
+  const y = Math.round(jumper.y);
+  const body = jumper.color;
+  const canopy = jumper.canopy;
+  const shade = jumper.dark;
   ctx.globalAlpha = jumper.alive ? 1 : 0.38;
-  ctx.strokeStyle = jumper.dark;
-  ctx.lineWidth = 2;
+
+  paint(ctx, x - 20, y - 24, 40, 12, canopy);
+  paint(ctx, x - 16, y - 30, 32, 8, canopy);
+  paint(ctx, x - 10, y - 34, 20, 6, canopy);
+  paint(ctx, x - 6, y - 32, 2, 18, shade);
+  paint(ctx, x + 4, y - 32, 2, 18, shade);
+  paint(ctx, x - 18, y - 14, 36, 5, shade);
+
+  ctx.strokeStyle = '#1a1a24';
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(x, y + 8);
-  ctx.lineTo(x - 18, y - 18);
-  ctx.moveTo(x, y + 8);
-  ctx.lineTo(x + 18, y - 18);
+  ctx.moveTo(x - 18, y - 12);
+  ctx.lineTo(x - 8, y + 8);
+  ctx.moveTo(x - 4, y - 12);
+  ctx.lineTo(x - 3, y + 6);
+  ctx.moveTo(x + 4, y - 12);
+  ctx.lineTo(x + 3, y + 6);
+  ctx.moveTo(x + 18, y - 12);
+  ctx.lineTo(x + 8, y + 8);
   ctx.stroke();
-  paint(ctx, x - 24, y - 30, 48, 16, jumper.canopy);
-  paint(ctx, x - 20, y - 26, 10, 6, '#fff');
-  paint(ctx, x - 8, y, 16, 18, jumper.color);
-  paint(ctx, x - 5, y - 10, 10, 10, '#f8d7b0');
-  paint(ctx, x - 6, y + 16, 5, 10, jumper.dark);
-  paint(ctx, x + 1, y + 16, 5, 10, jumper.dark);
+
+  paint(ctx, x - 7, y, 14, 12, body);
+  paint(ctx, x - 5, y + 3, 2, 2, '#1a1a24');
+  paint(ctx, x + 3, y + 3, 2, 2, '#1a1a24');
+  paint(ctx, x - 2, y + 7, 4, 2, '#1a1a24');
+  paint(ctx, x - 5, y + 12, 10, 8, body);
+  paint(ctx, x - 11, y + 6, 6, 4, body);
+  paint(ctx, x + 5, y + 6, 6, 4, body);
+  paint(ctx, x - 5, y + 20, 4, 7, body);
+  paint(ctx, x + 1, y + 20, 4, 7, body);
+  paint(ctx, x - 6, y + 26, 5, 3, shade);
+  paint(ctx, x + 1, y + 26, 5, 3, shade);
+
   if (!jumper.alive) {
     ctx.fillStyle = '#f5c518';
     ctx.font = `10px ${PIX}`;
     ctx.textAlign = 'center';
-    ctx.fillText('OUT', x, y - 38);
+    ctx.fillText('OUT', x, y - 42);
   }
   ctx.globalAlpha = 1;
   void time;
@@ -290,8 +312,8 @@ export default function Skydive({
     const them = otherSide(you);
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const state = {
-      p1: makeJumper(300, '#fb7185', '#9f1239', '#e11d48', sideLabel(world, 'p1', 'ROSA')),
-      p2: makeJumper(660, '#7dd3fc', '#1e3a8a', '#2563eb', sideLabel(world, 'p2', 'AZUL')),
+      p1: makeJumper(300, '#c026d3', '#86198f', '#e879f9', sideLabel(world, 'p1', 'MORADO')),
+      p2: makeJumper(660, '#facc15', '#8a7a2a', '#fde047', sideLabel(world, 'p2', 'AMARILLO')),
       keys: {} as Record<string, boolean>,
       hazards: [] as Hazard[],
       sparks: [] as Spark[],

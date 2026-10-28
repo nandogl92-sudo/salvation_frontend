@@ -13,10 +13,10 @@ import { handleActivateKey } from '../utils/handleActivateKey'
 import { usePointsRanking } from '../home/usePointsRanking'
 
 const GAME_POSTER: Record<string, string> = {
-  pong: '/paddle-duel.jpg',
-  snake: '/aero-rings.jpg',
-  tetris: '/slot-car.jpg',
-  combat: '/sky-drop.jpg',
+  pong: '/paddle-duel-cover.jpg',
+  snake: '/aero-rings-cover.jpg',
+  tetris: '/slot-car-cover-2.jpg',
+  combat: '/sky-drop-cover.jpg',
 }
 
 type LobbyPanelProps = {
