@@ -47,6 +47,7 @@ type Ring = {
   y: number;
   inner: number;
   outer: number;
+  owner: Side;
   seen: Record<Side, boolean>;
 };
 
@@ -197,17 +198,19 @@ const drawBackdrop = (ctx: Ctx, clouds: Cloud[], distance: number) => {
   drawHazards(ctx);
 };
 
+const RING_COLOR: Record<Side, string> = { p1: '#ec4899', p2: '#84cc16' };
+const RING_SHADE: Record<Side, string> = { p1: '#9d174d', p2: '#3f6212' };
+
 const drawRing = (ctx: Ctx, ring: Ring) => {
-  const warn = ring.inner < 28;
   ctx.beginPath();
   ctx.arc(ring.x, ring.y, ring.outer, 0, Math.PI * 2);
   ctx.arc(ring.x, ring.y, ring.inner, 0, Math.PI * 2, true);
-  ctx.fillStyle = warn ? '#ef4444' : '#f5c518';
+  ctx.fillStyle = RING_COLOR[ring.owner];
   ctx.fill();
   ctx.beginPath();
   ctx.arc(ring.x, ring.y, ring.outer, 0, Math.PI * 2);
   ctx.arc(ring.x, ring.y, ring.inner + 3, 0, Math.PI * 2, true);
-  ctx.fillStyle = warn ? '#7f1d1d' : '#b45309';
+  ctx.fillStyle = RING_SHADE[ring.owner];
   ctx.fill();
   ctx.beginPath();
   ctx.arc(ring.x - 6, ring.y - 8, Math.max(4, ring.inner * 0.35), 0, Math.PI * 2);
@@ -313,7 +316,8 @@ const spawnRing = (id: number, gameTime: number, rand: () => number): Ring => {
   let y = minY + rand() * Math.max(12, maxY - minY);
   if (leaveBottom) y = Math.min(y, FIELD.bottom - outer - dodge);
   else y = Math.max(y, FIELD.top + outer + dodge);
-  return { id, x: WIDTH + outer + 8, y, inner, outer, seen: { p1: false, p2: false } };
+  const owner: Side = id % 2 === 0 ? 'p2' : 'p1';
+  return { id, x: WIDTH + outer + 8, y, inner, outer, owner, seen: { p1: false, p2: false } };
 };
 
 export default function Plane({
@@ -492,8 +496,14 @@ export default function Plane({
       const ceil = FIELD.top + SPIKE_H + plane.size + 36;
       let target = (FIELD.top + FIELD.bottom) / 2;
       if (next) {
-        if (canPass(plane, next)) target = next.y;
-        else target = next.y < HEIGHT / 2 ? floor - 8 : ceil + 8;
+        const mine = next.owner === 'p2';
+        if (mine && canPass(plane, next)) target = next.y;
+        else {
+          const above = next.y - next.outer - plane.size - 20;
+          const below = next.y + next.outer + plane.size + 20;
+          target = Math.abs(plane.y - above) < Math.abs(plane.y - below) ? above : below;
+          target = Math.max(ceil + 8, Math.min(floor - 8, target));
+        }
       }
       const look = next ? Math.max(0.08, (next.x - plane.x) / Math.max(80, scroll)) : 0.35;
       const pred = plane.y + plane.vy * look + 0.5 * pullOf(plane.vy) * look * look;
@@ -537,17 +547,35 @@ export default function Plane({
       }
     };
 
+    const addGrow = (plane: PlaneUnit) => {
+      if (!plane.alive) return;
+      plane.grows += 1;
+      resize(plane);
+      if (plane.grows >= MAX_GROWS) explode(plane, true);
+    };
+
+    const cutGrow = (plane: PlaneUnit) => {
+      if (plane.grows <= 0) return;
+      plane.grows -= 1;
+      resize(plane);
+    };
+
     const judge = (plane: PlaneUnit, side: Side) => {
       if (!plane.alive) return;
       state.rings.forEach((ring) => {
-        if (hitsRim(plane, ring)) explode(plane);
-        if (!plane.alive || ring.seen[side] || plane.x < ring.x) return;
+        if (!plane.alive) return;
+        if (hitsRim(plane, ring)) {
+          if (ring.seen[side]) return;
+          ring.seen[side] = true;
+          addGrow(plane);
+          return;
+        }
+        if (ring.seen[side] || plane.x < ring.x) return;
         ring.seen[side] = true;
         if (!inHole(plane, ring)) return;
         plane.score += 1;
-        if (plane.grows <= 0) return;
-        plane.grows -= 1;
-        resize(plane);
+        if (ring.owner === side) cutGrow(plane);
+        else addGrow(plane);
       });
     };
 
@@ -575,6 +603,7 @@ export default function Plane({
         y: item.y,
         inner: item.w,
         outer: item.h,
+        owner: item.k === 1 ? 'p2' : 'p1',
         seen: { p1: false, p2: false },
       }));
       state.gameTime = scene.time;
@@ -594,7 +623,7 @@ export default function Plane({
       drawPlane(ctx, state.p1);
       drawPlane(ctx, state.p2);
       drawHud(ctx, state.p1, state.p2);
-      if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIELO    MISMO ARO    ESPACIO IMPULSO');
+      if (rankedWait) drawBanner(ctx, rankedWait, 'TU COLOR -1    OTRO COLOR O BORDE +1');
       else if (state.winner) {
         const title = state.winner === you ? 'VICTORIA' : 'GANA EL RIVAL';
         drawBanner(ctx, title, `${state.p1.name} ${state.p1.score}   ${state.p2.name} ${state.p2.score}`);
@@ -719,12 +748,12 @@ export default function Plane({
       drawHud(ctx, state.p1, state.p2);
 
       if (rankedWait) {
-        drawBanner(ctx, rankedWait, 'MISMO CIELO    MISMO ARO    ESPACIO IMPULSO');
+        drawBanner(ctx, rankedWait, 'TU COLOR -1    OTRO COLOR O BORDE +1');
       } else if (!world && state.intro > 0) {
         const n = String(Math.max(1, Math.ceil(state.intro)));
-        drawBanner(ctx, n, 'SUELO Y PINCHOS EXPLOTAN');
+        drawBanner(ctx, n, 'PINCHOS, SUELO O EL TOPE EXPLOTAN');
       } else if (!world && !state.started) {
-        drawBanner(ctx, 'ESPACIO', 'CADA 10s CRECES Y ACELERAS');
+        drawBanner(ctx, 'ESPACIO', 'TU COLOR -1    OTRO COLOR O BORDE +1');
       } else if (state.winner) {
         const title = state.winner === you ? 'VICTORIA' : 'GANA EL RIVAL';
         drawBanner(ctx, title, `${state.p1.name} ${state.p1.score}   ${state.p2.name} ${state.p2.score}`);

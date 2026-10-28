@@ -728,7 +728,7 @@ export default function App() {
                         ? 'Tu paracaídas: A y D, o flecha izquierda y derecha.'
                         : 'Tu paracaídas: A y D. El otro lado lo juega el bot.'
                       : selectedGame.id === 'snake'
-                        ? 'Impulso: Espacio, flecha arriba, el botón o un toque en la pantalla.'
+                        ? 'Impulso: Espacio, flecha arriba, el botón o un toque. El aro de tu color baja un punto. El del otro color, o el borde, lo sube.'
                         : 'Gira con flecha izquierda y flecha derecha. El coche va solo. El borde naranja te devuelve al centro.'}
               >
                 {renderGame()}
