@@ -21,7 +21,6 @@ const MAX_BALL_SPEED = 15;
 const SERVICE_LEFT = 272;
 const SERVICE_RIGHT = WIDTH - 272;
 const SUN = { x: 480, y: 128, r: 22 };
-const PLAYER_SCALE = 3;
 const SWING_FRAMES = 10;
 const SHAKE_FRAMES = 12;
 
@@ -59,41 +58,6 @@ type Team = {
 
 const TEAM_P1: Team = { main: CYAN, dark: '#1d6f99', light: '#d7f6ff' };
 const TEAM_P2: Team = { main: ORANGE, dark: '#a34f0e', light: '#ffe0bf' };
-
-/**
- * Jugador en pixel art, 12 columnas x 17 filas, mirando a la derecha.
- * c cap · v visera · s piel · e ojo · t camiseta · d camiseta oscura
- * w cuello · p pantalón · k zapatilla
- */
-const PLAYER_ROWS = [
-  '....cccc....',
-  '...cccccc...',
-  '...ccccccvv.',
-  '...ssssss...',
-  '...sssses...',
-  '....ssss....',
-  '...wtttttw..',
-  '..tttttttt..',
-  '..sdtttttds.',
-  '...dttttd...',
-  '...dttttd...',
-  '...pppppp...',
-  '...pppppp...',
-  '...ss..ss...',
-  '...ss..ss...',
-  '...ss..ss...',
-  '..kkk..kkk..',
-];
-
-const LEG_ROWS_STEP = [
-  '..ss....ss..',
-  '..ss....ss..',
-  '...ss..ss...',
-  '.kkk....kkk.',
-];
-
-const PLAYER_W = PLAYER_ROWS[0].length * PLAYER_SCALE;
-const PLAYER_H = PLAYER_ROWS.length * PLAYER_SCALE;
 
 const traceChamfer = (ctx: Ctx, x: number, y: number, w: number, h: number, cut: number) => {
   ctx.beginPath();
@@ -316,53 +280,6 @@ const drawField = (ctx: Ctx) => {
   drawFence(ctx, FRAME.x + 2);
   drawFence(ctx, FRAME.x + FRAME.w - 14);
   drawNet(ctx);
-};
-
-const pixelColor = (char: string, team: Team): string | null => {
-  switch (char) {
-    case 'c': return team.main;
-    case 'v': return '#f6f8ff';
-    case 's': return '#f0b98a';
-    case 'e': return '#1a1a24';
-    case 't': return team.main;
-    case 'd': return team.dark;
-    case 'w': return '#f6f8ff';
-    case 'p': return '#1f2a44';
-    case 'k': return '#eef2f8';
-    default: return null;
-  }
-};
-
-const drawPlayer = (ctx: Ctx, x: number, y: number, dir: 1 | -1, team: Team, step: number, swing: number) => {
-  ctx.save();
-  ctx.translate(dir === 1 ? x : x + PLAYER_W, y);
-  ctx.scale(dir, 1);
-
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-  ctx.beginPath();
-  ctx.ellipse(PLAYER_W / 2, PLAYER_H + 2, 14, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  const stepRows = step >= 0 && step % 2 === 1 ? LEG_ROWS_STEP : null;
-  PLAYER_ROWS.forEach((row, rowIndex) => {
-    const isLeg = rowIndex >= 13;
-    const source = stepRows && isLeg ? stepRows[rowIndex - 13] : row;
-    for (let col = 0; col < source.length; col += 1) {
-      const color = pixelColor(source[col], team);
-      if (!color) continue;
-      ctx.fillStyle = color;
-      ctx.fillRect(col * PLAYER_SCALE, rowIndex * PLAYER_SCALE, PLAYER_SCALE, PLAYER_SCALE);
-    }
-  });
-
-  const reach = swing > 0 ? Math.round(Math.sin((swing / SWING_FRAMES) * Math.PI) * 6) : 0;
-  const armY = 8 * PLAYER_SCALE;
-  ctx.fillStyle = '#f0b98a';
-  ctx.fillRect(10 * PLAYER_SCALE, armY, 4 + reach, PLAYER_SCALE);
-  ctx.fillStyle = '#6b3e22';
-  ctx.fillRect(10 * PLAYER_SCALE + 4 + reach, armY - 1, 10, PLAYER_SCALE + 2);
-
-  ctx.restore();
 };
 
 const drawRacket = (ctx: Ctx, x: number, y: number, team: Team) => {
@@ -850,10 +767,6 @@ export default function Pong({
       );
       const p1SwingShift = state.p1.swing > 0 ? Math.round(Math.sin((state.p1.swing / SWING_FRAMES) * Math.PI) * 6) : 0;
       const p2SwingShift = state.p2.swing > 0 ? Math.round(Math.sin((state.p2.swing / SWING_FRAMES) * Math.PI) * 6) : 0;
-      const p1PlayerY = Math.round(p1Draw + PADDLE_H / 2 - PLAYER_H / 2);
-      const p2PlayerY = Math.round(p2Draw + PADDLE_H / 2 - PLAYER_H / 2);
-      drawPlayer(ctx, P1_X - PLAYER_W - 2, p1PlayerY, 1, TEAM_P1, state.p1.moving, state.p1.swing);
-      drawPlayer(ctx, P2_X + PADDLE_W + 2, p2PlayerY, -1, TEAM_P2, state.p2.moving, state.p2.swing);
       drawRacket(ctx, P1_X + p1SwingShift, p1Draw, TEAM_P1);
       drawRacket(ctx, P2_X - p2SwingShift, p2Draw, TEAM_P2);
       drawBall(ctx, ballX, ballY, state.trail);
