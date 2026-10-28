@@ -492,14 +492,9 @@ export default function Shooter({
       state.frames += 1;
 
       if (state.ko) {
-        tickSparks();
-        state.koFrames -= 1;
-        drawWorld();
-        if (state.koFrames <= 0) {
-          onGameEnd(state.ko);
-          return;
-        }
-        animationFrameId = requestAnimationFrame(update);
+        ended = true;
+        cancelAnimationFrame(animationFrameId);
+        onGameEnd(state.ko);
         return;
       }
 

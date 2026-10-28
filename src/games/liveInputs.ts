@@ -322,6 +322,8 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
 
   const readRallyAt = (at: number): RallyView | null => {
     if (rally.length === 0) return null
+    const last = rally[rally.length - 1]
+    if (at >= last.at) return rallyView(last)
     let prev = rally[0]
     if (at <= prev.at) return rallyView(prev)
     for (let index = 1; index < rally.length; index += 1) {
@@ -433,6 +435,8 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
 
   const readSceneAt = (at: number): SceneSnap | null => {
     if (scenes.length === 0) return null
+    const last = scenes[scenes.length - 1]
+    if (at >= last.at) return last
     let prev = scenes[0]
     if (at <= prev.at) return prev
     for (let index = 1; index < scenes.length; index += 1) {

@@ -508,11 +508,10 @@ export default function Skydive({
           drawBanner(ctx, `${name} GANA`, `${formatTime(state.p1.lived)}  vs  ${formatTime(state.p2.lived)}`);
         }
         if (state.winner) {
-          state.ko -= stepMs / 1000;
-          if (state.ko <= 0) {
-            onGameEnd(state.winner === 'p2' ? 'p2' : 'p1');
-            return;
-          }
+          ended = true;
+          cancelAnimationFrame(raf);
+          onGameEnd(state.winner === 'p2' ? 'p2' : 'p1');
+          return;
         }
         raf = requestAnimationFrame(update);
         return;
@@ -588,14 +587,16 @@ export default function Skydive({
             const gap = Math.abs(state.p1.lived - state.p2.lived);
             state.winner = gap < 0.04 ? 'draw' : state.p1.lived > state.p2.lived ? 'p1' : 'p2';
           }
-          state.ko = KO_S;
-        }
-      } else {
-        state.ko -= dt;
-        if (state.ko <= 0) {
+          ended = true;
+          cancelAnimationFrame(raf);
           onGameEnd(state.winner === 'p2' ? 'p2' : 'p1');
           return;
         }
+      } else if (state.winner) {
+        ended = true;
+        cancelAnimationFrame(raf);
+        onGameEnd(state.winner === 'p2' ? 'p2' : 'p1');
+        return;
       }
 
       state.sparks = state.sparks.filter((spark) => {

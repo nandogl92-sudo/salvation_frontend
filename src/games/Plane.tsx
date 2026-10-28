@@ -652,13 +652,10 @@ export default function Plane({
         }
         paintRings(countdown);
         if (state.winner) {
-          state.ko -= dt / 1000;
-          if (state.ko <= 0) {
-            ended = true;
-            cancelAnimationFrame(raf);
-            onGameEnd(state.winner);
-            return;
-          }
+          ended = true;
+          cancelAnimationFrame(raf);
+          onGameEnd(state.winner);
+          return;
         }
         raf = requestAnimationFrame(update);
         return;
@@ -713,16 +710,16 @@ export default function Plane({
 
         if (!state.p1.alive || !state.p2.alive) {
           state.winner = pickWinner();
-          state.ko = KO_S;
-        }
-      } else {
-        state.ko -= dt;
-        if (state.ko <= 0) {
           ended = true;
           cancelAnimationFrame(raf);
           onGameEnd(state.winner);
           return;
         }
+      } else if (state.winner) {
+        ended = true;
+        cancelAnimationFrame(raf);
+        onGameEnd(state.winner);
+        return;
       }
 
       state.clouds.forEach((cloud) => {

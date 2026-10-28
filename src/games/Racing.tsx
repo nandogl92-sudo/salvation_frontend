@@ -690,13 +690,10 @@ export default function Racing({
         const rankedWait = rankedCountdown(world.startAt, link.serverNow());
         if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN');
         if (state.winner) {
-          const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
-          drawBanner(ctx, 'META', `${name} GANA`);
-          state.ko -= 1;
-          if (state.ko <= 0) {
-            onGameEnd(state.winner);
-            return;
-          }
+          ended = true;
+          cancelAnimationFrame(raf);
+          onGameEnd(state.winner);
+          return;
         }
         raf = requestAnimationFrame(update);
         return;
@@ -759,13 +756,10 @@ export default function Racing({
         drawBanner(ctx, localWait, 'FLECHA IZQUIERDA Y DERECHA GIRAN');
       }
       if (state.winner) {
-        const name = state.winner === 'p1' ? state.p1.name : state.p2.name;
-        drawBanner(ctx, 'META', `${name} GANA`);
-        state.ko -= 1;
-        if (state.ko <= 0) {
-          onGameEnd(state.winner);
-          return;
-        }
+        ended = true;
+        cancelAnimationFrame(raf);
+        onGameEnd(state.winner);
+        return;
       }
 
       raf = requestAnimationFrame(update);
