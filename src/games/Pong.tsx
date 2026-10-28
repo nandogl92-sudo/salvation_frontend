@@ -415,6 +415,39 @@ const drawBall = (ctx: Ctx, x: number, y: number, trail: { x: number; y: number 
   ctx.fillRect(x - 3, y - 4, 2, 2);
 };
 
+const COURT_LEFT = 36;
+const COURT_RIGHT = WIDTH - 36;
+
+const drawCourtLimits = (ctx: Ctx) => {
+  const x = COURT_LEFT;
+  const y = PLAY_TOP;
+  const w = COURT_RIGHT - COURT_LEFT;
+  const h = PLAY_BOTTOM - PLAY_TOP;
+
+  ctx.fillStyle = 'rgba(5, 7, 15, 0.72)';
+  ctx.fillRect(0, 0, WIDTH, y);
+  ctx.fillRect(0, y + h, WIDTH, HEIGHT - (y + h));
+  ctx.fillRect(0, y, x, h);
+  ctx.fillRect(x + w, y, WIDTH - (x + w), h);
+
+  const border = ctx.createLinearGradient(x, 0, x + w, 0);
+  border.addColorStop(0, CYAN);
+  border.addColorStop(0.5, '#f6f8ff');
+  border.addColorStop(1, ORANGE);
+  ctx.strokeStyle = border;
+  ctx.lineWidth = 6;
+  ctx.strokeRect(x + 3, y + 3, w - 6, h - 6);
+
+  ctx.setLineDash([14, 16]);
+  ctx.strokeStyle = 'rgba(246, 248, 255, 0.8)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(WIDTH / 2, y + 16);
+  ctx.lineTo(WIDTH / 2, y + h - 16);
+  ctx.stroke();
+  ctx.setLineDash([]);
+};
+
 const drawFrame = (ctx: Ctx) => {
   const border = ctx.createLinearGradient(FRAME.x, 0, FRAME.x + FRAME.w, 0);
   border.addColorStop(0, CYAN);
@@ -800,7 +833,10 @@ export default function Pong({
         const power = state.shake / SHAKE_FRAMES;
         ctx.translate((Math.random() - 0.5) * 6 * power, (Math.random() - 0.5) * 6 * power);
       }
-      if (courtArtReady) drawCover(ctx, courtArt, 0, 0, WIDTH, HEIGHT);
+      if (courtArtReady) {
+        drawCover(ctx, courtArt, 0, 0, WIDTH, HEIGHT);
+        drawCourtLimits(ctx);
+      }
       traceChamfer(ctx, FRAME.x, FRAME.y, FRAME.w, FRAME.h, FRAME.cut);
       ctx.clip();
       if (!courtArtReady) drawField(ctx);
@@ -823,7 +859,7 @@ export default function Pong({
       drawBall(ctx, ballX, ballY, state.trail);
       drawSparks(ctx, state.sparks);
       ctx.restore();
-      drawFrame(ctx);
+      if (!courtArtReady) drawFrame(ctx);
       drawHud(
         ctx,
         state.p1.score,
