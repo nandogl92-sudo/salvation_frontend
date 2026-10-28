@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Activity, Flag, Plane, Umbrella } from 'lucide-react';
 
 import Pong from './games/Pong';
@@ -134,6 +134,10 @@ export default function App() {
   const settlingRef = useRef(false);
   const settledMatchIdRef = useRef<string | null>(null);
   const searchLockRef = useRef(false);
+  const endGameRef = useRef<(winner: 'p1' | 'p2') => void>(() => {});
+  const handleEnd = useCallback((winner: 'p1' | 'p2') => {
+    endGameRef.current(winner);
+  }, []);
   const rankedPlayRef = useRef({
     matchId: null as string | null,
     isRanked: false,
@@ -333,6 +337,7 @@ export default function App() {
       setQueueStatus('idle');
       return;
     }
+    searchLockRef.current = false;
     setLastRivalId(rival.id);
     setOpponent({ ...result.opponent, isBot: false });
     setActiveMatch({ id: result.match.id, isBot: false, isRanked: false, world: null });
@@ -348,6 +353,7 @@ export default function App() {
       setQueueError(result.message);
       return;
     }
+    searchLockRef.current = false;
     setOpponent(result.opponent);
     setActiveMatch({ id: result.match.id, isBot: true, isRanked: false, world: null });
     setTicket(null);
@@ -450,6 +456,7 @@ export default function App() {
     if (me) await setBalance(me.balance);
     const profit = input.isRefund || !me ? 0 : me.balance - (currentUser.balance + betAmount);
     const month = await applyRankedMonthPoints(true, won, input.isRefund);
+    searchLockRef.current = false;
     setGameResult({
       won: input.isRefund ? false : won,
       profit,
@@ -489,6 +496,7 @@ export default function App() {
 
     if (activeMatch.isBot) {
       const month = await applyRankedMonthPoints(false, won, false);
+      searchLockRef.current = false;
       setGameResult({ won, profit: 0, isRefund: false, isRanked: false, ...month });
       setOpponent(null);
       setActiveMatch(null);
@@ -544,6 +552,7 @@ export default function App() {
     const profit = isRefund ? 0 : me.balance - (currentUser.balance + betAmount);
     await setBalance(me.balance);
     const month = await applyRankedMonthPoints(false, won, isRefund);
+    searchLockRef.current = false;
     setGameResult({
       won: isRefund ? false : won,
       profit,
@@ -598,22 +607,24 @@ export default function App() {
     };
   }, [view, activeMatch, gameResult, currentUser]);
 
+  endGameRef.current = (winner) => {
+    const localSide = activeMatch?.world?.localSide ?? 'p1';
+    void handleGameEnd(winner === localSide);
+  };
+
   const renderGame = () => {
     const world = activeMatch?.world ?? null;
-    const localSide = world?.localSide ?? 'p1';
-    const handleEnd = (winner: 'p1' | 'p2') => {
-      handleGameEnd(winner === localSide);
-    };
+    const matchKey = activeMatch?.id ?? 'local';
 
     // IA local solo en amistoso. Ranking comparte el mundo; el rival no es un bot.
     const botEnabled = Boolean(opponent) && !activeMatch?.isRanked;
 
     switch(selectedGame?.id) {
-      case 'pong': return <Pong onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
-      case 'snake': return <AeroRings onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
-      case 'tetris': return <Racing onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
-      case 'combat': return <Skydive onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
-      case 'shooter': return <Shooter onGameEnd={handleEnd} botEnabled={botEnabled} world={world} />;
+      case 'pong': return <Pong key={matchKey} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'snake': return <AeroRings key={matchKey} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'tetris': return <Racing key={matchKey} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'combat': return <Skydive key={matchKey} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
+      case 'shooter': return <Shooter key={matchKey} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} />;
       default: return <div className="text-white text-center p-8">Juego no encontrado</div>;
     }
   };
@@ -629,14 +640,6 @@ export default function App() {
 
       <Navbar
         user={currentUser}
-        onGoHome={() => {
-          if (isChoosingPassword) {
-            leavePasswordReset();
-            return;
-          }
-          forfeitRankedLeave(false);
-          goHome();
-        }}
         onOpenProfile={() => {
           forfeitRankedLeave(false);
           if (view === 'playing' && !gameResult) goHome();

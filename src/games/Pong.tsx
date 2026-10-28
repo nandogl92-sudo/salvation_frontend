@@ -838,6 +838,7 @@ export default function Pong({
     animationFrameId = requestAnimationFrame(tick);
 
     return () => {
+      ended = true;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       link?.stop();

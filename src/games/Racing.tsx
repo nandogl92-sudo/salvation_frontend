@@ -570,6 +570,7 @@ export default function Racing({
     void document.fonts.load(`10px ${PIX}`);
 
     const openAt = Date.now();
+    let ended = false;
     let acc = 0;
     let raf = 0;
     let playHead = 0;
@@ -670,6 +671,7 @@ export default function Racing({
     };
 
     const update = () => {
+      if (ended) return;
       const now = performance.now();
       const dt = Math.min(50, Math.max(0, now - lastStamp));
       lastStamp = now;
@@ -771,6 +773,7 @@ export default function Racing({
 
     raf = requestAnimationFrame(update);
     return () => {
+      ended = true;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       link?.stop();

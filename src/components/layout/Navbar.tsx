@@ -14,7 +14,6 @@ type NavbarProps = {
   user: UserProfile | null
   isAuthReady: boolean
   pendingGame: Game | null
-  onGoHome: () => void
   onOpenProfile: () => void
   onLogout: () => void
   onNavigate: (section: NavSection) => void
@@ -28,7 +27,7 @@ const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
   { id: 'info', label: 'Info', icon: Info },
 ]
 
-const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLogout, onNavigate, compact = false }: NavbarProps) => {
+const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onLogout, onNavigate, compact = false }: NavbarProps) => {
   const headerRef = useRef<HTMLElement>(null)
   const [isLight, setIsLight] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
@@ -69,9 +68,8 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
     }
   }, [authOpen])
 
-  const handleGoHome = () => {
-    onGoHome()
-    onNavigate('inicio')
+  const handleReload = () => {
+    window.location.reload()
   }
 
   const handleOpenProfile = () => {
@@ -119,10 +117,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onGoHome, onOpenProfile, onLog
       <div className={`max-w-6xl mx-auto px-3 py-2 flex flex-wrap items-center justify-between gap-2 min-h-16 ${compact ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-nowrap [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-h-12 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1' : ''}`}>
         <button
           type="button"
-          aria-label="Ir al inicio de Retro Hub"
+          aria-label="Recargar Retro Hub"
           tabIndex={0}
-          onClick={handleGoHome}
-          onKeyDown={(event) => handleActivateKey(event, handleGoHome)}
+          onClick={handleReload}
+          onKeyDown={(event) => handleActivateKey(event, handleReload)}
           className="flex items-center gap-2 shrink-0"
         >
           <span className="w-8 h-8 rounded-full bg-[#f5c518] flex items-center justify-center" aria-hidden="true">

@@ -384,6 +384,7 @@ export default function Shooter({
     void document.fonts.load(`10px ${PIX}`);
 
     const openAt = Date.now();
+    let ended = false;
     let animationFrameId = 0;
     const you = world?.localSide ?? 'p1';
     const them = otherSide(you);
@@ -487,6 +488,7 @@ export default function Shooter({
     };
 
     const update = () => {
+      if (ended) return;
       state.frames += 1;
 
       if (state.ko) {
@@ -604,6 +606,7 @@ export default function Shooter({
 
     animationFrameId = requestAnimationFrame(update);
     return () => {
+      ended = true;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       link?.stop();

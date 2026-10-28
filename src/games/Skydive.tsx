@@ -309,6 +309,7 @@ export default function Skydive({
     if (!ctx) return;
     void document.fonts.load(`10px ${PIX}`);
 
+    let ended = false;
     let raf = 0;
     let playHead = 0;
     const rand = world ? makeRng(world.seed) : Math.random;
@@ -483,6 +484,7 @@ export default function Skydive({
     };
 
     const update = (now: number) => {
+      if (ended) return;
       const dt = Math.min(0.05, (now - state.last) / 1000);
       if (world && link) {
         const stepMs = Math.min(50, Math.max(0, now - state.last));
@@ -629,6 +631,7 @@ export default function Skydive({
 
     raf = requestAnimationFrame(update);
     return () => {
+      ended = true;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       link?.stop();
