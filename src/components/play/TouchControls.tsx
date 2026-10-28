@@ -144,9 +144,9 @@ const DROP_BUTTONS: PadKey[] = [
   { key: 'd', label: 'DERECHA ▶', ariaLabel: 'Mover a la derecha' },
 ]
 
-const PADDLE_LEFT = 'flex w-full max-w-xs flex-col gap-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:justify-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
+const PADDLE_UP = 'flex w-full max-w-xs [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
 
-const PADDLE_RIGHT = 'flex w-full max-w-xs flex-col gap-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:justify-center [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
+const PADDLE_DOWN = 'flex w-full max-w-xs [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
 
 const FLOAT_ON_LANDSCAPE = '[@media(orientation:landscape)_and_(max-height:520px)]:absolute [@media(orientation:landscape)_and_(max-height:520px)]:inset-x-0 [@media(orientation:landscape)_and_(max-height:520px)]:bottom-0 [@media(orientation:landscape)_and_(max-height:520px)]:z-10 [@media(orientation:landscape)_and_(max-height:520px)]:bg-black/55 [@media(orientation:landscape)_and_(max-height:520px)]:py-2'
 
@@ -182,14 +182,14 @@ const DirPad = ({ dirs }: { dirs: PadKey[] }) => {
   )
 }
 
-const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSide?: 'left' | 'right' }) => {
+const TouchControls = ({ gameId }: { gameId: string; stickSide?: 'left' | 'right' }) => {
   const pad = PADS[gameId]
   if (!pad) return null
 
   const rowClass = gameId === 'tetris'
     ? 'flex min-h-0 w-full flex-1 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
     : gameId === 'pong'
-      ? 'w-full flex lg:hidden items-center justify-center px-2 py-2 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
+      ? 'flex w-full flex-col items-center gap-3 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
       : gameId === 'snake'
         ? 'flex w-full shrink-0 lg:hidden px-2 pb-2 pt-1'
         : `${gameId === 'combat'
@@ -202,14 +202,14 @@ const TouchControls = ({ gameId, stickSide = 'left' }: { gameId: string; stickSi
       aria-label="Controles táctiles"
     >
       {gameId === 'pong' && (
-        <div
-          className={stickSide === 'right' ? PADDLE_RIGHT : PADDLE_LEFT}
-          aria-label="Mover la pala"
-        >
-          {PADDLE_KEYS.map((padKey) => (
-            <PadButton key={padKey.ariaLabel} padKey={padKey} className={PADDLE_BUTTON} />
-          ))}
-        </div>
+        <>
+          <div className={PADDLE_UP} aria-label="Subir la pala">
+            <PadButton padKey={PADDLE_KEYS[0]} className={PADDLE_BUTTON} />
+          </div>
+          <div className={PADDLE_DOWN} aria-label="Bajar la pala">
+            <PadButton padKey={PADDLE_KEYS[1]} className={PADDLE_BUTTON} />
+          </div>
+        </>
       )}
       {gameId === 'tetris' && (
         <>
