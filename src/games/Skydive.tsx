@@ -40,17 +40,13 @@ type Hazard = {
   kind: Kind;
 };
 
-type Cloud = { x: number; y: number; s: number; layer: number };
 type Spark = { x: number; y: number; vx: number; vy: number; life: number; color: string };
 
-const STRIP_SRC = ['/sky-drop-1.jpg', '/sky-drop-2.jpg', '/sky-drop-3.jpg', '/sky-drop-4.jpg'];
-const stripArt = STRIP_SRC.map((src) => {
-  const image = new Image();
-  image.src = src;
-  return image;
-});
+const FIELD_SRC = '/sky-drop-field.jpg';
+const fieldArt = new Image();
+fieldArt.src = FIELD_SRC;
 
-const stripReady = () => stripArt.every((image) => image.complete && image.naturalWidth > 0);
+const fieldReady = () => fieldArt.complete && fieldArt.naturalWidth > 0;
 
 const paint = (ctx: Ctx, x: number, y: number, w: number, h: number, color: string) => {
   ctx.fillStyle = color;
@@ -62,6 +58,12 @@ const drawCover = (ctx: Ctx, image: HTMLImageElement, x: number, y: number, w: n
   const dw = image.width * scale;
   const dh = image.height * scale;
   ctx.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+};
+
+const outline = (ctx: Ctx, x: number, y: number, w: number, h: number) => {
+  ctx.strokeStyle = '#0b1220';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x - 1, y - 1, w + 2, h + 2);
 };
 
 const overlaps = (
@@ -83,98 +85,53 @@ const makeJumper = (x: number, color: string, dark: string, canopy: string, name
 
 const formatTime = (seconds: number) => `${seconds.toFixed(1)}s`;
 
-const drawSky = (ctx: Ctx, clouds: Cloud[], fall: number, time: number) => {
+const drawSkyFallback = (ctx: Ctx) => {
   const sky = ctx.createLinearGradient(0, 0, 0, HEIGHT);
   sky.addColorStop(0, '#2f6fb3');
   sky.addColorStop(0.45, '#6eb6e8');
   sky.addColorStop(1, '#d7f0ff');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-  ctx.fillStyle = '#7a9a6a';
-  ctx.beginPath();
-  ctx.moveTo(0, 520);
-  ctx.lineTo(80, 390);
-  ctx.lineTo(170, 500);
-  ctx.lineTo(260, 360);
-  ctx.lineTo(380, 510);
-  ctx.lineTo(500, 400);
-  ctx.lineTo(620, 515);
-  ctx.lineTo(740, 370);
-  ctx.lineTo(860, 510);
-  ctx.lineTo(960, 400);
-  ctx.lineTo(960, 540);
-  ctx.lineTo(0, 540);
-  ctx.fill();
-  ctx.fillStyle = '#93b37c';
-  ctx.beginPath();
-  ctx.moveTo(0, 530);
-  ctx.lineTo(120, 430);
-  ctx.lineTo(240, 520);
-  ctx.lineTo(400, 410);
-  ctx.lineTo(560, 525);
-  ctx.lineTo(720, 420);
-  ctx.lineTo(900, 520);
-  ctx.lineTo(960, 450);
-  ctx.lineTo(960, 540);
-  ctx.lineTo(0, 540);
-  ctx.fill();
-
-  clouds.forEach((cloud) => {
-    const y = ((cloud.y - fall * (0.22 + cloud.layer * 0.18)) % (HEIGHT + 80) + HEIGHT + 80) % (HEIGHT + 80) - 40;
-    ctx.fillStyle = cloud.layer === 0 ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.7)';
-    paint(ctx, cloud.x, y, cloud.s * 2.2, cloud.s, ctx.fillStyle as string);
-    paint(ctx, cloud.x + cloud.s * 0.6, y - cloud.s * 0.4, cloud.s * 1.4, cloud.s * 0.9, ctx.fillStyle as string);
-  });
-  void time;
 };
 
-const drawBackdrop = (ctx: Ctx, clouds: Cloud[], fall: number, time: number) => {
-  if (!stripReady()) {
-    drawSky(ctx, clouds, fall, time);
+const drawBackdrop = (ctx: Ctx) => {
+  if (!fieldReady()) {
+    drawSkyFallback(ctx);
     return;
   }
-  const panel = HEIGHT;
-  const maxScroll = panel * (stripArt.length - 1);
-  const scroll = Math.max(0, Math.min(fall, maxScroll));
   const smooth = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  stripArt.forEach((image, index) => {
-    const y = index * panel - scroll;
-    if (y >= HEIGHT || y + panel <= 0) return;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, y, WIDTH, panel);
-    ctx.clip();
-    drawCover(ctx, image, 0, y, WIDTH, panel);
-    ctx.restore();
-  });
+  drawCover(ctx, fieldArt, 0, 0, WIDTH, HEIGHT);
   ctx.imageSmoothingEnabled = smooth;
 };
 
 const drawHazard = (ctx: Ctx, item: Hazard) => {
   if (item.kind === 'balloon') {
-    paint(ctx, item.x + 12, item.y + 32, 4, 16, '#6b4f2a');
-    paint(ctx, item.x, item.y, item.w, item.h - 10, '#e11d48');
-    paint(ctx, item.x + 8, item.y + 6, 10, 8, '#fecdd3');
+    paint(ctx, item.x + 12, item.y + 32, 4, 16, '#7c2d12');
+    outline(ctx, item.x, item.y, item.w, item.h - 10);
+    paint(ctx, item.x, item.y, item.w, item.h - 10, '#fb7185');
+    paint(ctx, item.x + 8, item.y + 6, 10, 8, '#ffe4e6');
     return;
   }
   if (item.kind === 'bird') {
-    paint(ctx, item.x + 8, item.y + 8, 26, 10, '#1f2937');
-    paint(ctx, item.x, item.y + 4, 14, 6, '#374151');
-    paint(ctx, item.x + 28, item.y + 4, 14, 6, '#374151');
-    paint(ctx, item.x + 30, item.y + 10, 6, 4, '#f59e0b');
+    outline(ctx, item.x, item.y + 2, item.w, 14);
+    paint(ctx, item.x + 8, item.y + 8, 26, 10, '#a21caf');
+    paint(ctx, item.x, item.y + 4, 14, 6, '#e879f9');
+    paint(ctx, item.x + 28, item.y + 4, 14, 6, '#e879f9');
+    paint(ctx, item.x + 30, item.y + 10, 6, 4, '#fde047');
     return;
   }
   if (item.kind === 'kite') {
-    paint(ctx, item.x + 8, item.y, 28, 28, '#22c55e');
+    outline(ctx, item.x + 8, item.y, 28, 28);
+    paint(ctx, item.x + 8, item.y, 28, 28, '#22d3ee');
     paint(ctx, item.x + 18, item.y + 10, 8, 8, '#fef08a');
-    paint(ctx, item.x + 20, item.y + 28, 3, 16, '#a3a3a3');
+    paint(ctx, item.x + 20, item.y + 28, 3, 16, '#0f172a');
     return;
   }
-  paint(ctx, item.x, item.y, item.w, item.h, '#b45309');
-  paint(ctx, item.x + 4, item.y + 4, item.w - 8, 6, '#fbbf24');
-  paint(ctx, item.x + 6, item.y + 14, item.w - 12, 8, '#78350f');
+  outline(ctx, item.x, item.y, item.w, item.h);
+  paint(ctx, item.x, item.y, item.w, item.h, '#f97316');
+  paint(ctx, item.x + 4, item.y + 4, item.w - 8, 6, '#fde047');
+  paint(ctx, item.x + 6, item.y + 14, item.w - 12, 8, '#9a3412');
 };
 
 const drawJumper = (ctx: Ctx, jumper: Jumper, time: number, sway: number) => {
@@ -327,12 +284,6 @@ export default function Skydive({
       keys: {} as Record<string, boolean>,
       hazards: [] as Hazard[],
       sparks: [] as Spark[],
-      clouds: Array.from({ length: 12 }, (_, i) => ({
-        x: (i * 97) % WIDTH,
-        y: 40 + (i * 61) % 460,
-        s: 16 + (i % 4) * 8,
-        layer: i % 3,
-      })),
       intro: INTRO_S,
       gameTime: 0,
       spawnWait: 1.05,
@@ -499,7 +450,7 @@ export default function Skydive({
         const scene = link.readScene(playHead);
         if (scene?.kind === 'drop') applyDrop(scene);
         const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
-        drawBackdrop(ctx, state.clouds, state.fall, state.gameTime);
+        drawBackdrop(ctx);
         state.hazards.forEach((item) => drawHazard(ctx, item));
         drawJumper(ctx, state.p1, state.gameTime, Math.sin(state.gameTime * 3.1) * 7);
         drawJumper(ctx, state.p2, state.gameTime, Math.sin(state.gameTime * 3.1 + 1.4) * 7);
@@ -612,7 +563,7 @@ export default function Skydive({
       });
 
       const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
-      drawBackdrop(ctx, state.clouds, state.fall, state.gameTime);
+      drawBackdrop(ctx);
       state.hazards.forEach((item) => drawHazard(ctx, item));
       drawJumper(ctx, state.p1, state.gameTime, Math.sin(state.gameTime * 3.1) * 7);
       drawJumper(ctx, state.p2, state.gameTime, Math.sin(state.gameTime * 3.1 + 1.4) * 7);
