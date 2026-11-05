@@ -71,7 +71,6 @@ export type ApiGameResultRequest = {
 export type ApiGameResultResponse = {
   winnerId: string;
   pot: number;
-  fee: number;
   newBalance: number;
 };
 

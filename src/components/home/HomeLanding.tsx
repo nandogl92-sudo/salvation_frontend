@@ -189,11 +189,12 @@ const HomeLanding = ({
       <section id="info" className="max-w-3xl mx-auto px-4 pb-16 space-y-6 scroll-mt-20">
         <div className="bg-bg-100 border border-bg-300 rounded-2xl p-6 space-y-2">
           <h2 className="font-pixel text-[10px] text-[#f5c518]">Info</h2>
-          <p className="text-sm text-text-200">Si ganas, ganas 1 ficha. Si pierdes, pierdes 1 ficha.</p>
+          <p className="text-sm text-text-200">Si ganas, te llevas la ficha del rival. No hay comisión.</p>
+          <p className="text-sm text-text-200">Si pierdes, pierdes 1 ficha.</p>
           <p className="text-sm text-text-200">Desconexión o abandono cuenta como derrota.</p>
           <p className="text-sm text-text-200">Error de plataforma: las fichas de esa partida se devuelven.</p>
           <h3 className="font-pixel text-[10px] text-[#f5c518] pt-3">Premio del mes</h3>
-          <p className="text-sm text-text-200">Hace falta inscripción de este mes para competir.</p>
+          <p className="text-sm text-text-200">La inscripción del mes cuesta 10 € y suma 100 fichas.</p>
           <p className="text-sm text-text-200">Ranking: otra persona, ambos inscritos. El bot no se usa.</p>
           <p className="text-sm text-text-200">Una victoria ranqueada suma 1 punto a esa semana.</p>
           <p className="text-sm text-text-200">Una derrota no quita puntos.</p>

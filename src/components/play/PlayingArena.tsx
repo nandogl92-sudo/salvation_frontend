@@ -68,7 +68,7 @@ const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, stickSi
             {isRanked ? 'Ranqueada' : 'Amistoso'}
           </span>
           <span className="text-xl font-bold text-accent-100">{formatPoints(betAmount)} ficha</span>
-          <span className="mt-1 text-xs text-text-200">Si ganas, +1 ficha. Si pierdes, −1.</span>
+          <span className="mt-1 text-xs text-text-200">Si ganas, +1 ficha. No hay comisión.</span>
           <span className="text-xs text-text-200">
             {isRanked ? 'Si ganas, +1 punto del mes' : 'No suma al premio'}
           </span>

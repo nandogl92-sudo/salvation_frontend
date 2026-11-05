@@ -81,10 +81,13 @@ export const subscribeMonthly = async (
     })
     if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
 
+    const paid = (await response.json()) as unknown
+    const fromBody = readBalance(paid)
     const session = await getCurrentSession()
     const confirmed = session?.user.balance
-    const fromBody = readBalance(await response.json().catch(() => null))
-    const balance = typeof confirmed === 'number' ? confirmed : fromBody
+    const balance = typeof fromBody === 'number' && fromBody >= balanceBefore + SUBSCRIPTION_POINTS
+      ? fromBody
+      : confirmed
 
     if (typeof balance !== 'number' || balance < balanceBefore + SUBSCRIPTION_POINTS) {
       return { ok: false, message: 'La suscripción no se guardó en la cuenta. Tus fichas no han cambiado.' }

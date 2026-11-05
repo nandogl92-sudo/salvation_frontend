@@ -30,7 +30,6 @@ import { buildSharedWorld, type SharedWorld } from './games/sharedWorld';
 const QUEUE_POLL_INTERVAL_MS = 700;
 /** Consulta del cierre compartido. Más lento que el pad para no saturar el móvil. */
 const MATCH_STATUS_POLL_MS = 1500;
-/** Comisión de la plataforma sobre el pozo total (en porcentaje). */
 const readResetToken = (): string | null => {
   if (window.location.pathname !== '/restablecer') return null;
   return new URLSearchParams(window.location.search).get('token')?.trim() ?? '';
@@ -507,7 +506,7 @@ export default function App() {
     if (!input.isRefund && rivalUserId) recordRankedPlay(currentUser.id, rivalUserId);
     const me = input.players.find((player) => player.id === currentUser.id);
     if (me) await setBalance(me.balance);
-    const profit = input.isRefund || !me ? 0 : me.balance - (currentUser.balance + betAmount);
+    const profit = input.isRefund || !me ? 0 : me.balance - currentUser.balance;
     const month = await applyRankedMonthPoints(true, won, input.isRefund);
     searchLockRef.current = false;
     if (resultSeqRef.current === uiSeq) {
@@ -634,7 +633,7 @@ export default function App() {
       return;
     }
 
-    const profit = isRefund ? 0 : me.balance - (currentUser.balance + betAmount);
+    const profit = isRefund ? 0 : me.balance - currentUser.balance;
     await setBalance(me.balance);
     const month = await applyRankedMonthPoints(false, won, isRefund);
     searchLockRef.current = false;
