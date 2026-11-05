@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { applyAccountAccess } from '../auth/accessStore'
 import { formatPoints } from '../components/utils/formatPoints'
 import { monthPointsOf } from '../components/utils/monthPointsOf'
+import ReplayBoard from './ReplayBoard'
 import type { UserProfile } from '../types'
 
 type AdminPanelProps = {
@@ -61,6 +62,7 @@ const AdminPanel = ({ onBack }: AdminPanelProps) => {
       <p className="text-sm text-[#b7c0d4]">
         Marcar el pago solo abre los juegos. No cambia las fichas ni los puntos del mes.
       </p>
+      <ReplayBoard />
       {loading && <p className="text-sm text-[#b7c0d4]">Cargando cuentas…</p>}
       {message && <p className="text-sm text-red-300" role="alert">{message}</p>}
       {!loading && users.length === 0 && !message && (
