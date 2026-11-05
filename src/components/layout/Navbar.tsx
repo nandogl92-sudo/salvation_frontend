@@ -127,17 +127,15 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
       <div className={`max-w-6xl mx-auto px-3 py-2 flex flex-wrap items-center justify-between gap-2 min-h-16 ${compact ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-nowrap [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-h-12 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1' : ''}`}>
         <button
           type="button"
-          aria-label="Recargar Retro Hub"
+          aria-label="Recargar Frizeplay"
           tabIndex={0}
           onClick={handleReload}
           onKeyDown={(event) => handleActivateKey(event, handleReload)}
           className="flex items-center gap-2 shrink-0"
         >
-          <span className="w-8 h-8 rounded-full bg-[#f5c518] flex items-center justify-center" aria-hidden="true">
-            <span className="w-4 h-4 rounded-full border-2 border-[#c2410c] border-t-[#fde68a]" />
-          </span>
-          <span className="font-pixel text-[10px] tracking-wide text-white">
-            RETRO<span className="text-[#f5c518]">HUB</span>
+          <img src="/frizeplay-logo.png" alt="" className="w-9 h-9 object-contain" />
+          <span className="font-pixel text-[9px] sm:text-[10px] tracking-wide text-white">
+            FRIZE<span className="text-[#f5c518]">PLAY</span>
           </span>
         </button>
 

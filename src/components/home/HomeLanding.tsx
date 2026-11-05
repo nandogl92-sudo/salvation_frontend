@@ -128,6 +128,11 @@ const HomeLanding = ({
         <div className="absolute inset-0 bg-gradient-to-b from-[#070b16]/80 via-[#070b16]/40 to-[#070b16]" aria-hidden="true" />
         <div className="relative z-10 min-h-[calc(100svh-4rem)] landscape:min-h-[calc(100svh-4rem)] flex items-center px-4 py-6 landscape:py-3">
           <div className="max-w-4xl mx-auto w-full space-y-3 landscape:space-y-2">
+            <img
+              src="/frizeplay-logo.png"
+              alt="Frizeplay"
+              className="mx-auto h-28 sm:h-40 landscape:h-24 w-auto object-contain drop-shadow-[0_0_24px_rgba(56,189,248,0.45)]"
+            />
             <p className="text-[10px] sm:text-xs font-bold tracking-[0.35em] text-white/90">CLÁSICOS QUE NUNCA ENVEJECEN</p>
             <h1 className="font-pixel text-sm sm:text-xl landscape:text-base leading-relaxed text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
               5 JUEGOS <span className="text-[#f5c518]">LEGENDARIOS</span>
