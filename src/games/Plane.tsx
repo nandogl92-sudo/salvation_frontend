@@ -54,14 +54,10 @@ type Ring = {
 type Spark = { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string };
 type Cloud = { x: number; y: number; w: number; h: number; v: number };
 
-const STRIP_SRC = ['/aero-rings-1.jpg', '/aero-rings-2.jpg', '/aero-rings-3.jpg'];
-const stripArt = STRIP_SRC.map((src) => {
-  const image = new Image();
-  image.src = src;
-  return image;
-});
+const fieldArt = new Image();
+fieldArt.src = '/aero-rings-1.jpg';
 
-const stripReady = () => stripArt.every((image) => image.complete && image.naturalWidth > 0);
+const fieldReady = () => fieldArt.complete && fieldArt.naturalWidth > 0;
 
 const paint = (ctx: Ctx, x: number, y: number, w: number, h: number, color: string) => {
   ctx.fillStyle = color;
@@ -116,14 +112,6 @@ const pullOf = (vy: number) => (vy < 0 ? RISE_G : FALL_G);
 const scrollSpeed = (gameTime: number) => {
   const phase = Math.min(SPEED_PHASES, Math.floor(gameTime / GROW_EVERY));
   return 170 + phase * 75;
-};
-
-const scrollDistance = (gameTime: number) => {
-  const phase = Math.min(SPEED_PHASES, Math.floor(gameTime / GROW_EVERY));
-  let distance = 0;
-  for (let step = 0; step < phase; step += 1) distance += (170 + step * 75) * GROW_EVERY;
-  distance += scrollSpeed(gameTime) * (gameTime - phase * GROW_EVERY);
-  return distance;
 };
 
 const ringEvery = (gameTime: number) => 520 / scrollSpeed(gameTime);
@@ -191,26 +179,14 @@ const drawHazards = (ctx: Ctx) => {
   }
 };
 
-const drawBackdrop = (ctx: Ctx, clouds: Cloud[], distance: number) => {
-  if (!stripReady()) {
+const drawBackdrop = (ctx: Ctx, clouds: Cloud[]) => {
+  if (!fieldReady()) {
     drawSky(ctx, clouds);
     return;
   }
-  const panel = WIDTH;
-  const maxScroll = panel * (stripArt.length - 1);
-  const scroll = Math.max(0, Math.min(distance, maxScroll));
   const smooth = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  stripArt.forEach((image, index) => {
-    const x = index * panel - scroll;
-    if (x >= WIDTH || x + panel <= 0) return;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x, 0, panel, HEIGHT);
-    ctx.clip();
-    drawCover(ctx, image, x, 0, panel, HEIGHT);
-    ctx.restore();
-  });
+  drawCover(ctx, fieldArt, 0, 0, WIDTH, HEIGHT);
   ctx.imageSmoothingEnabled = smooth;
   drawHazards(ctx);
 };
@@ -235,43 +211,213 @@ const drawRing = (ctx: Ctx, ring: Ring) => {
   ctx.fill();
 };
 
+// Bloque de píxeles helper (evita ctx.fillStyle repetido)
+const px = (ctx: Ctx, x: number, y: number, w: number, h: number, color: string) => {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+};
+
+let propAngle = 0;
+
 const drawPlane = (ctx: Ctx, plane: PlaneUnit) => {
   if (!plane.alive) return;
+
   const t = plane.grows / MAX_GROWS;
-  const body = shadeTowardBlack(plane.color, t);
-  const shade = shadeTowardBlack(plane.dark, t);
-  const tilt = Math.max(-0.55, Math.min(0.7, plane.vy / 520));
-  const s = plane.size / 12;
+  const body   = shadeTowardBlack(plane.color, t * 0.5);
+  const shade  = shadeTowardBlack(plane.dark,  t * 0.5 + 0.25);
+  const light  = shadeTowardBlack(plane.color, t * 0.3 - 0.18 < 0 ? 0 : t * 0.3 - 0.18);
+  const tilt   = Math.max(-0.52, Math.min(0.65, plane.vy / 520));
+
+  // La escala base es 1.0 cuando size=START_SIZE; crece con el avión
+  const s = plane.size / START_SIZE;
+
   ctx.save();
   ctx.translate(plane.x, plane.y);
   ctx.rotate(tilt);
   ctx.scale(s, s);
+
+  // ── SOMBRA DE SUELO (proyección simple) ─────────────────────
+  ctx.save();
+  ctx.translate(4, 20);
+  ctx.scale(1, 0.28);
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = '#1e3a5f';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 22, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // ── ALA INFERIOR (perspectiva 3/4) ──────────────────────────
+  // Ala izquierda abajo (perspectiva baja)
   ctx.fillStyle = shade;
   ctx.beginPath();
-  ctx.moveTo(-16, 2);
-  ctx.lineTo(-6, 10);
-  ctx.lineTo(4, 6);
-  ctx.lineTo(-8, 2);
+  ctx.moveTo(-2,  5);
+  ctx.lineTo(-22, 20);
+  ctx.lineTo(-18, 24);
+  ctx.lineTo(2,   8);
+  ctx.closePath();
+  ctx.fill();
+  // Borde ala inferior
+  ctx.fillStyle = shadeTowardBlack(plane.dark, Math.min(1, t * 0.5 + 0.45));
+  ctx.fillRect(-21, 20, 4, 2);
+
+  // Ala derecha abajo (más corta por perspectiva)
+  ctx.fillStyle = shade;
+  ctx.beginPath();
+  ctx.moveTo(2,   5);
+  ctx.lineTo(16, 16);
+  ctx.lineTo(13, 20);
+  ctx.lineTo(0,   8);
+  ctx.closePath();
+  ctx.fill();
+
+  // ── ALA SUPERIOR (ala principal, arriba) ────────────────────
+  // Ala izquierda arriba (ala larga, luminosa)
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.moveTo(-2,  -2);
+  ctx.lineTo(-26, -8);
+  ctx.lineTo(-24, -4);
+  ctx.lineTo(-2,   2);
+  ctx.closePath();
+  ctx.fill();
+  // Borde superior del ala
+  ctx.fillStyle = light;
+  ctx.fillRect(-25, -9, 20, 2);
+
+  // Ala derecha arriba
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.moveTo(2,  -2);
+  ctx.lineTo(18, -6);
+  ctx.lineTo(16, -2);
+  ctx.lineTo(2,   2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = light;
+  ctx.fillRect(2, -7, 14, 2);
+
+  // ── FUSELAJE (cuerpo principal) ──────────────────────────────
+  // Cuerpo central (trapecio horizontal, va de cola a morro)
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.moveTo(-20, -3);
+  ctx.lineTo( 18, -4);
+  ctx.lineTo( 22,  1);
+  ctx.lineTo(-18,  6);
+  ctx.closePath();
+  ctx.fill();
+
+  // Franja luminosa superior del fuselaje
+  ctx.fillStyle = light;
+  ctx.fillRect(-18, -4, 36, 2);
+
+  // Franja oscura inferior del fuselaje (sombra)
+  ctx.fillStyle = shade;
+  ctx.fillRect(-17, 4, 34, 2);
+
+  // ── ESTABILIZADOR VERTICAL (cola) ───────────────────────────
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.moveTo(-20, -3);
+  ctx.lineTo(-28, -14);
+  ctx.lineTo(-22, -13);
+  ctx.lineTo(-18,  -3);
+  ctx.closePath();
+  ctx.fill();
+  // Borde de luz del estabilizador
+  ctx.fillStyle = light;
+  ctx.fillRect(-27, -14, 6, 2);
+
+  // ── ESTABILIZADOR HORIZONTAL (cola) ─────────────────────────
+  ctx.fillStyle = shade;
+  ctx.beginPath();
+  ctx.moveTo(-20,  3);
+  ctx.lineTo(-30,  8);
+  ctx.lineTo(-28, 10);
+  ctx.lineTo(-18,  6);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.moveTo(-18, 0);
-  ctx.lineTo(16, 0);
-  ctx.lineTo(10, 6);
-  ctx.lineTo(-12, 6);
+  ctx.moveTo(-20, -1);
+  ctx.lineTo(-28, -4);
+  ctx.lineTo(-27, -2);
+  ctx.lineTo(-19,  0);
   ctx.closePath();
   ctx.fill();
+
+  // ── CABINA / COCKPIT ────────────────────────────────────────
+  // Cabina exterior
+  ctx.fillStyle = shade;
   ctx.beginPath();
-  ctx.moveTo(-4, 0);
-  ctx.lineTo(6, -10);
-  ctx.lineTo(10, 0);
+  ctx.moveTo(4, -4);
+  ctx.lineTo(14, -4);
+  ctx.lineTo(16, 0);
+  ctx.lineTo(2,   0);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = t > 0.7 ? '#111111' : '#e2e8f0';
-  ctx.fillRect(6, -2, 5, 3);
-  ctx.fillStyle = '#111111';
-  ctx.fillRect(-16, -3, 5, 6);
+  // Cristal (canopy)
+  const glassT = t > 0.7 ? '#1a1a1a' : '#7dd3fc';
+  ctx.fillStyle = glassT;
+  ctx.fillRect(5, -3, 7, 3);
+  // Reflejo del cristal
+  if (t < 0.7) {
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.fillRect(6, -3, 2, 1);
+  }
+  // Marco de la cabina
+  ctx.fillStyle = shade;
+  ctx.fillRect(4, -4, 1, 4);
+  ctx.fillRect(12, -4, 1, 4);
+
+  // ── MOTOR / MORRO ────────────────────────────────────────────
+  // Bloque del motor
+  ctx.fillStyle = shade;
+  ctx.fillRect(17, -2, 6, 5);
+  // Borde luminoso del motor
+  ctx.fillStyle = light;
+  ctx.fillRect(17, -3, 6, 2);
+  // Escape / detalle trasero motor
+  ctx.fillStyle = shadeTowardBlack(plane.dark, Math.min(1, t + 0.3));
+  ctx.fillRect(23, -1, 2, 3);
+
+  // ── HÉLICE ANIMADA ──────────────────────────────────────────
+  propAngle += 0.38;
+  const propLen = 10;
+  ctx.save();
+  ctx.translate(26, 0);
+  ctx.rotate(propAngle);
+  ctx.strokeStyle = t > 0.6 ? '#555' : '#c0c0c0';
+  ctx.lineWidth = 2;
+  // 3 palas de hélice
+  for (let blade = 0; blade < 3; blade += 1) {
+    ctx.save();
+    ctx.rotate((blade / 3) * Math.PI * 2);
+    ctx.fillStyle = t > 0.6 ? '#888' : '#e2e8f0';
+    ctx.beginPath();
+    ctx.moveTo(0, -1);
+    ctx.lineTo(propLen, -2);
+    ctx.lineTo(propLen,  2);
+    ctx.lineTo(0,  1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  // Centro de la hélice
+  ctx.fillStyle = shade;
+  ctx.beginPath();
+  ctx.arc(0, 0, 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // ── DETALLES DE REMACHES / LÍNEAS ───────────────────────────
+  ctx.fillStyle = shadeTowardBlack(plane.dark, Math.min(1, t * 0.5 + 0.6));
+  // Línea de panel en el ala superior
+  ctx.fillRect(-10, -3, 1, 5);
+  // Línea de panel en el ala derecha
+  ctx.fillRect(8, -3, 1, 4);
+
   ctx.restore();
 };
 
@@ -616,11 +762,7 @@ export default function Plane({
     };
 
     const paintRings = (rankedWait: string | null) => {
-      state.clouds.forEach((cloud) => {
-        cloud.x -= cloud.v * 0.016;
-        if (cloud.x + cloud.w < 0) cloud.x = WIDTH + 20;
-      });
-      drawBackdrop(ctx, state.clouds, scrollDistance(state.gameTime));
+      drawBackdrop(ctx, state.clouds);
       state.rings.forEach((ring) => drawRing(ctx, ring));
       drawPlane(ctx, state.p1);
       drawPlane(ctx, state.p2);
@@ -724,10 +866,6 @@ export default function Plane({
         return;
       }
 
-      state.clouds.forEach((cloud) => {
-        cloud.x -= cloud.v * dt;
-        if (cloud.x + cloud.w < 0) cloud.x = WIDTH + 20;
-      });
       state.sparks = state.sparks.filter((spark) => {
         spark.x += spark.vx * dt;
         spark.y += spark.vy * dt;
@@ -735,7 +873,7 @@ export default function Plane({
         return spark.life > 0;
       });
 
-      drawBackdrop(ctx, state.clouds, scrollDistance(state.gameTime));
+      drawBackdrop(ctx, state.clouds);
       state.rings.forEach((ring) => drawRing(ctx, ring));
       drawPlane(ctx, state.p1);
       drawPlane(ctx, state.p2);
