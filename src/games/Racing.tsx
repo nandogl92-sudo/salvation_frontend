@@ -11,7 +11,23 @@ const HALF = TRACK_W / 2;
 const ORANGE = '#ff8c1a';
 const COUNT_MS = 10_000;
 const KO_FRAMES = 18;
-const SPARK_MAX = 36;
+const SPARK_MAX = 60;
+const OIL_MAX = 3;
+const OIL_WAIT_MIN = 240;
+const OIL_WAIT_RAND = 300;
+const OIL_TTL_MIN = 420;
+const OIL_TTL_RAND = 360;
+const OIL_R_MIN = 10;
+const OIL_R_RAND = 8;
+const OIL_FADE_IN = 30;
+const OIL_FADE_OUT = 60;
+const OIL_ACTIVE_FROM = 20;
+const OIL_HIT_FADE = 45;
+const OIL_SAFE_CAR = 110;
+const OIL_SAFE_START = 140;
+const OIL_SAFE_OIL = 70;
+const OIL_HIT_PAD = 7;
+const TRAIL_MAX = 7;
 const ROAD_EDGE = (TRACK_W + 14) / 2 + 6;
 const SPEED = 1.05;
 const RESCUE_FRAMES = 18;
@@ -62,6 +78,17 @@ type Car = {
   dark: string;
   light: string;
   name: string;
+  trail: Pt[];
+};
+
+type Oil = {
+  id: number;
+  x: number;
+  y: number;
+  r: number;
+  age: number;
+  ttl: number;
+  hit: boolean;
 };
 
 type Spark = {
@@ -381,6 +408,7 @@ const makeCar = (lane: number, color: string, dark: string, light: string, name:
   dark,
   light,
   name,
+  trail: [],
 });
 
 const placeCar = (car: Car, track: Track, recover: number) => {
@@ -396,69 +424,269 @@ const placeCar = (car: Car, track: Track, recover: number) => {
 
 const hitsOrange = (track: Track, x: number, y: number) => Math.abs(project(track, x, y).offset) >= HALF + 6;
 
-const drawWorld = (ctx: Ctx, track: Track) => {
-  if (raceArtReady) {
-    const smooth = ctx.imageSmoothingEnabled;
+// ── CHARCOS DE ACEITE (misma lógica en cliente y servidor) ───────────
+const oilActive = (oil: Oil) => !oil.hit && oil.age >= OIL_ACTIVE_FROM && oil.age <= oil.ttl - OIL_FADE_OUT;
+
+const oilUnder = (oils: Oil[], x: number, y: number) =>
+  oils.find((oil) => oilActive(oil) && Math.hypot(x - oil.x, y - oil.y) < oil.r + OIL_HIT_PAD) ?? null;
+
+const spawnOil = (oils: Oil[], track: Track, cars: Pt[], rand: () => number, id: number): boolean => {
+  for (let tries = 0; tries < 6; tries += 1) {
+    const d = rand() * track.total;
+    if (d < OIL_SAFE_START || d > track.total - OIL_SAFE_START) continue;
+    const side = (rand() - 0.5) * 2 * (HALF - 16);
+    const r = OIL_R_MIN + rand() * OIL_R_RAND;
+    const pose = sample(track, d);
+    const x = pose.x + pose.nx * side;
+    const y = pose.y + pose.ny * side;
+    if (cars.some((car) => Math.hypot(car.x - x, car.y - y) < OIL_SAFE_CAR)) continue;
+    if (oils.some((oil) => Math.hypot(oil.x - x, oil.y - y) < OIL_SAFE_OIL)) continue;
+    oils.push({ id, x, y, r, age: 0, ttl: Math.round(OIL_TTL_MIN + rand() * OIL_TTL_RAND), hit: false });
+    return true;
+  }
+  return false;
+};
+
+const hash = (n: number) => {
+  let h = Math.imul(n | 0, 2654435761) >>> 0;
+  h ^= h >>> 13;
+  h = Math.imul(h, 0x5bd1e995) >>> 0;
+  h ^= h >>> 15;
+  return h;
+};
+const unitHash = (n: number, salt: number) => (hash(n * 7 + salt) % 1000) / 1000;
+
+const pixelBlob = (ctx: Ctx, cx: number, cy: number, r: number) => {
+  const step = 3;
+  for (let dy = -r; dy <= r; dy += step) {
+    const hw = Math.sqrt(Math.max(0, r * r - dy * dy));
+    const w = Math.round(hw / step) * step * 2;
+    if (w <= 0) continue;
+    ctx.fillRect(Math.round(cx - w / 2), Math.round(cy + dy), w, step);
+  }
+};
+
+const drawOil = (ctx: Ctx, oil: Oil, nowMs: number) => {
+  const grow = Math.min(1, oil.age / OIL_FADE_IN);
+  const fadeOut = Math.max(0, Math.min(1, (oil.ttl - oil.age) / OIL_FADE_OUT));
+  const alpha = Math.min(grow, fadeOut);
+  if (alpha <= 0) return;
+  const r = oil.r * (0.6 + 0.4 * grow) * (0.85 + 0.15 * fadeOut);
+  const s1 = unitHash(oil.id, 1);
+  const s2 = unitHash(oil.id, 2);
+  const s3 = unitHash(oil.id, 3);
+  const ax = (s1 - 0.5) * r * 1.1;
+  const ay = (s2 - 0.5) * r * 0.9;
+  const bx = (s3 - 0.5) * -r * 1.2;
+  const by = (s1 - 0.5) * r;
+
+  ctx.globalAlpha = alpha * 0.9;
+  ctx.fillStyle = '#12141b';
+  pixelBlob(ctx, oil.x, oil.y, r);
+  pixelBlob(ctx, oil.x + ax, oil.y + ay, r * 0.6);
+  pixelBlob(ctx, oil.x + bx, oil.y + by, r * 0.45);
+
+  const t = nowMs / 1000;
+  const shimmer = 0.5 + 0.5 * Math.sin(t * 2.3 + oil.id * 1.7);
+  ctx.globalAlpha = alpha * (0.3 + 0.2 * shimmer);
+  paint(ctx, Math.round(oil.x - r * 0.4), Math.round(oil.y - r * 0.35), Math.round(r * 0.8), 3, '#3f4f8f');
+  paint(ctx, Math.round(oil.x - r * 0.2), Math.round(oil.y - r * 0.05), Math.round(r * 0.5), 3, '#7b4e92');
+  ctx.globalAlpha = alpha * (0.35 + 0.35 * shimmer);
+  paint(ctx, Math.round(oil.x - r * 0.35 + shimmer * 4), Math.round(oil.y - r * 0.55), 3, 3, '#b7c3e6');
+  ctx.globalAlpha = 1;
+};
+
+// ── PISTA (capa estática pre-renderizada) ────────────────────────────
+const loopPath = (ctx: Ctx, pts: Pt[]) => {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i += 1) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.closePath();
+};
+
+const offsetLoop = (pts: Pt[], off: number): Pt[] => pts.map((p, i) => {
+  const q = pts[(i + 1) % pts.length];
+  const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+  const nx = -(q.y - p.y) / len;
+  const ny = (q.x - p.x) / len;
+  return { x: p.x + nx * off, y: p.y + ny * off };
+});
+
+const drawTrackInto = (ctx: Ctx, track: Track, withArt: boolean) => {
+  if (withArt) {
     ctx.imageSmoothingEnabled = false;
     drawCover(ctx, raceArt, 0, 0, WIDTH, HEIGHT);
-    ctx.imageSmoothingEnabled = smooth;
-  }
-  else {
+  } else {
     paint(ctx, 0, 0, WIDTH, HEIGHT, '#3f8a3a');
     ctx.fillStyle = '#4ea34a';
-    for (let i = 0; i < 28; i += 1) {
-      ctx.fillRect((i * 73) % WIDTH, 40 + (i * 37) % 480, 26, 12);
-    }
+    for (let i = 0; i < 28; i += 1) ctx.fillRect((i * 73) % WIDTH, 40 + (i * 37) % 480, 26, 12);
   }
 
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
-  const strokeLoop = (width: number, color: string) => {
+  const stroke = (pts: Pt[], width: number, color: string, dash: number[] = []) => {
     ctx.strokeStyle = color;
     ctx.lineWidth = width;
-    ctx.beginPath();
-    ctx.moveTo(track.pts[0].x, track.pts[0].y);
-    for (let i = 1; i < track.pts.length; i += 1) ctx.lineTo(track.pts[i].x, track.pts[i].y);
-    ctx.closePath();
+    ctx.setLineDash(dash);
+    loopPath(ctx, pts);
     ctx.stroke();
+    ctx.setLineDash([]);
   };
-  strokeLoop(TRACK_W + 14, ORANGE);
-  strokeLoop(TRACK_W + 6, '#f4f4f4');
-  strokeLoop(TRACK_W, '#2b2d34');
-  strokeLoop(TRACK_W - 12, '#3a3d46');
+  const pts = track.pts;
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.32)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([10, 12]);
-  ctx.beginPath();
-  ctx.moveTo(track.pts[0].x, track.pts[0].y);
-  for (let i = 1; i < track.pts.length; i += 1) ctx.lineTo(track.pts[i].x, track.pts[i].y);
-  ctx.closePath();
-  ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.save();
+  ctx.translate(0, 4);
+  stroke(pts, TRACK_W + 20, 'rgba(0,0,0,0.22)');
+  ctx.restore();
+  stroke(pts, TRACK_W + 14, ORANGE);
+  stroke(pts, TRACK_W + 14, '#c2410c', [8, 18]);
+  stroke(pts, TRACK_W + 6, '#f4f4f4');
+  stroke(pts, TRACK_W + 2, '#1d1f26');
+  stroke(pts, TRACK_W, '#2b2d34');
+  stroke(pts, TRACK_W - 12, '#3a3d46');
+  stroke(offsetLoop(pts, -18), 10, 'rgba(0,0,0,0.14)');
+  stroke(offsetLoop(pts, 18), 10, 'rgba(0,0,0,0.14)');
+
+  for (let i = 0; i < pts.length; i += 1) {
+    const p = pts[i];
+    const q = pts[(i + 1) % pts.length];
+    const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+    const nx = -(q.y - p.y) / len;
+    const ny = (q.x - p.x) / len;
+    const o1 = (unitHash(i, 11) - 0.5) * (TRACK_W - 16);
+    const o2 = (unitHash(i, 23) - 0.5) * (TRACK_W - 16);
+    paint(ctx, Math.round(p.x + nx * o1), Math.round(p.y + ny * o1), 2, 2, '#474b56');
+    paint(ctx, Math.round(p.x + nx * o2), Math.round(p.y + ny * o2), 2, 2, '#24262c');
+  }
+
+  stroke(pts, 2, 'rgba(255,255,255,0.32)', [10, 12]);
 
   const start = sample(track, 0);
-  for (let i = 0; i < 8; i += 1) {
-    const along = (i - 3.5) * 8;
-    const px = start.x + start.nx * along;
-    const py = start.y + start.ny * along;
-    paint(ctx, px - 4, py - 4, 8, 8, i % 2 === 0 ? '#f4f4f4' : '#111');
+  for (let row = 0; row < 2; row += 1) {
+    for (let i = 0; i < 10; i += 1) {
+      const along = (i - 4.5) * 7;
+      const back = (row - 0.5) * 7;
+      const px = start.x + start.nx * along + start.tx * back;
+      const py = start.y + start.ny * along + start.ty * back;
+      paint(ctx, Math.round(px - 3), Math.round(py - 3), 7, 7, (i + row) % 2 === 0 ? '#f4f4f4' : '#111');
+    }
   }
+
+  const inCanvas = (x: number, y: number) => x > 12 && x < WIDTH - 12 && y > 72 && y < HEIGHT - 12;
+  [22, 67, 112, 157].forEach((i) => {
+    const p = pts[i % pts.length];
+    const q = pts[(i + 1) % pts.length];
+    const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+    const nx = -(q.y - p.y) / len;
+    const ny = (q.x - p.x) / len;
+    const x = Math.round(p.x - nx * (HALF + 26));
+    const y = Math.round(p.y - ny * (HALF + 26));
+    if (!inCanvas(x, y)) return;
+    paint(ctx, x - 5, y - 4, 10, 10, '#15171c');
+    paint(ctx, x - 3, y - 2, 6, 6, '#2a2d35');
+    paint(ctx, x - 1, y, 2, 2, '#555');
+    paint(ctx, x + 3, y - 7, 10, 10, '#15171c');
+    paint(ctx, x + 5, y - 5, 6, 6, '#2a2d35');
+    paint(ctx, x + 7, y - 3, 2, 2, '#555');
+  });
+  [45, 100, 140].forEach((i) => {
+    const p = pts[i % pts.length];
+    const q = pts[(i + 1) % pts.length];
+    const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+    const nx = -(q.y - p.y) / len;
+    const ny = (q.x - p.x) / len;
+    const x = Math.round(p.x + nx * (HALF + 24));
+    const y = Math.round(p.y + ny * (HALF + 24));
+    if (!inCanvas(x, y)) return;
+    paint(ctx, x - 3, y - 4, 6, 7, '#f97316');
+    paint(ctx, x - 2, y - 1, 4, 1, '#fff');
+    paint(ctx, x - 4, y + 3, 8, 2, '#c2410c');
+  });
+};
+
+const makeTrackLayer = (track: Track, withArt: boolean) => {
+  const layer = document.createElement('canvas');
+  layer.width = WIDTH;
+  layer.height = HEIGHT;
+  const lctx = layer.getContext('2d');
+  if (lctx) drawTrackInto(lctx, track, withArt);
+  return layer;
+};
+
+// ── COCHES ───────────────────────────────────────────────────────────
+const noteTrail = (car: Car) => {
+  const bx = car.x - Math.cos(car.angle) * 12;
+  const by = car.y - Math.sin(car.angle) * 12;
+  const last = car.trail[0];
+  if (car.recover > 0) {
+    if (car.trail.length > 0) car.trail.pop();
+    return;
+  }
+  if (last && Math.hypot(last.x - bx, last.y - by) < 1.5) return;
+  car.trail.unshift({ x: bx, y: by });
+  if (car.trail.length > TRAIL_MAX) car.trail.pop();
+};
+
+const drawTrail = (ctx: Ctx, car: Car) => {
+  car.trail.forEach((p, i) => {
+    const k = 1 - i / TRAIL_MAX;
+    ctx.globalAlpha = 0.32 * k;
+    const size = 2 + Math.round(k * 3);
+    paint(ctx, Math.round(p.x - size / 2), Math.round(p.y - size / 2), size, size, car.color);
+  });
+  ctx.globalAlpha = 1;
 };
 
 const drawCar = (ctx: Ctx, car: Car, spin: number) => {
   ctx.save();
   ctx.translate(car.x, car.y);
   ctx.rotate(car.angle + spin);
-  paint(ctx, -9, -6, 20, 14, 'rgba(0,0,0,0.28)');
-  paint(ctx, -12, -8, 8, 5, '#1a1a1a');
-  paint(ctx, 4, -8, 8, 5, '#1a1a1a');
-  paint(ctx, -12, 4, 8, 5, '#1a1a1a');
-  paint(ctx, 4, 4, 8, 5, '#1a1a1a');
+
+  paint(ctx, -12, -4, 27, 13, 'rgba(0,0,0,0.3)');
+
+  const tire = (x: number, y: number) => {
+    paint(ctx, x, y, 8, 5, '#0f1014');
+    paint(ctx, x + 1, y + 1, 6, 3, '#23252b');
+    paint(ctx, x + 3, y + 2, 2, 1, '#8b909c');
+  };
+  tire(-12, -9);
+  tire(4, -9);
+  tire(-12, 4);
+  tire(4, 4);
+
+  paint(ctx, -15, -7, 30, 14, '#0b0d12');
   paint(ctx, -14, -6, 28, 12, car.dark);
-  paint(ctx, -12, -4, 24, 8, car.color);
-  paint(ctx, 2, -3, 8, 6, car.light);
-  paint(ctx, -10, -2, 6, 4, '#dbeafe');
+  paint(ctx, -13, -5, 26, 10, car.color);
+
+  paint(ctx, -15, -6, 2, 12, car.dark);
+  paint(ctx, -16, -5, 1, 10, '#0b0d12');
+  paint(ctx, -14, -5, 2, 3, '#ef4444');
+  paint(ctx, -14, 2, 2, 3, '#ef4444');
+  paint(ctx, -16, -1, 1, 2, '#6b7280');
+
+  paint(ctx, -8, -3, 4, 6, '#0b0d12');
+  paint(ctx, -7, -2, 3, 4, '#9fd3ff');
+
+  paint(ctx, -4, -5, 9, 10, car.light);
+  paint(ctx, -4, -1, 9, 2, car.color);
+  paint(ctx, -4, -5, 9, 1, '#ffffff');
+
+  paint(ctx, 5, -3, 4, 6, '#0b0d12');
+  paint(ctx, 6, -2, 3, 4, '#bfe8ff');
+  paint(ctx, 6, -2, 1, 1, '#ffffff');
+
+  paint(ctx, 9, -5, 4, 10, car.color);
+  paint(ctx, 9, -5, 4, 1, car.light);
+  paint(ctx, 10, -1, 3, 2, car.dark);
+  paint(ctx, 12, -5, 2, 3, '#fef08a');
+  paint(ctx, 12, 2, 2, 3, '#fef08a');
+  paint(ctx, 13, -1, 1, 2, '#0b0d12');
+
+  paint(ctx, 2, -8, 2, 2, car.dark);
+  paint(ctx, 2, 6, 2, 2, car.dark);
+
+  if (car.recover === 0) paint(ctx, 14, -4, 8, 8, 'rgba(254,240,138,0.16)');
+
   if (car.recover > 0) {
     ctx.rotate(-(car.angle + spin));
     ctx.fillStyle = '#f5c518';
@@ -534,15 +762,31 @@ const drawBanner = (ctx: Ctx, title: string, sub: string) => {
 };
 
 const burst = (sparks: Spark[], x: number, y: number, color: string) => {
-  for (let i = 0; i < 8; i += 1) {
+  for (let i = 0; i < 12; i += 1) {
     if (sparks.length >= SPARK_MAX) return;
     sparks.push({
       x,
       y,
       vx: (Math.random() - 0.5) * 4,
       vy: (Math.random() - 0.8) * 3,
-      life: 14,
-      color,
+      life: 14 + (i % 3) * 4,
+      color: i % 4 === 3 ? '#9aa0ad' : color,
+    });
+  }
+};
+
+const splash = (sparks: Spark[], x: number, y: number) => {
+  for (let i = 0; i < 14; i += 1) {
+    if (sparks.length >= SPARK_MAX) return;
+    const angle = (Math.PI * 2 * i) / 14 + Math.random() * 0.4;
+    const speed = 1.5 + Math.random() * 3;
+    sparks.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 16 + (i % 4) * 3,
+      color: i % 3 === 0 ? '#5b6b9a' : '#14161c',
     });
   }
 };
@@ -593,10 +837,37 @@ export default function Racing({
       winner: null as Side | null,
       ko: 0,
       sparks: [] as Spark[],
+      oils: [] as Oil[],
+      oilWait: OIL_WAIT_MIN,
+      nextOil: 1,
+      splashed: new Set<number>(),
     };
     placeCar(state.p1, track, 0);
     placeCar(state.p2, track, 0);
     if (link) link.setLocalKeys(state.keys);
+    let trackLayer = makeTrackLayer(track, raceArtReady);
+    let layerHasArt = raceArtReady;
+    const drawWorld = () => {
+      if (layerHasArt !== raceArtReady) {
+        trackLayer = makeTrackLayer(track, raceArtReady);
+        layerHasArt = raceArtReady;
+      }
+      ctx.drawImage(trackLayer, 0, 0);
+    };
+
+    const stepOils = () => {
+      state.oilWait -= 1;
+      if (state.oilWait <= 0) {
+        if (state.oils.length < OIL_MAX && spawnOil(state.oils, track, [state.p1, state.p2], rand, state.nextOil)) {
+          state.nextOil += 1;
+        }
+        state.oilWait = OIL_WAIT_MIN + Math.floor(rand() * OIL_WAIT_RAND);
+      }
+      state.oils.forEach((oil) => {
+        oil.age += 1;
+      });
+      state.oils = state.oils.filter((oil) => oil.age < oil.ttl);
+    };
 
     const publishKeys = () => {
       link?.setLocalKeys(state.keys);
@@ -639,6 +910,14 @@ export default function Racing({
         rescueCar(car);
         return;
       }
+      const oil = oilUnder(state.oils, car.x, car.y);
+      if (oil) {
+        oil.hit = true;
+        oil.ttl = Math.min(oil.ttl, oil.age + OIL_HIT_FADE);
+        splash(state.sparks, oil.x, oil.y);
+        rescueCar(car);
+        return;
+      }
 
       const prev = car.progress;
       const hit = projectAround(track, car.x, car.y, car.progress, 130);
@@ -669,6 +948,20 @@ export default function Racing({
       };
       put(state.p1, scene.p1);
       put(state.p2, scene.p2);
+      state.oils = scene.items.map((item) => ({
+        id: item.id,
+        x: item.x,
+        y: item.y,
+        r: item.w,
+        age: item.h,
+        ttl: item.v,
+        hit: item.k === 1,
+      }));
+      state.oils.forEach((oil) => {
+        if (!oil.hit || state.splashed.has(oil.id)) return;
+        state.splashed.add(oil.id);
+        splash(state.sparks, oil.x, oil.y);
+      });
       if ((scene.winner === 'p1' || scene.winner === 'p2') && !state.winner) {
         state.winner = scene.winner;
         state.ko = KO_FRAMES;
@@ -686,11 +979,25 @@ export default function Racing({
         const scene = link.readScene(playHead);
         if (scene?.kind === 'race') applyRace(scene);
         state.frames += 1;
-        drawWorld(ctx, track);
+        state.sparks = state.sparks.filter((spark) => {
+          spark.x += spark.vx;
+          spark.y += spark.vy;
+          spark.life -= 1;
+          return spark.life > 0;
+        });
+        noteTrail(state.p1);
+        noteTrail(state.p2);
+        drawWorld();
+        state.oils.forEach((oil) => drawOil(ctx, oil, now));
+        drawTrail(ctx, state.p1);
+        drawTrail(ctx, state.p2);
         const spin1 = state.p1.recover > 0 ? state.frames * 0.4 : 0;
         const spin2 = state.p2.recover > 0 ? state.frames * 0.4 : 0;
         drawCar(ctx, state.p1, spin1);
         drawCar(ctx, state.p2, spin2);
+        state.sparks.forEach((spark) => {
+          paint(ctx, Math.round(spark.x), Math.round(spark.y), 3, 3, spark.color);
+        });
         drawHud(ctx, state.p1, state.p2);
         const rankedWait = rankedCountdown(world.startAt, link.serverNow());
         if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN');
@@ -714,6 +1021,7 @@ export default function Racing({
         const racing = !rankedWait && !localWait && !state.winner;
 
         if (racing) {
+        stepOils();
         if (world) {
           const drivePad = (side: Side, keys: Record<string, boolean>) => {
             const car = side === 'p1' ? state.p1 : state.p2;
@@ -745,13 +1053,18 @@ export default function Racing({
         });
       }
 
-      drawWorld(ctx, track);
+      noteTrail(state.p1);
+      noteTrail(state.p2);
+      drawWorld();
+      state.oils.forEach((oil) => drawOil(ctx, oil, now));
+      drawTrail(ctx, state.p1);
+      drawTrail(ctx, state.p2);
       const spin1 = state.p1.recover > 0 ? state.frames * 0.4 : 0;
       const spin2 = state.p2.recover > 0 ? state.frames * 0.4 : 0;
       drawCar(ctx, state.p1, spin1);
       drawCar(ctx, state.p2, spin2);
       state.sparks.forEach((spark) => {
-        paint(ctx, spark.x, spark.y, 3, 3, spark.color);
+        paint(ctx, Math.round(spark.x), Math.round(spark.y), 3, 3, spark.color);
       });
       drawHud(ctx, state.p1, state.p2);
 
