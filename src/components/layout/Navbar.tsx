@@ -89,8 +89,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
   }
 
   const initial = user ? (user.username.trim().charAt(0).toUpperCase() || '?') : ''
-  const hasGames = user?.gamesAccess === true
-  const lightLabel = hasGames ? 'Luz verde: puede entrar a los juegos' : 'Luz roja: no puede entrar a los juegos'
+  const lightLabel = 'Sesión iniciada'
 
   const handleToggleTheme = () => {
     const next = !isLight
@@ -214,7 +213,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 <span aria-hidden="true">{initial}</span>
                 <span
                   aria-hidden="true"
-                  className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full border border-[#0c1224] ${hasGames ? 'bg-green-500' : 'bg-red-500'}`}
+                  className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full border border-[#0c1224] bg-green-500"
                 />
               </button>
               {user.role === 'admin' && (
