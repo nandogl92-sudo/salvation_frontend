@@ -5,7 +5,7 @@
 // Si la ruta no existe o el saldo no sube, la cuenta local no se toca.
 
 import { API_URL } from './config'
-import { getAccessToken, getCurrentSession } from './authApi'
+import { getAccessToken, getCurrentSession, grantGamesAccessLocally } from './authApi'
 import type { UserProfile } from '../types'
 
 export const SUBSCRIPTION_EUROS = 10
@@ -89,6 +89,7 @@ export const subscribeMonthly = async (
     if (typeof balance !== 'number' || balance < balanceBefore + SUBSCRIPTION_POINTS) {
       return { ok: false, message: 'La suscripción no se guardó en la cuenta. Tus fichas no han cambiado.' }
     }
+    grantGamesAccessLocally(balance, currentSubscriptionMonth())
     return { ok: true, balance }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo conectar con el servidor.'

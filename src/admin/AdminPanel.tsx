@@ -60,7 +60,7 @@ const AdminPanel = ({ onBack }: AdminPanelProps) => {
         </button>
       </div>
       <p className="text-sm text-[#b7c0d4]">
-        Marcar el pago solo abre los juegos. No cambia las fichas ni los puntos del mes.
+        Dar o quitar el acceso a los juegos, aunque no haya pagado la inscripción. No cambia las fichas ni los puntos del mes.
       </p>
       <ReplayBoard />
       {loading && <p className="text-sm text-[#b7c0d4]">Cargando cuentas…</p>}
@@ -88,7 +88,7 @@ const AdminPanel = ({ onBack }: AdminPanelProps) => {
                 onClick={handleMark}
                 className="mt-1 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide bg-[#f5c518] text-[#1a1403]"
               >
-                {paid ? 'Quitar acceso' : 'Marcar pagado'}
+                {paid ? 'Quitar acceso' : 'Dar acceso'}
               </button>
             </li>
           )

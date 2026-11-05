@@ -277,6 +277,22 @@ export const getCurrentSession = async (): Promise<AuthSession | null> => {
  * Solo actualiza el perfil cacheado para que la UI no pierda el saldo
  * hasta que el módulo de partidas use el servidor.
  */
+/** La inscripción de este mes abre los juegos en la sesión que ya está abierta. */
+export const grantGamesAccessLocally = (balance: number, subscriptionMonth: string): UserProfile | null => {
+  const stored = loadStoredSession()
+  if (!stored) return null
+
+  const user: UserProfile = {
+    ...stored.user,
+    balance,
+    gamesAccess: true,
+    subscriptionMonth,
+    monthPoints: monthPointsOf(stored.user),
+  }
+  saveStoredSession({ token: stored.token, user })
+  return user
+}
+
 export const updateUserBalance = async (userId: string, balance: number): Promise<UserProfile | null> => {
   const stored = loadStoredSession()
   if (!stored || stored.user.id !== userId) return null
