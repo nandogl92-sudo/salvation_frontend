@@ -28,6 +28,7 @@ type Jumper = {
   color: string;
   dark: string;
   canopy: string;
+  light: string;
   name: string;
 };
 
@@ -40,7 +41,8 @@ type Hazard = {
   kind: Kind;
 };
 
-type Spark = { x: number; y: number; vx: number; vy: number; life: number; color: string };
+type Spark = { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string };
+type Row = [dx: number, dy: number, w: number, h: number];
 
 const FIELD_SRC = '/sky-drop-field.jpg';
 const fieldArt = new Image();
@@ -60,11 +62,24 @@ const drawCover = (ctx: Ctx, image: HTMLImageElement, x: number, y: number, w: n
   ctx.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
 };
 
-const outline = (ctx: Ctx, x: number, y: number, w: number, h: number) => {
-  ctx.strokeStyle = '#0b1220';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x - 1, y - 1, w + 2, h + 2);
+const INK = '#0b1220';
+const SKIN = '#f1c27d';
+
+const fillRows = (ctx: Ctx, x: number, y: number, rows: Row[], color: string, grow = 0) => {
+  ctx.fillStyle = color;
+  rows.forEach(([dx, dy, w, h]) => ctx.fillRect(x + dx - grow, y + dy - grow, w + grow * 2, h + grow * 2));
 };
+
+const tint = (hex: string, amount: number) => {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (shift: number) => {
+    const v = (n >> shift) & 255;
+    return Math.round(v + (255 - v) * amount);
+  };
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+};
+
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 const overlaps = (
   ax: number, ay: number, aw: number, ah: number,
@@ -80,6 +95,7 @@ const makeJumper = (x: number, color: string, dark: string, canopy: string, name
   color,
   dark,
   canopy,
+  light: tint(canopy, 0.55),
   name,
 });
 
@@ -105,83 +121,335 @@ const drawBackdrop = (ctx: Ctx) => {
   ctx.imageSmoothingEnabled = smooth;
 };
 
-const drawHazard = (ctx: Ctx, item: Hazard) => {
-  if (item.kind === 'balloon') {
-    paint(ctx, item.x + 12, item.y + 32, 4, 16, '#7c2d12');
-    outline(ctx, item.x, item.y, item.w, item.h - 10);
-    paint(ctx, item.x, item.y, item.w, item.h - 10, '#fb7185');
-    paint(ctx, item.x + 8, item.y + 6, 10, 8, '#ffe4e6');
+// ── AMBIENTE: nubes y viento (solo decorativo, sin colisión) ─────────
+const CLOUDS = [
+  { x: 60, y: 120, w: 96, par: 0.32, drift: 9, a: 0.5 },
+  { x: 420, y: 300, w: 72, par: 0.4, drift: -7, a: 0.45 },
+  { x: 760, y: 80, w: 110, par: 0.3, drift: 6, a: 0.5 },
+  { x: 220, y: 460, w: 64, par: 0.55, drift: 12, a: 0.6 },
+  { x: 620, y: 520, w: 84, par: 0.6, drift: -10, a: 0.6 },
+  { x: 880, y: 260, w: 58, par: 0.7, drift: 14, a: 0.65 },
+];
+
+const WIND = Array.from({ length: 18 }, (_, i) => ({
+  x: (i * 53 + 17) % WIDTH,
+  y: (i * 131) % HEIGHT,
+  len: 10 + (i % 4) * 5,
+  par: 0.9 + (i % 3) * 0.25,
+}));
+
+const wrap = (v: number, size: number) => ((v % size) + size) % size;
+
+const drawCloud = (ctx: Ctx, x: number, y: number, w: number, alpha: number) => {
+  const h = Math.round(w * 0.3);
+  ctx.globalAlpha = alpha;
+  paint(ctx, x, y + Math.round(h * 0.4), w, Math.round(h * 0.6), '#ffffff');
+  paint(ctx, x + Math.round(w * 0.15), y, Math.round(w * 0.45), Math.round(h * 0.7), '#ffffff');
+  paint(ctx, x + Math.round(w * 0.5), y + Math.round(h * 0.15), Math.round(w * 0.35), Math.round(h * 0.6), '#ffffff');
+  paint(ctx, x + 2, y + h - 3, w - 4, 3, '#b7cbe6');
+  ctx.globalAlpha = 1;
+};
+
+const drawAmbient = (ctx: Ctx, fall: number, anim: number, phase: number) => {
+  CLOUDS.forEach((cloud) => {
+    const span = HEIGHT + 80;
+    const cy = Math.round(wrap(cloud.y - fall * cloud.par, span) - 40);
+    const cx = Math.round(wrap(cloud.x + anim * cloud.drift, WIDTH + 160) - 80);
+    drawCloud(ctx, cx, cy, cloud.w, cloud.a);
+  });
+  const strength = 1 + phase * 0.12;
+  ctx.globalAlpha = 0.14 + phase * 0.03;
+  WIND.forEach((line) => {
+    const len = Math.round(line.len * strength);
+    const ly = Math.round(wrap(line.y - fall * line.par * 1.3, HEIGHT + len) - len);
+    paint(ctx, line.x, ly, 2, len, '#ffffff');
+  });
+  ctx.globalAlpha = 1;
+};
+
+// ── OBSTÁCULOS ───────────────────────────────────────────────────────
+const drawBirdWing = (ctx: Ctx, bx: number, by: number, dir: number, lift: number) => {
+  const segs: Row[] = [
+    [dir > 0 ? 0 : -5, -Math.round(lift / 3), 5, 4],
+    [dir > 0 ? 5 : -10, -Math.round((lift * 2) / 3), 5, 4],
+    [dir > 0 ? 10 : -14, -lift, 4, 3],
+  ];
+  fillRows(ctx, bx, by, segs, INK, 1);
+  fillRows(ctx, bx, by, segs, '#e879f9');
+  ctx.fillStyle = '#a21caf';
+  segs.forEach(([dx, dy, w]) => ctx.fillRect(bx + dx, by + dy + 2, w, 1));
+};
+
+const drawBird = (ctx: Ctx, item: Hazard, anim: number) => {
+  const face = item.vx > 0 ? 1 : -1;
+  const flap = Math.sin(anim * 9 + item.x * 0.07);
+  const lift = Math.round(flap * 5);
+  const cx = Math.round(item.x + item.w / 2);
+  const cy = Math.round(item.y + 11);
+  const bodyRows: Row[] = [[-11, -4, 22, 9]];
+  const tailX = face > 0 ? -17 : 11;
+  const headX = face > 0 ? 9 : -17;
+  fillRows(ctx, cx, cy, bodyRows, INK, 1);
+  fillRows(ctx, cx, cy, [[tailX, -2, 6, 4]], INK, 1);
+  fillRows(ctx, cx, cy, [[headX, -8, 8, 8]], INK, 1);
+  fillRows(ctx, cx, cy, bodyRows, '#a21caf');
+  paint(ctx, cx - 9, cy - 3, 16, 3, '#c026d3');
+  paint(ctx, cx - 11, cy + 2, 22, 3, '#701a75');
+  paint(ctx, cx + tailX, cy - 2, 6, 4, '#86198f');
+  paint(ctx, cx + tailX + (face > 0 ? 0 : 3), cy - 3, 3, 2, '#86198f');
+  paint(ctx, cx + headX, cy - 8, 8, 8, '#a21caf');
+  paint(ctx, cx + headX + 1, cy - 7, 6, 2, '#c026d3');
+  paint(ctx, cx + headX + (face > 0 ? 5 : 1), cy - 6, 2, 2, INK);
+  paint(ctx, cx + headX + (face > 0 ? 8 : -5), cy - 4, 5, 3, '#fde047');
+  paint(ctx, cx + headX + (face > 0 ? 8 : -5), cy - 2, 5, 1, '#ca8a04');
+  drawBirdWing(ctx, cx - 11, cy - 2, -1, lift);
+  drawBirdWing(ctx, cx + 11, cy - 2, 1, lift);
+};
+
+const BALLOON_ROWS: Row[] = [
+  [10, 0, 14, 2],
+  [6, 2, 22, 2],
+  [3, 4, 28, 2],
+  [0, 6, 34, 16],
+  [3, 22, 28, 3],
+  [7, 25, 20, 3],
+  [11, 28, 12, 3],
+  [13, 31, 8, 3],
+];
+
+const drawBalloon = (ctx: Ctx, item: Hazard, anim: number) => {
+  const x = Math.round(item.x);
+  const y = Math.round(item.y);
+  const swing = Math.round(Math.sin(anim * 2.2 + item.x * 0.05) * 2);
+  const basketY = y + 40;
+  paint(ctx, x + 12 + swing, y + 34, 1, 6, '#7c2d12');
+  paint(ctx, x + 21 + swing, y + 34, 1, 6, '#7c2d12');
+  fillRows(ctx, x + swing, basketY, [[11, 0, 12, 6]], INK, 1);
+  paint(ctx, x + 11 + swing, basketY, 12, 6, '#b45309');
+  paint(ctx, x + 11 + swing, basketY, 12, 2, '#d97706');
+  paint(ctx, x + 13 + swing, basketY + 3, 2, 2, '#78350f');
+  paint(ctx, x + 17 + swing, basketY + 3, 2, 2, '#78350f');
+  fillRows(ctx, x, y, BALLOON_ROWS, INK, 1);
+  fillRows(ctx, x, y, BALLOON_ROWS, '#fb7185');
+  paint(ctx, x + 8, y + 4, 4, 20, '#f43f5e');
+  paint(ctx, x + 20, y + 4, 4, 20, '#f43f5e');
+  paint(ctx, x + 28, y + 6, 4, 16, '#be123c');
+  paint(ctx, x + 24, y + 22, 6, 3, '#be123c');
+  paint(ctx, x + 5, y + 6, 3, 10, '#ffe4e6');
+  paint(ctx, x + 8, y + 5, 2, 4, '#ffe4e6');
+  paint(ctx, x + 13, y + 31, 8, 3, '#9f1239');
+};
+
+const KITE_WIDTHS = [4, 10, 16, 22, 28, 26, 22, 18, 14, 10, 8, 6, 4, 2];
+
+const drawKite = (ctx: Ctx, item: Hazard, anim: number) => {
+  const x = Math.round(item.x);
+  const y = Math.round(item.y);
+  const cx = x + 22;
+  const lean = Math.sin(anim * 2.6 + item.x * 0.04) * 2;
+  const rows: Row[] = KITE_WIDTHS.map((w, i) => {
+    const shift = Math.round(lean * Math.max(0, 5 - i) / 5);
+    return [shift - w / 2, i * 2, w, 2];
+  });
+  fillRows(ctx, cx, y, rows, INK, 1);
+  fillRows(ctx, cx, y, rows, '#22d3ee');
+  ctx.fillStyle = '#06b6d4';
+  rows.forEach(([dx, dy, w, h]) => ctx.fillRect(cx + dx + Math.round(w / 2), y + dy, Math.round(w / 2), h));
+  ctx.fillStyle = '#0e7490';
+  rows.forEach(([dx, dy, w, h]) => ctx.fillRect(cx + dx + Math.round(w / 2) - 1, y + dy, 2, h));
+  paint(ctx, cx - 14 + Math.round(lean * 0.2), y + 8, 28, 2, '#0e7490');
+  paint(ctx, cx - 3, y + 5, 6, 6, '#fef08a');
+  paint(ctx, cx - 1, y + 7, 2, 2, '#f59e0b');
+  for (let k = 0; k < 5; k += 1) {
+    const tx = x + 20 + Math.round(Math.sin(anim * 6 + k * 1.1 + item.x * 0.03) * (1 + k) * 0.8);
+    const ty = y + 28 + k * 4;
+    paint(ctx, tx, ty, 3, 3, '#0f172a');
+    if (k === 1 || k === 3) paint(ctx, tx - 1, ty + 1, 5, 2, '#f472b6');
+  }
+};
+
+const drawCrate = (ctx: Ctx, item: Hazard) => {
+  const x = Math.round(item.x);
+  const y = Math.round(item.y);
+  const w = Math.round(item.w);
+  const h = Math.round(item.h);
+  fillRows(ctx, x, y, [[0, 0, w, h]], INK, 1);
+  paint(ctx, x, y, w, h, '#f97316');
+  paint(ctx, x, y, w, 2, '#fdba74');
+  paint(ctx, x, y + h - 3, w, 3, '#9a3412');
+  paint(ctx, x, y + Math.round(h / 3), w, 1, '#c2410c');
+  paint(ctx, x, y + Math.round((h * 2) / 3), w, 1, '#c2410c');
+  paint(ctx, x, y, 4, h, '#c2410c');
+  paint(ctx, x + w - 4, y, 4, h, '#c2410c');
+  const steps = Math.floor((w - 8) / 3);
+  ctx.fillStyle = '#c2410c';
+  for (let i = 0; i < steps; i += 1) {
+    const sx = x + 4 + i * 3;
+    const sy = y + h - 4 - Math.round((i / Math.max(1, steps - 1)) * (h - 6));
+    ctx.fillRect(sx, sy, 3, 2);
+  }
+  const labelW = Math.min(18, w - 16);
+  paint(ctx, x + Math.round((w - labelW) / 2), y + Math.round(h / 2) - 3, labelW, 6, '#fde047');
+  paint(ctx, x + Math.round((w - labelW) / 2) + 2, y + Math.round(h / 2) - 1, labelW - 4, 2, '#9a3412');
+  [[1, 1], [w - 3, 1], [1, h - 3], [w - 3, h - 3]].forEach(([nx, ny]) => paint(ctx, x + nx, y + ny, 2, 2, '#fde047'));
+};
+
+const drawHazard = (ctx: Ctx, item: Hazard, anim: number) => {
+  if (item.kind === 'bird') {
+    drawBird(ctx, item, anim);
     return;
   }
-  if (item.kind === 'bird') {
-    outline(ctx, item.x, item.y + 2, item.w, 14);
-    paint(ctx, item.x + 8, item.y + 8, 26, 10, '#a21caf');
-    paint(ctx, item.x, item.y + 4, 14, 6, '#e879f9');
-    paint(ctx, item.x + 28, item.y + 4, 14, 6, '#e879f9');
-    paint(ctx, item.x + 30, item.y + 10, 6, 4, '#fde047');
+  if (item.kind === 'balloon') {
+    drawBalloon(ctx, item, anim);
     return;
   }
   if (item.kind === 'kite') {
-    outline(ctx, item.x + 8, item.y, 28, 28);
-    paint(ctx, item.x + 8, item.y, 28, 28, '#22d3ee');
-    paint(ctx, item.x + 18, item.y + 10, 8, 8, '#fef08a');
-    paint(ctx, item.x + 20, item.y + 28, 3, 16, '#0f172a');
+    drawKite(ctx, item, anim);
     return;
   }
-  outline(ctx, item.x, item.y, item.w, item.h);
-  paint(ctx, item.x, item.y, item.w, item.h, '#f97316');
-  paint(ctx, item.x + 4, item.y + 4, item.w - 8, 6, '#fde047');
-  paint(ctx, item.x + 6, item.y + 14, item.w - 12, 8, '#9a3412');
+  drawCrate(ctx, item);
 };
 
-const drawJumper = (ctx: Ctx, jumper: Jumper, time: number, sway: number) => {
+// ── SALTADORES ───────────────────────────────────────────────────────
+const CANOPY_ROWS: Row[] = [
+  [-8, -36, 16, 2],
+  [-14, -34, 28, 2],
+  [-18, -32, 36, 2],
+  [-20, -30, 40, 10],
+  [-18, -20, 36, 2],
+  [-16, -18, 32, 2],
+];
+
+const drawCanopy = (ctx: Ctx, cx: number, y: number, jumper: Jumper, lean: number, puff: number) => {
+  const rows: Row[] = CANOPY_ROWS.map(([dx, dy, w, h]) => {
+    const shift = Math.round((lean * (-dy - 16)) / 20);
+    const grow = dy === -30 ? puff : 0;
+    return [dx + shift - grow, dy, w + grow * 2, h];
+  });
+  fillRows(ctx, cx, y, rows, INK, 1);
+  fillRows(ctx, cx, y, rows, jumper.canopy);
+  const mid = Math.round((lean * 14) / 20);
+  paint(ctx, cx - 16 + mid, y - 32, 8, 12, jumper.light);
+  paint(ctx, cx + mid, y - 32, 8, 12, jumper.light);
+  paint(ctx, cx + 8 + mid, y - 32, 4, 12, jumper.dark);
+  paint(ctx, cx + 16 + Math.round((lean * 6) / 20), y - 30, 4, 10, jumper.dark);
+  paint(ctx, cx - 2 + Math.round(lean), y - 36, 4, 2, jumper.dark);
+  for (let k = 0; k < 4; k += 1) paint(ctx, cx - 14 + k * 8, y - 16, 4, 2, jumper.canopy);
+};
+
+const drawJumper = (ctx: Ctx, jumper: Jumper, anim: number, sway: number, offset: number) => {
   const x = Math.round(jumper.x + sway);
   const y = Math.round(jumper.y);
   const body = jumper.color;
-  const canopy = jumper.canopy;
   const shade = jumper.dark;
-  ctx.globalAlpha = jumper.alive ? 1 : 0.38;
+  const alive = jumper.alive;
+  ctx.globalAlpha = alive ? 1 : 0.38;
 
-  paint(ctx, x - 20, y - 24, 40, 12, canopy);
-  paint(ctx, x - 16, y - 30, 32, 8, canopy);
-  paint(ctx, x - 10, y - 34, 20, 6, canopy);
-  paint(ctx, x - 6, y - 32, 2, 18, shade);
-  paint(ctx, x + 4, y - 32, 2, 18, shade);
-  paint(ctx, x - 18, y - 14, 36, 5, shade);
+  const cx = x - Math.round(sway * 0.35);
+  const lean = alive ? clamp(Math.round(jumper.vx / 80), -3, 3) : 0;
+  const puff = Math.round(Math.sin(anim * 2.4 + offset) * 0.5 + 0.5);
+  const armLift = Math.round(Math.sin(anim * 4.2 + offset) * 2);
+  const kick = Math.round(Math.sin(anim * 5.3 + offset) * 2);
 
+  if (alive) {
+    ctx.globalAlpha = 0.45;
+    for (let k = 0; k < 2; k += 1) {
+      const dy = Math.round(wrap(anim * 260 + k * 23 + offset * 10, 48)) - 12;
+      paint(ctx, x - 19, y + dy, 2, 6 + k * 3, '#ffffff');
+      paint(ctx, x + 17, y + dy + 11, 2, 6 + k * 3, '#ffffff');
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  if (alive) drawCanopy(ctx, cx, y, jumper, lean, puff);
+  else {
+    const crumpled: Row[] = CANOPY_ROWS.map(([dx, dy, w, h], i) => [
+      Math.round(dx / 2) + ((i % 2) * 2 - 1),
+      dy + 8,
+      Math.round(w / 2),
+      h,
+    ]);
+    fillRows(ctx, cx, y, crumpled, INK, 1);
+    fillRows(ctx, cx, y, crumpled, jumper.canopy);
+  }
+
+  const topY = alive ? y - 16 : y - 8;
+  const topShift = alive ? Math.round((lean * 4) / 20) : 0;
   ctx.strokeStyle = '#1a1a24';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(x - 18, y - 12);
-  ctx.lineTo(x - 8, y + 8);
-  ctx.moveTo(x - 4, y - 12);
-  ctx.lineTo(x - 3, y + 6);
-  ctx.moveTo(x + 4, y - 12);
-  ctx.lineTo(x + 3, y + 6);
-  ctx.moveTo(x + 18, y - 12);
-  ctx.lineTo(x + 8, y + 8);
+  ctx.moveTo(cx - 18 + topShift, topY);
+  ctx.lineTo(x - 6, y + 12);
+  ctx.moveTo(cx - 6 + topShift, topY);
+  ctx.lineTo(x - 3, y + 10);
+  ctx.moveTo(cx + 6 + topShift, topY);
+  ctx.lineTo(x + 3, y + 10);
+  ctx.moveTo(cx + 18 + topShift, topY);
+  ctx.lineTo(x + 6, y + 12);
   ctx.stroke();
 
-  paint(ctx, x - 7, y, 14, 12, body);
-  paint(ctx, x - 5, y + 3, 2, 2, '#1a1a24');
-  paint(ctx, x + 3, y + 3, 2, 2, '#1a1a24');
-  paint(ctx, x - 2, y + 7, 4, 2, '#1a1a24');
-  paint(ctx, x - 5, y + 12, 10, 8, body);
-  paint(ctx, x - 11, y + 6, 6, 4, body);
-  paint(ctx, x + 5, y + 6, 6, 4, body);
-  paint(ctx, x - 5, y + 20, 4, 7, body);
-  paint(ctx, x + 1, y + 20, 4, 7, body);
-  paint(ctx, x - 6, y + 26, 5, 3, shade);
-  paint(ctx, x + 1, y + 26, 5, 3, shade);
+  const scarfY = y + 9;
+  for (let k = 0; k < 3; k += 1) {
+    const flutter = Math.round(Math.sin(anim * 7 + k + offset) * 1);
+    paint(ctx, x + 6 + k * 2, scarfY - k * 3 + flutter, 3, 2, jumper.canopy);
+  }
 
-  if (!jumper.alive) {
+  const leftArm: Row[] = [
+    [-12, 11 - armLift, 6, 4],
+    [-17, 8 - armLift * 2, 5, 4],
+  ];
+  const rightArm: Row[] = [
+    [6, 11 - armLift, 6, 4],
+    [12, 8 - armLift * 2, 5, 4],
+  ];
+  const legs: Row[] = [
+    [-5, 21 + kick, 4, 7],
+    [1, 21 - kick, 4, 7],
+  ];
+  const core: Row[] = [
+    [-7, 0, 14, 9],
+    [-6, 11, 12, 10],
+  ];
+  fillRows(ctx, x, y, [...core, ...leftArm, ...rightArm, ...legs], INK, 1);
+
+  fillRows(ctx, x, y, legs, body);
+  paint(ctx, x - 6, y + 27 + kick, 5, 3, shade);
+  paint(ctx, x + 1, y + 27 - kick, 5, 3, shade);
+
+  fillRows(ctx, x, y, leftArm, body);
+  fillRows(ctx, x, y, rightArm, body);
+  paint(ctx, x - 19, y + 8 - armLift * 2, 2, 3, SKIN);
+  paint(ctx, x + 17, y + 8 - armLift * 2, 2, 3, SKIN);
+
+  paint(ctx, x - 6, y + 11, 12, 10, body);
+  paint(ctx, x - 6, y + 11, 2, 10, shade);
+  paint(ctx, x + 4, y + 11, 2, 10, shade);
+  paint(ctx, x - 1, y + 14, 2, 2, '#fde047');
+  paint(ctx, x - 4, y + 19, 8, 2, shade);
+
+  paint(ctx, x - 7, y, 14, 9, shade);
+  paint(ctx, x - 5, y + 1, 4, 2, jumper.light);
+  paint(ctx, x - 6, y + 4, 12, 3, '#7dd3fc');
+  paint(ctx, x - 5, y + 4, 2, 1, '#ffffff');
+  paint(ctx, x - 5, y + 7, 10, 4, SKIN);
+  paint(ctx, x - 1, y + 9, 2, 1, '#7c2d12');
+
+  if (!alive) {
     ctx.fillStyle = '#f5c518';
     ctx.font = `10px ${PIX}`;
     ctx.textAlign = 'center';
     ctx.fillText('OUT', x, y - 42);
+    ctx.textAlign = 'left';
   }
   ctx.globalAlpha = 1;
-  void time;
+};
+
+const drawSparks = (ctx: Ctx, sparks: Spark[]) => {
+  sparks.forEach((spark) => {
+    ctx.globalAlpha = Math.max(0, spark.life / spark.max);
+    paint(ctx, Math.round(spark.x), Math.round(spark.y), spark.size, spark.size, spark.color);
+  });
+  ctx.globalAlpha = 1;
 };
 
 const drawHud = (ctx: Ctx, p1: Jumper, p2: Jumper, gameTime: number, phase: number) => {
@@ -308,16 +576,22 @@ export default function Skydive({
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
-    const burst = (x: number, y: number, color: string) => {
-      for (let i = 0; i < 10; i += 1) {
-        if (state.sparks.length > 40) return;
+    const burst = (x: number, y: number, canopy: string, body: string) => {
+      const palette = [canopy, body, '#ffffff', '#fde047'];
+      for (let i = 0; i < 24; i += 1) {
+        if (state.sparks.length > 80) return;
+        const angle = (Math.PI * 2 * i) / 24 + Math.random() * 0.3;
+        const speed = i < 18 ? 80 + Math.random() * 160 : 20 + Math.random() * 30;
+        const life = i < 18 ? 0.4 + Math.random() * 0.3 : 0.7;
         state.sparks.push({
           x,
           y,
-          vx: (Math.random() - 0.5) * 160,
-          vy: (Math.random() - 0.8) * 120,
-          life: 0.35,
-          color,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - (i < 18 ? 0 : 50),
+          life,
+          max: life,
+          size: i < 18 ? 3 + (i % 3) : 5,
+          color: i < 18 ? palette[i % palette.length] : canopy,
         });
       }
     };
@@ -415,11 +689,13 @@ export default function Skydive({
 
     const applyDrop = (scene: SceneSnap) => {
       const put = (jumper: Jumper, actor: SceneSnap['p1']) => {
+        const nowAlive = actor.alive === 1;
+        if (jumper.alive && !nowAlive) burst(actor.x, actor.y + 10, jumper.canopy, jumper.color);
         jumper.x = actor.x;
         jumper.y = actor.y;
         jumper.vx = actor.v;
         jumper.lived = actor.p;
-        jumper.alive = actor.alive === 1;
+        jumper.alive = nowAlive;
       };
       put(state.p1, scene.p1);
       put(state.p2, scene.p2);
@@ -450,10 +726,19 @@ export default function Skydive({
         const scene = link.readScene(playHead);
         if (scene?.kind === 'drop') applyDrop(scene);
         const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
+        const anim = now / 1000;
+        state.sparks = state.sparks.filter((spark) => {
+          spark.x += spark.vx * dt;
+          spark.y += spark.vy * dt;
+          spark.life -= dt;
+          return spark.life > 0;
+        });
         drawBackdrop(ctx);
-        state.hazards.forEach((item) => drawHazard(ctx, item));
-        drawJumper(ctx, state.p1, state.gameTime, Math.sin(state.gameTime * 3.1) * 7);
-        drawJumper(ctx, state.p2, state.gameTime, Math.sin(state.gameTime * 3.1 + 1.4) * 7);
+        drawAmbient(ctx, state.fall, anim, phase);
+        state.hazards.forEach((item) => drawHazard(ctx, item, anim));
+        drawJumper(ctx, state.p1, anim, Math.sin(state.gameTime * 3.1) * 7, 0);
+        drawJumper(ctx, state.p2, anim, Math.sin(state.gameTime * 3.1 + 1.4) * 7, 1.4);
+        drawSparks(ctx, state.sparks);
         drawHud(ctx, state.p1, state.p2, state.gameTime, phase);
         const rankedWait = rankedCountdown(world.startAt, link.serverNow());
         if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA');
@@ -532,7 +817,7 @@ export default function Skydive({
           if (!hit) return;
           jumper.alive = false;
           jumper.lived = state.gameTime;
-          burst(jumper.x, jumper.y, jumper.canopy);
+          burst(jumper.x + sway, jumper.y + 10, jumper.canopy, jumper.color);
         };
         strike(state.p1, sway1);
         strike(state.p2, sway2);
@@ -563,11 +848,13 @@ export default function Skydive({
       });
 
       const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
+      const anim = now / 1000;
       drawBackdrop(ctx);
-      state.hazards.forEach((item) => drawHazard(ctx, item));
-      drawJumper(ctx, state.p1, state.gameTime, Math.sin(state.gameTime * 3.1) * 7);
-      drawJumper(ctx, state.p2, state.gameTime, Math.sin(state.gameTime * 3.1 + 1.4) * 7);
-      state.sparks.forEach((spark) => paint(ctx, spark.x, spark.y, 3, 3, spark.color));
+      drawAmbient(ctx, state.fall, anim, phase);
+      state.hazards.forEach((item) => drawHazard(ctx, item, anim));
+      drawJumper(ctx, state.p1, anim, Math.sin(state.gameTime * 3.1) * 7, 0);
+      drawJumper(ctx, state.p2, anim, Math.sin(state.gameTime * 3.1 + 1.4) * 7, 1.4);
+      drawSparks(ctx, state.sparks);
       drawHud(ctx, state.p1, state.p2, state.gameTime, phase);
 
       if (rankedWait) {
