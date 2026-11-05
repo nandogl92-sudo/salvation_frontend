@@ -2,6 +2,7 @@ import { Trophy, AlertCircle, TrendingUp, TrendingDown, Gamepad2, RefreshCcw } f
 import type { MatchHistoryRecord, UserProfile } from '../types';
 import { formatPoints } from '../components/utils/formatPoints';
 import { monthPointsOf } from '../components/utils/monthPointsOf';
+import DailyRaffle from './DailyRaffle';
 import { usePlayerStats } from './usePlayerStats';
 
 const RESULT_LABELS: Record<MatchHistoryRecord['result'], string> = {
@@ -117,6 +118,8 @@ export default function ProfilePanel({
           <p className="text-sm text-text-200">{user.email}</p>
         </div>
       </div>
+
+      <DailyRaffle />
 
       {status === 'loading' && (
         <p className="text-sm text-text-200" role="status">Cargando historial...</p>
