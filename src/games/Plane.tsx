@@ -114,14 +114,6 @@ const scrollSpeed = (gameTime: number) => {
   return 170 + phase * 75;
 };
 
-const scrollDistance = (gameTime: number) => {
-  const phase = Math.min(SPEED_PHASES, Math.floor(gameTime / GROW_EVERY));
-  let distance = 0;
-  for (let step = 0; step < phase; step += 1) distance += (170 + step * 75) * GROW_EVERY;
-  distance += scrollSpeed(gameTime) * (gameTime - phase * GROW_EVERY);
-  return distance;
-};
-
 const ringEvery = (gameTime: number) => 520 / scrollSpeed(gameTime);
 
 const pickInner = (gameTime: number, rand: () => number) => {
@@ -130,7 +122,7 @@ const pickInner = (gameTime: number, rand: () => number) => {
   return [46, 56, 66, 76][Math.floor(rand() * 4)];
 };
 
-const spawnRing = (id: number, gameTime: number, rand: () => number): Ring => {
+const spawnRing = (id: number, gameTime: number, rand: () => number, p1Grows: number, p2Grows: number): Ring => {
   const inner = pickInner(gameTime, rand);
   const outer = inner + 16;
   const pad = 36;
@@ -140,7 +132,19 @@ const spawnRing = (id: number, gameTime: number, rand: () => number): Ring => {
   const slot = lane === 0 ? 0.22 : lane === 1 ? 0.5 : 0.78;
   const jitter = (rand() - 0.5) * 32;
   const y = Math.max(minY, Math.min(maxY, minY + (maxY - minY) * slot + jitter));
-  const owner: Side = id % 2 === 0 ? 'p2' : 'p1';
+  
+  // Si un jugador tiene grows >= 4, más aros de su color para reducir
+  const p1NeedsHelp = p1Grows >= 4;
+  const p2NeedsHelp = p2Grows >= 4;
+  let owner: Side;
+  if (p1NeedsHelp && !p2NeedsHelp) {
+    owner = rand() < 0.7 ? 'p1' : 'p2';
+  } else if (p2NeedsHelp && !p1NeedsHelp) {
+    owner = rand() < 0.7 ? 'p2' : 'p1';
+  } else {
+    owner = id % 2 === 0 ? 'p2' : 'p1';
+  }
+  
   return { id, x: WIDTH + outer + 8, y, inner, outer, owner, seen: { p1: false, p2: false } };
 };
 
@@ -187,17 +191,14 @@ const drawHazards = (ctx: Ctx) => {
   }
 };
 
-const drawBackdrop = (ctx: Ctx, clouds: Cloud[], distance: number) => {
+const drawBackdrop = (ctx: Ctx, clouds: Cloud[]) => {
   if (!stripReady()) {
     drawSky(ctx, clouds);
     return;
   }
   const smooth = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  // Repetir la imagen en loop para scroll infinito
-  const offset = distance % WIDTH;
-  ctx.drawImage(stripArt, -offset, 0, WIDTH, HEIGHT);
-  ctx.drawImage(stripArt, WIDTH - offset, 0, WIDTH, HEIGHT);
+  drawCover(ctx, stripArt, 0, 0, WIDTH, HEIGHT);
   ctx.imageSmoothingEnabled = smooth;
   drawHazards(ctx);
 };
@@ -246,17 +247,6 @@ const drawPlane = (ctx: Ctx, plane: PlaneUnit) => {
   ctx.translate(plane.x, plane.y);
   ctx.rotate(tilt);
   ctx.scale(s, s);
-
-  // ── SOMBRA DE SUELO (proyección simple) ─────────────────────
-  ctx.save();
-  ctx.translate(4, 20);
-  ctx.scale(1, 0.28);
-  ctx.globalAlpha = 0.18;
-  ctx.fillStyle = '#1e3a5f';
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 22, 8, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
 
   // ── ALA PRINCIPAL ───────────────────────────────────────────
   // Ala izquierda arriba (ala larga, luminosa)
@@ -749,7 +739,7 @@ export default function Plane({
     };
 
     const paintRings = (rankedWait: string | null) => {
-      drawBackdrop(ctx, state.clouds, scrollDistance(state.gameTime));
+      drawBackdrop(ctx, state.clouds);
       state.rings.forEach((ring) => drawRing(ctx, ring));
       drawPlane(ctx, state.p1);
       drawPlane(ctx, state.p2);
@@ -846,7 +836,7 @@ export default function Plane({
         const every = ringEvery(state.gameTime);
         if (state.spawnWait >= every) {
           state.spawnWait = 0;
-          state.rings.push(spawnRing(nextRingId, state.gameTime, rand));
+          state.rings.push(spawnRing(nextRingId, state.gameTime, rand, state.p1.grows, state.p2.grows));
           nextRingId += 1;
         }
 
@@ -910,7 +900,7 @@ export default function Plane({
         }
       });
 
-      drawBackdrop(ctx, state.clouds, scrollDistance(state.gameTime));
+      drawBackdrop(ctx, state.clouds);
       state.rings.forEach((ring) => drawRing(ctx, ring));
       drawPlane(ctx, state.p1);
       drawPlane(ctx, state.p2);
