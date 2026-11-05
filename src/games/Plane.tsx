@@ -247,31 +247,7 @@ const drawPlane = (ctx: Ctx, plane: PlaneUnit) => {
   ctx.fill();
   ctx.restore();
 
-  // ── ALA INFERIOR (perspectiva 3/4) ──────────────────────────
-  // Ala izquierda abajo (perspectiva baja)
-  ctx.fillStyle = shade;
-  ctx.beginPath();
-  ctx.moveTo(-2,  5);
-  ctx.lineTo(-22, 20);
-  ctx.lineTo(-18, 24);
-  ctx.lineTo(2,   8);
-  ctx.closePath();
-  ctx.fill();
-  // Borde ala inferior
-  ctx.fillStyle = shadeTowardBlack(plane.dark, Math.min(1, t * 0.5 + 0.45));
-  ctx.fillRect(-21, 20, 4, 2);
-
-  // Ala derecha abajo (más corta por perspectiva)
-  ctx.fillStyle = shade;
-  ctx.beginPath();
-  ctx.moveTo(2,   5);
-  ctx.lineTo(16, 16);
-  ctx.lineTo(13, 20);
-  ctx.lineTo(0,   8);
-  ctx.closePath();
-  ctx.fill();
-
-  // ── ALA SUPERIOR (ala principal, arriba) ────────────────────
+  // ── ALA PRINCIPAL ───────────────────────────────────────────
   // Ala izquierda arriba (ala larga, luminosa)
   ctx.fillStyle = body;
   ctx.beginPath();
