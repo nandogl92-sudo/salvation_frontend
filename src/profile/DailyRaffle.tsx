@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { chooseRaffleHour, getTodayRaffle, type DailyRaffle as DailyRaffleView } from '../api/raffleApi';
 
+const FALLBACK_HOURS = [15, 16, 17, 18, 19, 20, 21, 22, 23];
+
 const hourLabel = (hour: number): string => `${hour}:00`;
 
 const DailyRaffle = () => {
@@ -44,6 +46,8 @@ const DailyRaffle = () => {
   };
 
   const players = raffle?.players.map((player) => player.name).join(' y ') ?? '';
+  const hours = raffle && raffle.hours.length > 0 ? raffle.hours : FALLBACK_HOURS;
+  const canChoose = Boolean(raffle?.youPlay && raffle.agreedHour === null);
 
   return (
     <section className="bg-bg-100 rounded-2xl border border-bg-300 p-5 space-y-3" aria-label="Sorteo de hoy">
@@ -61,50 +65,55 @@ const DailyRaffle = () => {
             </p>
           )}
           {raffle.youRest && players.length > 0 && (
-            <p className="text-sm text-text-200">Hoy juegan {players}.</p>
+            <p className="text-sm text-text-200">Hoy juegan {players}. Ellos eligen la hora.</p>
           )}
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-text-100">Horario</h3>
+            {raffle.youPlay && raffle.agreedHour !== null && (
+              <p className="text-sm font-bold text-text-100">Hora acordada: {hourLabel(raffle.agreedHour)}.</p>
+            )}
+            {canChoose && raffle.cleared && (
+              <p className="text-sm font-bold text-red-500" role="status">No coincidís. La hora se ha borrado. Elegid otra vez.</p>
+            )}
+            {canChoose && raffle.rivalHour !== null && (
+              <p className="text-sm text-text-200">La otra persona ha elegido las {hourLabel(raffle.rivalHour)}.</p>
+            )}
+            {canChoose && raffle.yourHour !== null && raffle.rivalHour === null && (
+              <p className="text-sm text-text-200">Has elegido las {hourLabel(raffle.yourHour)}. Falta la otra persona.</p>
+            )}
+            {canChoose && (
+              <p className="text-xs text-text-200">Elige una hora, de 15:00 a 23:00. Solo queda fijada si los dos elegís la misma.</p>
+            )}
+            <div className="grid grid-cols-3 gap-2" role="group" aria-label="Horas de juego, de 15:00 a 23:00">
+              {hours.map((hour) => {
+                const selected = raffle.agreedHour === hour || raffle.yourHour === hour;
+                const handleHour = () => {
+                  handleChoose(hour);
+                };
+                const buttonClass = selected
+                  ? 'bg-[#f5c518] text-[#1a1403]'
+                  : 'bg-bg-300 text-text-100';
+                return (
+                  <button
+                    key={hour}
+                    type="button"
+                    aria-label={`Elegir las ${hourLabel(hour)}`}
+                    aria-pressed={selected}
+                    disabled={!canChoose || savingHour !== null}
+                    onClick={handleHour}
+                    className={`rounded-lg px-3 py-3 text-sm font-bold disabled:opacity-50 ${buttonClass}`}
+                  >
+                    {hourLabel(hour)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <p className="text-xs text-text-200">Código para acceder</p>
           <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código ${raffle.code}`}>
             {raffle.code}
           </p>
           <p className="text-xs text-text-200">Es el mismo para las dos cuentas. De momento no hace falta escribirlo para jugar.</p>
-          {raffle.youPlay && raffle.agreedHour !== null && (
-            <p className="text-sm font-bold text-text-100">Hora acordada: {hourLabel(raffle.agreedHour)}.</p>
-          )}
-          {raffle.youPlay && raffle.agreedHour === null && (
-            <div className="space-y-2">
-              {raffle.cleared && (
-                <p className="text-sm font-bold text-red-500" role="status">No coincidís. La hora se ha borrado. Elegid otra vez.</p>
-              )}
-              {raffle.rivalHour !== null && (
-                <p className="text-sm text-text-200">La otra persona ha elegido las {hourLabel(raffle.rivalHour)}.</p>
-              )}
-              {raffle.yourHour !== null && raffle.rivalHour === null && (
-                <p className="text-sm text-text-200">Has elegido las {hourLabel(raffle.yourHour)}. Falta la otra persona.</p>
-              )}
-              <div className="grid grid-cols-3 gap-2" role="group" aria-label="Horas de juego, de 15:00 a 23:00">
-                {raffle.hours.map((hour) => {
-                  const selected = raffle.yourHour === hour;
-                  const handleHour = () => {
-                    handleChoose(hour);
-                  };
-                  return (
-                    <button
-                      key={hour}
-                      type="button"
-                      aria-label={`Elegir las ${hourLabel(hour)}`}
-                      aria-pressed={selected}
-                      disabled={savingHour !== null}
-                      onClick={handleHour}
-                      className={`rounded-lg px-3 py-2 text-sm font-bold ${selected ? 'bg-[#f5c518] text-[#1a1403]' : 'border border-bg-300 text-text-100'}`}
-                    >
-                      {hourLabel(hour)}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </>
       )}
     </section>
