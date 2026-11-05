@@ -1,13 +1,20 @@
-// Sorteo del día. El código y la hora acordada son los mismos para las dos cuentas.
+// Sorteo del día. Cada cuenta real tiene su partido. La hora se acuerda en cada pareja.
 //   GET  /users/raffle
-//   POST /users/raffle   { hour }
+//   POST /users/raffle   { hour, seatId }
 
 import { API_URL } from './config'
 import { getAccessToken } from './authApi'
 
-export type RafflePlayer = {
+export type RaffleSeat = {
   id: string
-  name: string
+  names: string[]
+  yours: boolean
+  rivalName: string | null
+  yourHour: number | null
+  rivalHour: number | null
+  agreedHour: number | null
+  cleared: boolean
+  counts: boolean
 }
 
 export type DailyRaffle = {
@@ -15,18 +22,15 @@ export type DailyRaffle = {
   code: string
   youPlay: boolean
   youRest: boolean
-  players: RafflePlayer[]
-  rivalName: string | null
-  yourHour: number | null
-  rivalHour: number | null
-  agreedHour: number | null
-  cleared: boolean
+  seats: RaffleSeat[]
   hours: number[]
 }
 
 export type RaffleResult =
   | { ok: true; raffle: DailyRaffle }
   | { ok: false; message: string }
+
+const FALLBACK_HOURS = [15, 16, 17, 18, 19, 20, 21, 22, 23]
 
 const readErrorMessage = async (response: Response): Promise<string> => {
   try {
@@ -38,21 +42,39 @@ const readErrorMessage = async (response: Response): Promise<string> => {
   return 'No se pudo cargar el sorteo de hoy.'
 }
 
-const FALLBACK_HOURS = [15, 16, 17, 18, 19, 20, 21, 22, 23]
-
 const readHour = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) return Number(value)
   return null
 }
 
-const readPlayer = (value: unknown): RafflePlayer | null => {
+const readSeat = (value: unknown): RaffleSeat | null => {
   if (!value || typeof value !== 'object') return null
-  const player = value as { id?: unknown; _id?: unknown; name?: unknown; username?: unknown }
-  const id = typeof player.id === 'string' ? player.id : typeof player._id === 'string' ? player._id : ''
-  const name = typeof player.name === 'string' ? player.name : typeof player.username === 'string' ? player.username : ''
-  if (!id || !name) return null
-  return { id, name }
+  const seat = value as {
+    id?: unknown
+    names?: unknown
+    yours?: unknown
+    rivalName?: unknown
+    yourHour?: unknown
+    rivalHour?: unknown
+    agreedHour?: unknown
+    cleared?: unknown
+    counts?: unknown
+  }
+  if (typeof seat.id !== 'string' || !Array.isArray(seat.names)) return null
+  const names = seat.names.filter((name) => typeof name === 'string')
+  if (names.length < 2) return null
+  return {
+    id: seat.id,
+    names,
+    yours: seat.yours === true,
+    rivalName: typeof seat.rivalName === 'string' ? seat.rivalName : null,
+    yourHour: readHour(seat.yourHour),
+    rivalHour: readHour(seat.rivalHour),
+    agreedHour: readHour(seat.agreedHour),
+    cleared: seat.cleared === true,
+    counts: seat.counts !== false,
+  }
 }
 
 const readRaffle = (value: unknown): DailyRaffle | null => {
@@ -62,39 +84,20 @@ const readRaffle = (value: unknown): DailyRaffle | null => {
     code?: unknown
     youPlay?: unknown
     youRest?: unknown
-    youWon?: unknown
-    winnerId?: unknown
-    winnerName?: unknown
-    players?: unknown
-    rivalName?: unknown
-    yourHour?: unknown
-    rivalHour?: unknown
-    agreedHour?: unknown
-    cleared?: unknown
+    seats?: unknown
     hours?: unknown
   }
-  if (typeof body.code !== 'string' || body.code.length === 0) return null
-
-  const listed = Array.isArray(body.players) ? body.players.map(readPlayer).filter((player) => player !== null) : []
-  const players = listed.length > 0
-    ? listed
-    : typeof body.winnerId === 'string' && typeof body.winnerName === 'string'
-      ? [{ id: body.winnerId, name: body.winnerName }]
-      : []
-  const youPlay = typeof body.youPlay === 'boolean' ? body.youPlay : body.youWon === true
+  if (typeof body.code !== 'string' || body.code.length === 0 || !Array.isArray(body.seats)) return null
+  const seats = body.seats.map(readSeat).filter((seat) => seat !== null)
+  if (seats.length === 0) return null
   const parsedHours = Array.isArray(body.hours) ? body.hours.map(readHour).filter((hour) => hour !== null) : []
-
+  const youPlay = typeof body.youPlay === 'boolean' ? body.youPlay : seats.some((seat) => seat.yours)
   return {
     day: typeof body.day === 'string' ? body.day : '',
     code: body.code,
     youPlay,
     youRest: typeof body.youRest === 'boolean' ? body.youRest : !youPlay,
-    players,
-    rivalName: typeof body.rivalName === 'string' ? body.rivalName : null,
-    yourHour: readHour(body.yourHour),
-    rivalHour: readHour(body.rivalHour),
-    agreedHour: readHour(body.agreedHour),
-    cleared: body.cleared === true,
+    seats,
     hours: parsedHours.length > 0 ? parsedHours : FALLBACK_HOURS,
   }
 }
@@ -121,7 +124,7 @@ export const getTodayRaffle = async (): Promise<RaffleResult> => {
   }
 }
 
-export const chooseRaffleHour = async (hour: number): Promise<RaffleResult> => {
+export const chooseRaffleHour = async (hour: number, seatId: string): Promise<RaffleResult> => {
   const headers = authHeaders()
   if (!headers) return { ok: false, message: 'Sesión no válida o expirada.' }
 
@@ -130,7 +133,7 @@ export const chooseRaffleHour = async (hour: number): Promise<RaffleResult> => {
       method: 'POST',
       cache: 'no-store',
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hour }),
+      body: JSON.stringify({ hour, seatId }),
     })
     if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
     const raffle = readRaffle(await response.json())
