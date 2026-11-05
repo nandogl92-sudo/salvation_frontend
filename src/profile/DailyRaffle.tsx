@@ -34,7 +34,7 @@ const DailyRaffle = () => {
   const handleChoose = (seatId: string, hour: number) => {
     if (!raffle || savingKey !== null) return;
     const seat = raffle.seats.find((item) => item.id === seatId);
-    if (!seat?.yours || seat.agreedHour !== null) return;
+    if (!seat?.yours || seat.agreedHour !== null || seat.blocked.includes(hour)) return;
     setSavingKey(`${seatId}:${hour}`);
     chooseRaffleHour(hour, seatId).then((result) => {
       setSavingKey(null);
@@ -129,7 +129,7 @@ const SeatHours = ({
         <p className="text-sm font-bold text-text-100">Hora acordada: {hourLabel(seat.agreedHour)}.</p>
       )}
       {canChoose && seat.cleared && (
-        <p className="text-sm font-bold text-red-500" role="status">No coincidís. La hora se ha borrado. Elegid otra vez.</p>
+        <p className="text-sm font-bold text-red-500" role="status">No coincidís. Esas horas ya no se pueden elegir.</p>
       )}
       {canChoose && seat.rivalHour !== null && (
         <p className="text-sm text-text-200">La otra persona ha elegido las {hourLabel(seat.rivalHour)}.</p>
@@ -142,20 +142,24 @@ const SeatHours = ({
       )}
       <div className="grid grid-cols-3 gap-2" role="group" aria-label={`Horas contra ${seat.rivalName}`}>
         {hours.map((hour) => {
-          const selected = seat.agreedHour === hour || seat.yourHour === hour;
+          const blocked = seat.blocked.includes(hour);
+          const selected = !blocked && (seat.agreedHour === hour || seat.yourHour === hour);
           const chooseThisHour = () => {
+            if (blocked) return;
             handleHour(hour);
           };
-          const buttonClass = selected
-            ? 'bg-[#f5c518] text-[#1a1403]'
-            : 'bg-bg-300 text-text-100';
+          const buttonClass = blocked
+            ? 'bg-bg-200 text-text-200 line-through'
+            : selected
+              ? 'bg-[#f5c518] text-[#1a1403]'
+              : 'bg-bg-300 text-text-100';
           return (
             <button
               key={hour}
               type="button"
-              aria-label={`Elegir las ${hourLabel(hour)} contra ${seat.rivalName}`}
+              aria-label={blocked ? `Las ${hourLabel(hour)} ya no se pueden elegir` : `Elegir las ${hourLabel(hour)} contra ${seat.rivalName}`}
               aria-pressed={selected}
-              disabled={!canChoose || savingKey !== null}
+              disabled={blocked || !canChoose || savingKey !== null}
               onClick={chooseThisHour}
               className={`rounded-lg px-3 py-3 text-sm font-bold disabled:opacity-50 ${buttonClass}`}
             >

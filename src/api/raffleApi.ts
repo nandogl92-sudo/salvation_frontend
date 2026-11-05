@@ -15,6 +15,7 @@ export type RaffleSeat = {
   agreedHour: number | null
   cleared: boolean
   counts: boolean
+  blocked: number[]
 }
 
 export type DailyRaffle = {
@@ -60,6 +61,7 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     agreedHour?: unknown
     cleared?: unknown
     counts?: unknown
+    blocked?: unknown
   }
   if (typeof seat.id !== 'string' || !Array.isArray(seat.names)) return null
   const names = seat.names.filter((name) => typeof name === 'string')
@@ -74,6 +76,7 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     agreedHour: readHour(seat.agreedHour),
     cleared: seat.cleared === true,
     counts: seat.counts !== false,
+    blocked: Array.isArray(seat.blocked) ? seat.blocked.map(readHour).filter((hour) => hour !== null) : [],
   }
 }
 
