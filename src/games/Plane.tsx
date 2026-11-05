@@ -54,10 +54,14 @@ type Ring = {
 type Spark = { x: number; y: number; vx: number; vy: number; life: number; max: number; color: string };
 type Cloud = { x: number; y: number; w: number; h: number; v: number };
 
-const fieldArt = new Image();
-fieldArt.src = '/aero-rings-1.jpg';
+const STRIP_SRC = ['/aero-rings-1.jpg', '/aero-rings-2.jpg', '/aero-rings-3.jpg'];
+const stripArt = STRIP_SRC.map((src) => {
+  const image = new Image();
+  image.src = src;
+  return image;
+});
 
-const fieldReady = () => fieldArt.complete && fieldArt.naturalWidth > 0;
+const stripReady = () => stripArt.every((image) => image.complete && image.naturalWidth > 0);
 
 const paint = (ctx: Ctx, x: number, y: number, w: number, h: number, color: string) => {
   ctx.fillStyle = color;
@@ -112,6 +116,14 @@ const pullOf = (vy: number) => (vy < 0 ? RISE_G : FALL_G);
 const scrollSpeed = (gameTime: number) => {
   const phase = Math.min(SPEED_PHASES, Math.floor(gameTime / GROW_EVERY));
   return 170 + phase * 75;
+};
+
+const scrollDistance = (gameTime: number) => {
+  const phase = Math.min(SPEED_PHASES, Math.floor(gameTime / GROW_EVERY));
+  let distance = 0;
+  for (let step = 0; step < phase; step += 1) distance += (170 + step * 75) * GROW_EVERY;
+  distance += scrollSpeed(gameTime) * (gameTime - phase * GROW_EVERY);
+  return distance;
 };
 
 const ringEvery = (gameTime: number) => 520 / scrollSpeed(gameTime);
@@ -179,14 +191,26 @@ const drawHazards = (ctx: Ctx) => {
   }
 };
 
-const drawBackdrop = (ctx: Ctx, clouds: Cloud[]) => {
-  if (!fieldReady()) {
+const drawBackdrop = (ctx: Ctx, clouds: Cloud[], distance: number) => {
+  if (!stripReady()) {
     drawSky(ctx, clouds);
     return;
   }
+  const panel = WIDTH;
+  const maxScroll = panel * (stripArt.length - 1);
+  const scroll = Math.max(0, Math.min(distance, maxScroll));
   const smooth = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
-  drawCover(ctx, fieldArt, 0, 0, WIDTH, HEIGHT);
+  stripArt.forEach((image, index) => {
+    const x = index * panel - scroll;
+    if (x >= WIDTH || x + panel <= 0) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, 0, panel, HEIGHT);
+    ctx.clip();
+    drawCover(ctx, image, x, 0, panel, HEIGHT);
+    ctx.restore();
+  });
   ctx.imageSmoothingEnabled = smooth;
   drawHazards(ctx);
 };
@@ -738,7 +762,7 @@ export default function Plane({
     };
 
     const paintRings = (rankedWait: string | null) => {
-      drawBackdrop(ctx, state.clouds);
+      drawBackdrop(ctx, state.clouds, scrollDistance(state.gameTime));
       state.rings.forEach((ring) => drawRing(ctx, ring));
       drawPlane(ctx, state.p1);
       drawPlane(ctx, state.p2);
@@ -849,7 +873,26 @@ export default function Plane({
         return spark.life > 0;
       });
 
-      drawBackdrop(ctx, state.clouds);
+      // Emitir humo de los aviones vivos, más intenso con más grows
+      [state.p1, state.p2].forEach((plane) => {
+        if (!plane.alive) return;
+        const smokeChance = (plane.grows / MAX_GROWS) * 0.25;
+        if (Math.random() < smokeChance) {
+          const darkness = Math.min(255, 60 + plane.grows * 30);
+          const gray = `rgb(${darkness},${darkness},${darkness})`;
+          state.sparks.push({
+            x: plane.x - 20,
+            y: plane.y + Math.random() * 8 - 4,
+            vx: -40 - Math.random() * 30,
+            vy: Math.random() * 20 - 10,
+            life: 0.6 + Math.random() * 0.4,
+            max: 1,
+            color: gray,
+          });
+        }
+      });
+
+      drawBackdrop(ctx, state.clouds, scrollDistance(state.gameTime));
       state.rings.forEach((ring) => drawRing(ctx, ring));
       drawPlane(ctx, state.p1);
       drawPlane(ctx, state.p2);
