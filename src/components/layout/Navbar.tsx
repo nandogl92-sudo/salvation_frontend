@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Gamepad2, Home, Info, LogOut, Moon, Sun, Trophy, User, Wallet } from 'lucide-react'
+import { Gamepad2, Home, Info, LogOut, Moon, Sun, Trophy, Wallet } from 'lucide-react'
 import AuthPanel from '../../auth/AuthPanel'
 import type { Game, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
@@ -15,6 +15,7 @@ type NavbarProps = {
   isAuthReady: boolean
   pendingGame: Game | null
   onOpenProfile: () => void
+  onOpenAdmin: () => void
   onLogout: () => void
   onNavigate: (section: NavSection) => void
   compact?: boolean
@@ -27,7 +28,7 @@ const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
   { id: 'info', label: 'Info', icon: Info },
 ]
 
-const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onLogout, onNavigate, compact = false }: NavbarProps) => {
+const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, onLogout, onNavigate, compact = false }: NavbarProps) => {
   const headerRef = useRef<HTMLElement>(null)
   const [isLight, setIsLight] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
@@ -81,6 +82,15 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onLogout, onNav
     if (!user) return
     onLogout()
   }
+
+  const handleOpenAdmin = () => {
+    if (user?.role !== 'admin') return
+    onOpenAdmin()
+  }
+
+  const initial = user ? (user.username.trim().charAt(0).toUpperCase() || '?') : ''
+  const hasGames = user?.gamesAccess === true
+  const lightLabel = hasGames ? 'Luz verde: puede entrar a los juegos' : 'Luz roja: no puede entrar a los juegos'
 
   const handleToggleTheme = () => {
     const next = !isLight
@@ -197,14 +207,30 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onLogout, onNav
               </div>
               <button
                 type="button"
-                aria-label={`Ver perfil de ${user.username}`}
+                aria-label={`Cuenta de ${user.username}. Inicial ${initial}. ${lightLabel}`}
                 tabIndex={0}
                 onClick={handleOpenProfile}
                 onKeyDown={(event) => handleActivateKey(event, handleOpenProfile)}
-                className="text-[#d5dcf0] hover:text-white"
+                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#f5c518] text-[#f5c518] text-sm font-bold"
               >
-                <User className="w-5 h-5" aria-hidden="true" />
+                <span aria-hidden="true">{initial}</span>
+                <span
+                  aria-hidden="true"
+                  className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full border border-[#0c1224] ${hasGames ? 'bg-green-500' : 'bg-red-500'}`}
+                />
               </button>
+              {user.role === 'admin' && (
+                <button
+                  type="button"
+                  aria-label="Abrir el panel de administrador"
+                  tabIndex={0}
+                  onClick={handleOpenAdmin}
+                  onKeyDown={(event) => handleActivateKey(event, handleOpenAdmin)}
+                  className="px-2 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#f5c518]"
+                >
+                  Panel
+                </button>
+              )}
               <button
                 type="button"
                 aria-label="Cerrar sesión"

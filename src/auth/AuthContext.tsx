@@ -7,6 +7,8 @@
 // ==========================================
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as authService from '../api/authApi';
+import { ACCESS_STORAGE_KEY, applyAccountAccess } from './accessStore';
+import { setGamesAccess as patchGamesAccess } from '../api/usersApi';
 import type { PasswordChangeInput } from '../api/authApi';
 import type { AuthResult, LoginInput, RegisterInput, UserProfile } from '../types';
 
@@ -28,6 +30,8 @@ type AuthContextValue = {
   setBalance: (balance: number) => Promise<void>;
   /** Actualiza los puntos del mes en la sesión local (el servidor aún no los guarda). */
   setMonthPoints: (monthPoints: number) => Promise<void>;
+  /** Marca o quita el acceso a los juegos. No cambia fichas ni puntos del mes. */
+  setGamesAccess: (userId: string, email: string, gamesAccess: boolean) => Promise<{ ok: true; user: UserProfile } | { ok: false; message: string }>;
   clearError: () => void;
 };
 
@@ -50,6 +54,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== ACCESS_STORAGE_KEY) return;
+      setUser((current) => (current ? applyAccountAccess(current) : current));
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
@@ -112,9 +125,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (updated) setUser(updated);
   }, [user]);
 
+  const setGamesAccess = useCallback(async (userId: string, _email: string, gamesAccess: boolean) => {
+    const result = await patchGamesAccess(userId, gamesAccess)
+    if (result.ok === true) {
+      const next = applyAccountAccess(result.user)
+      setUser((current) => {
+        if (!current || current.id !== userId) return current
+        return next
+      })
+      return { ok: true as const, user: next }
+    }
+    return result
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, setMonthPoints, clearError }),
-    [user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, setMonthPoints, clearError],
+    () => ({ user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, setMonthPoints, setGamesAccess, clearError }),
+    [user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, setMonthPoints, setGamesAccess, clearError],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -54,3 +54,32 @@ export const listUsers = async (): Promise<UsersResult> => {
     return { ok: false, message }
   }
 }
+
+export type GamesAccessResult =
+  | { ok: true; user: UserProfile }
+  | { ok: false; message: string }
+
+/** Marca o quita el pago. Solo un administrador. No cambia fichas ni puntos del mes. */
+export const setGamesAccess = async (userId: string, gamesAccess: boolean): Promise<GamesAccessResult> => {
+  const token = getAccessToken()
+  if (!token) return { ok: false, message: 'Sesión no válida o expirada.' }
+
+  try {
+    const response = await fetch(`${API_URL}/users/${userId}/games-access`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ gamesAccess }),
+    })
+    if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
+
+    const body = (await response.json()) as unknown
+    if (!isUserProfile(body)) return { ok: false, message: 'El perfil no tiene la forma esperada.' }
+    return { ok: true, user: { ...body, monthPoints: monthPointsOf(body) } }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo conectar con el servidor.'
+    return { ok: false, message }
+  }
+}

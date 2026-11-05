@@ -17,6 +17,9 @@ export type StoredUser = {
   email: string;
   passwordHash: string;
   balance: number;
+  /** Ausente en cuentas viejas: se leen como user y sin acceso a juegos. */
+  role?: 'admin' | 'user';
+  gamesAccess?: boolean;
 };
 
 export type StoredSession = {

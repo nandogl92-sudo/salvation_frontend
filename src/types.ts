@@ -4,6 +4,9 @@
 // ==========================================
 import type { ReactNode } from 'react';
 
+/** admin abre el panel. user no. El registro nuevo siempre es user. */
+export type AccountRole = 'admin' | 'user';
+
 /** Perfil de usuario expuesto a la UI. Nunca incluye la contraseña ni su hash. */
 export type UserProfile = {
   id: string;
@@ -15,6 +18,10 @@ export type UserProfile = {
   monthPoints?: number;
   /** Mes ya cobrado, con la forma 2026-10. Ausente o null si este mes no está pagado. */
   subscriptionMonth?: string | null;
+  /** Sale del almacén local. El servidor no lo envía. */
+  role?: AccountRole;
+  /** true si un administrador marcó el pago. Entonces la luz es verde y se puede jugar. */
+  gamesAccess?: boolean;
 };
 
 /** Catálogo de juegos disponibles en el home. */

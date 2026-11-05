@@ -15,6 +15,7 @@ import type { Game, MatchPlayer, MatchTicket, QueueStatus, UserProfile } from '.
 import { monthPointsOf } from './components/utils/monthPointsOf';
 import { monthTotalOf, recordRankedWin } from './matchmaking/rankedWeeks';
 import ProfilePanel from './profile/ProfilePanel';
+import AdminPanel from './admin/AdminPanel';
 import Navbar from './components/layout/Navbar';
 import HomeLanding from './components/home/HomeLanding';
 import SubscriptionPayDialog from './components/home/SubscriptionPayDialog';
@@ -52,7 +53,7 @@ export default function App() {
   // ==========================================
   // ESTADOS PRINCIPALES
   // ==========================================
-  const [view, setView] = useState<'home' | 'lobby' | 'playing' | 'profile'>('home');
+  const [view, setView] = useState<'home' | 'lobby' | 'playing' | 'profile' | 'admin'>('home');
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   
@@ -84,6 +85,7 @@ export default function App() {
   // hay sesión, se entra directo al lobby de ese juego (ver useEffect abajo).
   // ==========================================
   const [pendingGame, setPendingGame] = useState<Game | null>(null);
+  const [accessNotice, setAccessNotice] = useState<string | null>(null);
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
   const [resetToken, setResetToken] = useState<string | null>(readResetToken);
   const isChoosingPassword = resetToken !== null;
@@ -162,6 +164,7 @@ export default function App() {
     setMatchError(null);
     setOpponent(null);
     setActiveMatch(null);
+    if (window.location.pathname === '/admin') window.history.replaceState({}, '', '/');
     setView('home');
     setSelectedGame(null);
   };
@@ -192,6 +195,7 @@ export default function App() {
     setSelectedGame(null);
     resultSeqRef.current += 1;
     setGameResult(null);
+    if (window.location.pathname === '/admin') window.history.replaceState({}, '', '/');
     setView('home');
     logout();
   };
@@ -203,7 +207,14 @@ export default function App() {
   };
 
   const requestJoinGame = (game: Game) => {
+    if (currentUser && currentUser.gamesAccess !== true) {
+      setAccessNotice('Aún no tienes acceso a los juegos.');
+      setView('home');
+      setScrollTarget('juegos');
+      return;
+    }
     if (currentUser) {
+      setAccessNotice(null);
       joinLobby(game);
       return;
     }
@@ -211,13 +222,42 @@ export default function App() {
     setView('home');
   };
 
+  const openAdmin = () => {
+    if (currentUser?.role !== 'admin') return;
+    window.history.pushState({}, '', '/admin');
+    setView('admin');
+  };
+
+  const leaveAdmin = () => {
+    if (window.location.pathname === '/admin') window.history.replaceState({}, '', '/');
+    setView('home');
+  };
+
   // Tras un login/registro exitoso, si había un juego pendiente por el gate, entrar directo a su lobby.
   useEffect(() => {
-    if (currentUser && pendingGame) {
-      joinLobby(pendingGame);
+    if (!currentUser || !pendingGame) return;
+    if (currentUser.gamesAccess !== true) {
+      setAccessNotice('Aún no tienes acceso a los juegos.');
       setPendingGame(null);
+      setScrollTarget('juegos');
+      return;
     }
+    setAccessNotice(null);
+    joinLobby(pendingGame);
+    setPendingGame(null);
   }, [currentUser, pendingGame]);
+
+  useEffect(() => {
+    if (!isAuthReady) return;
+    const wantsAdmin = window.location.pathname === '/admin';
+    if (!wantsAdmin && view !== 'admin') return;
+    if (currentUser?.role === 'admin') {
+      if (wantsAdmin && view !== 'admin') setView('admin');
+      return;
+    }
+    if (wantsAdmin) window.history.replaceState({}, '', '/');
+    if (view === 'admin') setView('home');
+  }, [isAuthReady, currentUser, view]);
 
   // Guard: si se pierde la sesión (logout, sesión expirada) estando en lobby o playing, volver a home.
   useEffect(() => {
@@ -694,6 +734,7 @@ export default function App() {
           if (view === 'playing' && !gameResult) goHome();
           else setView('profile');
         }}
+        onOpenAdmin={openAdmin}
         onLogout={handleLogout}
         isAuthReady={isAuthReady}
         pendingGame={pendingGame}
@@ -718,6 +759,7 @@ export default function App() {
             games={GAMES}
             currentUser={currentUser}
             onSelectGame={requestJoinGame}
+            accessNotice={accessNotice}
           />
         )}
 
@@ -791,6 +833,10 @@ export default function App() {
 
         {view === 'profile' && currentUser && (
           <ProfilePanel user={currentUser} onBack={() => setView('home')} />
+        )}
+
+        {view === 'admin' && currentUser?.role === 'admin' && (
+          <AdminPanel onBack={leaveAdmin} />
         )}
         </div>
         )}

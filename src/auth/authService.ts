@@ -9,6 +9,7 @@
 // Ver src/auth/README.md para el detalle completo y las limitaciones.
 // ==========================================
 
+import { applyAccountAccess } from './accessStore';
 import type { AuthResult, AuthSession, LoginInput, RegisterInput, UserProfile } from '../types';
 import {
   clearSession,
@@ -30,12 +31,14 @@ function delay<T>(value: T): Promise<T> {
 }
 
 function toPublicUser(stored: StoredUser): UserProfile {
-  return {
+  return applyAccountAccess({
     id: stored.id,
     username: stored.username,
     email: stored.email,
     balance: stored.balance,
-  };
+    role: 'user',
+    gamesAccess: false,
+  });
 }
 
 function normalizeEmail(email: string): string {

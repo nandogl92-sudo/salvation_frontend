@@ -21,6 +21,7 @@ type HomeLandingProps = {
   games: Game[]
   currentUser: UserProfile | null
   onSelectGame: (game: Game) => void
+  accessNotice?: string | null
 }
 
 const scrollToGames = () => {
@@ -110,6 +111,7 @@ const HomeLanding = ({
   games,
   currentUser,
   onSelectGame,
+  accessNotice = null,
 }: HomeLandingProps) => {
   const handleStart = () => {
     scrollToGames()
@@ -156,6 +158,9 @@ const HomeLanding = ({
       </section>
 
       <section id="juegos" className="max-w-6xl mx-auto px-4 pt-6 relative scroll-mt-20">
+        {accessNotice && (
+          <p className="mb-4 text-sm text-red-300" role="status">{accessNotice}</p>
+        )}
         <div className="grid grid-cols-1 landscape:grid-cols-2 sm:grid-cols-2 xl:grid-cols-5 gap-4">
           {games.map((game) => (
             <GameCard key={game.id} game={game} onSelectGame={onSelectGame} />

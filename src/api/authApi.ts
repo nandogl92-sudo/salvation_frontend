@@ -16,6 +16,7 @@
 // ==========================================
 
 import { API_URL } from './config'
+import { applyAccountAccess } from '../auth/accessStore'
 import { monthPointsOf } from '../components/utils/monthPointsOf'
 import type { AuthResult, AuthSession, LoginInput, RegisterInput, UserProfile } from '../types'
 
@@ -36,10 +37,10 @@ const isBrowser = (): boolean => {
 }
 
 const withMonthPoints = (user: UserProfile, fallback = 0): UserProfile => {
-  if (typeof user.monthPoints === 'number' && Number.isFinite(user.monthPoints)) {
-    return { ...user, monthPoints: Math.max(0, user.monthPoints) }
-  }
-  return { ...user, monthPoints: Math.max(0, fallback) }
+  const withPoints = typeof user.monthPoints === 'number' && Number.isFinite(user.monthPoints)
+    ? { ...user, monthPoints: Math.max(0, user.monthPoints) }
+    : { ...user, monthPoints: Math.max(0, fallback) }
+  return applyAccountAccess(withPoints)
 }
 
 export const getAccessToken = (): string | null => {
