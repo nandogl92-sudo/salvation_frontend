@@ -30,6 +30,7 @@ export type ReplayUnit = {
   y: number
   n: number
   a: number
+  v?: number
 }
 
 export type ReplayItem = {
@@ -37,6 +38,7 @@ export type ReplayItem = {
   y: number
   w: number
   h: number
+  k?: number
 }
 
 export type ReplayScene = {
@@ -64,6 +66,7 @@ export type ReplayHead = {
 
 export type ReplayTape = ReplayHead & {
   samples: ReplaySample[]
+  seed?: number
 }
 
 export type ReplayListResult =

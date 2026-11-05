@@ -379,7 +379,7 @@ const makeCourse = (wild: boolean, rand: () => number): Pt[] => {
   return resample(loop, 180);
 };
 
-const makeTrack = (rand: () => number): Track => {
+export const makeTrack = (rand: () => number): Track => {
   for (let attempt = 0; attempt < 16; attempt += 1) {
     const pts = makeCourse(true, rand);
     const inside = pts.every((p) => (

@@ -3,12 +3,16 @@ import {
   getReplay,
   listReplays,
   type ReplayHead,
+  type ReplayItem,
   type ReplayKeys,
   type ReplayRally,
   type ReplaySample,
   type ReplayScene,
   type ReplayTape,
+  type ReplayUnit,
 } from '../api/replaysApi'
+import { makeRng } from '../games/sharedWorld'
+import { makeTrack } from '../games/Racing'
 
 const GAME_NAME: Record<string, string> = {
   pong: 'Paddle Duel',
@@ -44,85 +48,183 @@ const arrow = (keys: string[]): string => {
   return names.length > 0 ? names.join(', ') : 'quieto'
 }
 
-const drawRally = (ctx: CanvasRenderingContext2D, rally: ReplayRally): void => {
-  const width = ctx.canvas.width
-  const height = ctx.canvas.height
-  const sx = width / 960
-  const sy = height / 560
-  ctx.fillStyle = '#07111f'
-  ctx.fillRect(0, 0, width, height)
-  ctx.strokeStyle = '#243056'
-  ctx.strokeRect(24, 152 * sy, width - 48, (508 - 152) * sy)
-  ctx.fillStyle = '#f5c518'
-  ctx.fillRect(62 * sx, rally.p1y * sy, 18 * sx, 108 * sy)
-  ctx.fillRect((960 - 62 - 18) * sx, rally.p2y * sy, 18 * sx, 108 * sy)
-  ctx.beginPath()
-  ctx.arc(rally.ballX * sx, rally.ballY * sy, 6 * sx, 0, Math.PI * 2)
-  ctx.fill()
+const FIELD_W = 960
+const FIELD_H = 540
+const TRACK_W = 76
+
+let raceCache: { seed: number; pts: { x: number; y: number }[] } | null = null
+
+const racePoints = (seed: number): { x: number; y: number }[] => {
+  if (raceCache?.seed === seed) return raceCache.pts
+  const pts = makeTrack(makeRng(seed)).pts
+  raceCache = { seed, pts }
+  return pts
+}
+
+const paintScore = (ctx: CanvasRenderingContext2D, text: string): void => {
   ctx.fillStyle = '#d5dcf0'
-  ctx.font = '14px sans-serif'
-  ctx.fillText(`${rally.p1} - ${rally.p2}`, 16, 28)
+  ctx.font = '16px sans-serif'
+  ctx.textAlign = 'left'
+  ctx.fillText(text, 16, 28)
 }
 
-const boundsOf = (scene: ReplayScene): { minX: number; minY: number; spanX: number; spanY: number } => {
-  const points = [scene.p1, scene.p2, ...scene.items]
-  const xs = points.map((point) => point.x)
-  const ys = points.map((point) => point.y)
-  const minX = Math.min(...xs)
-  const maxX = Math.max(...xs)
-  const minY = Math.min(...ys)
-  const maxY = Math.max(...ys)
-  return {
-    minX,
-    minY,
-    spanX: Math.max(40, maxX - minX),
-    spanY: Math.max(40, maxY - minY),
+const drawRally = (ctx: CanvasRenderingContext2D, rally: ReplayRally): void => {
+  ctx.fillStyle = '#0b1220'
+  ctx.fillRect(0, 0, FIELD_W, FIELD_H)
+  ctx.strokeStyle = '#f4f4f4'
+  ctx.lineWidth = 4
+  ctx.strokeRect(24, 152, FIELD_W - 48, 508 - 152)
+  ctx.setLineDash([10, 14])
+  ctx.beginPath()
+  ctx.moveTo(FIELD_W / 2, 152)
+  ctx.lineTo(FIELD_W / 2, 508)
+  ctx.stroke()
+  ctx.setLineDash([])
+  ctx.fillStyle = '#ec4899'
+  ctx.fillRect(62, rally.p1y, 18, 108)
+  ctx.fillStyle = '#22d3ee'
+  ctx.fillRect(FIELD_W - 62 - 18, rally.p2y, 18, 108)
+  ctx.fillStyle = '#f5c518'
+  ctx.beginPath()
+  ctx.arc(rally.ballX, rally.ballY, 6, 0, Math.PI * 2)
+  ctx.fill()
+  paintScore(ctx, `${rally.p1} - ${rally.p2}`)
+}
+
+const strokeLoop = (ctx: CanvasRenderingContext2D, pts: { x: number; y: number }[], width: number, color: string, dash: number[] = []): void => {
+  ctx.strokeStyle = color
+  ctx.lineWidth = width
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.setLineDash(dash)
+  ctx.beginPath()
+  ctx.moveTo(pts[0].x, pts[0].y)
+  pts.slice(1).forEach((point) => ctx.lineTo(point.x, point.y))
+  ctx.closePath()
+  ctx.stroke()
+  ctx.setLineDash([])
+}
+
+const drawCar = (ctx: CanvasRenderingContext2D, car: ReplayUnit, color: string, dark: string): void => {
+  const angle = typeof car.v === 'number' ? car.v : 0
+  ctx.save()
+  ctx.translate(car.x, car.y)
+  ctx.rotate(angle)
+  ctx.fillStyle = '#0b0d12'
+  ctx.fillRect(-15, -7, 30, 14)
+  ctx.fillStyle = dark
+  ctx.fillRect(-14, -6, 28, 12)
+  ctx.fillStyle = color
+  ctx.fillRect(-13, -5, 26, 10)
+  ctx.fillStyle = '#fef08a'
+  ctx.fillRect(12, -4, 3, 3)
+  ctx.fillRect(12, 1, 3, 3)
+  ctx.restore()
+}
+
+const drawRace = (ctx: CanvasRenderingContext2D, scene: ReplayScene, seed: number | undefined): void => {
+  ctx.fillStyle = '#245c32'
+  ctx.fillRect(0, 0, FIELD_W, FIELD_H)
+  if (typeof seed === 'number') {
+    const pts = racePoints(seed)
+    strokeLoop(ctx, pts, TRACK_W + 14, '#ff8c1a')
+    strokeLoop(ctx, pts, TRACK_W, '#2b2d34')
+    strokeLoop(ctx, pts, 2, 'rgba(255,255,255,0.7)', [10, 12])
   }
-}
-
-const drawScene = (ctx: CanvasRenderingContext2D, scene: ReplayScene): void => {
-  const width = ctx.canvas.width
-  const height = ctx.canvas.height
-  const bounds = boundsOf(scene)
-  const sx = (width - 32) / bounds.spanX
-  const sy = (height - 32) / bounds.spanY
-  const scale = Math.min(sx, sy)
-  const place = (x: number, y: number): [number, number] => [
-    16 + (x - bounds.minX) * scale,
-    16 + (y - bounds.minY) * scale,
-  ]
-  ctx.fillStyle = '#07111f'
-  ctx.fillRect(0, 0, width, height)
-  ctx.fillStyle = '#3d4d73'
   scene.items.forEach((item) => {
-    const [x, y] = place(item.x, item.y)
-    const radius = Math.max(3, Math.min(18, item.w * scale * 0.5))
+    ctx.fillStyle = 'rgba(18, 20, 27, 0.9)'
     ctx.beginPath()
-    ctx.arc(x, y, radius, 0, Math.PI * 2)
+    ctx.arc(item.x, item.y, Math.max(4, item.w), 0, Math.PI * 2)
     ctx.fill()
   })
-  const drawUnit = (unit: ReplayScene['p1'], color: string) => {
-    const [x, y] = place(unit.x, unit.y)
-    ctx.fillStyle = color
-    ctx.beginPath()
-    ctx.arc(x, y, 7, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.beginPath()
-    ctx.moveTo(x, y)
-    ctx.lineTo(x + Math.cos(unit.a) * 16, y + Math.sin(unit.a) * 16)
-    ctx.strokeStyle = color
-    ctx.stroke()
-  }
-  drawUnit(scene.p1, '#f5c518')
-  drawUnit(scene.p2, '#7ec8ff')
-  ctx.fillStyle = '#d5dcf0'
-  ctx.font = '14px sans-serif'
-  ctx.fillText(`${scene.p1.n} - ${scene.p2.n}${scene.winner ? ` · ${scene.winner}` : ''}`, 16, 28)
+  drawCar(ctx, scene.p1, '#ec4899', '#9d174d')
+  drawCar(ctx, scene.p2, '#22d3ee', '#0e7490')
+  paintScore(ctx, `VUELTAS ${scene.p1.n} - ${scene.p2.n}`)
 }
 
-const drawSample = (ctx: CanvasRenderingContext2D, sample: ReplaySample): void => {
+const drawRing = (ctx: CanvasRenderingContext2D, item: ReplayItem): void => {
+  const owner = item.k === 1 ? '#84cc16' : '#ec4899'
+  ctx.fillStyle = owner
+  ctx.beginPath()
+  ctx.arc(item.x, item.y, Math.max(8, item.h), 0, Math.PI * 2)
+  ctx.arc(item.x, item.y, Math.max(4, item.w), 0, Math.PI * 2, true)
+  ctx.fill()
+}
+
+const drawPlane = (ctx: CanvasRenderingContext2D, plane: ReplayUnit, color: string): void => {
+  const size = Math.max(10, plane.a || 16)
+  ctx.save()
+  ctx.translate(plane.x, plane.y)
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.moveTo(size, 0)
+  ctx.lineTo(-size * 0.8, -size * 0.45)
+  ctx.lineTo(-size * 0.4, 0)
+  ctx.lineTo(-size * 0.8, size * 0.45)
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+}
+
+const drawRings = (ctx: CanvasRenderingContext2D, scene: ReplayScene): void => {
+  const sky = ctx.createLinearGradient(0, 0, 0, FIELD_H)
+  sky.addColorStop(0, '#3b82c4')
+  sky.addColorStop(1, '#dbeafe')
+  ctx.fillStyle = sky
+  ctx.fillRect(0, 0, FIELD_W, FIELD_H)
+  ctx.fillStyle = '#166534'
+  ctx.fillRect(0, 528, FIELD_W, 12)
+  scene.items.forEach((item) => drawRing(ctx, item))
+  drawPlane(ctx, scene.p1, '#ec4899')
+  drawPlane(ctx, scene.p2, '#84cc16')
+  paintScore(ctx, `${scene.p1.n} - ${scene.p2.n}`)
+}
+
+const HAZARD_COLOR = ['#a21caf', '#fb7185', '#22d3ee', '#f97316']
+
+const drawDrop = (ctx: CanvasRenderingContext2D, scene: ReplayScene): void => {
+  const sky = ctx.createLinearGradient(0, 0, 0, FIELD_H)
+  sky.addColorStop(0, '#2f6fb3')
+  sky.addColorStop(1, '#d7f0ff')
+  ctx.fillStyle = sky
+  ctx.fillRect(0, 0, FIELD_W, FIELD_H)
+  scene.items.forEach((item) => {
+    ctx.fillStyle = HAZARD_COLOR[item.k ?? 3] ?? '#f97316'
+    ctx.fillRect(item.x, item.y, Math.max(8, item.w), Math.max(8, item.h))
+  })
+  const jumper = (unit: ReplayUnit, color: string) => {
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.arc(unit.x, unit.y - 20, 16, Math.PI, 0)
+    ctx.fill()
+    ctx.fillRect(unit.x - 6, unit.y - 8, 12, 22)
+  }
+  jumper(scene.p1, '#c026d3')
+  jumper(scene.p2, '#facc15')
+  paintScore(ctx, scene.winner ? scene.winner : 'SKY DROP')
+}
+
+const drawScene = (ctx: CanvasRenderingContext2D, scene: ReplayScene, seed: number | undefined): void => {
+  if (scene.kind === 'race') {
+    drawRace(ctx, scene, seed)
+    return
+  }
+  if (scene.kind === 'rings') {
+    drawRings(ctx, scene)
+    return
+  }
+  if (scene.kind === 'drop') {
+    drawDrop(ctx, scene)
+    return
+  }
+  ctx.fillStyle = '#07111f'
+  ctx.fillRect(0, 0, FIELD_W, FIELD_H)
+  paintScore(ctx, `${scene.p1.n} - ${scene.p2.n}`)
+}
+
+const drawSample = (ctx: CanvasRenderingContext2D, sample: ReplaySample, seed: number | undefined): void => {
   if (sample.rally) drawRally(ctx, sample.rally)
-  else if (sample.scene) drawScene(ctx, sample.scene)
+  else if (sample.scene) drawScene(ctx, sample.scene, seed)
 }
 
 const ReplayPlayer = ({ tape, onClose }: { tape: ReplayTape; onClose: () => void }) => {
@@ -132,7 +234,17 @@ const ReplayPlayer = ({ tape, onClose }: { tape: ReplayTape; onClose: () => void
   const pictures = tape.samples.filter((sample) => sample.rally || sample.scene)
 
   useEffect(() => {
-    if (!playing) return
+    if (tape.closed) return
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    const frame = pictures[pictures.length - 1]
+    if (!canvas || !ctx || !frame) return
+    drawSample(ctx, frame, tape.seed)
+    setKeys(keysAt(tape.samples, frame.at))
+  }, [tape])
+
+  useEffect(() => {
+    if (!tape.closed || !playing) return
     const frames = tape.samples.filter((sample) => sample.rally || sample.scene)
     if (frames.length === 0) return
     const canvas = canvasRef.current
@@ -146,7 +258,7 @@ const ReplayPlayer = ({ tape, onClose }: { tape: ReplayTape; onClose: () => void
     const tick = (now: number) => {
       const target = origin + (now - started)
       while (frame + 1 < frames.length && frames[frame + 1].at <= target) frame += 1
-      drawSample(ctx, frames[frame])
+      drawSample(ctx, frames[frame], tape.seed)
       const nextKeys = keysAt(tape.samples, frames[frame].at)
       const label = `${nextKeys.p1.join(',')}|${nextKeys.p2.join(',')}`
       if (label !== lastKeys) {
@@ -181,7 +293,8 @@ const ReplayPlayer = ({ tape, onClose }: { tape: ReplayTape; onClose: () => void
         </button>
       </div>
       {pictures.length === 0 && <p className="text-sm text-[#b7c0d4]">Esta partida todavía no tiene dibujo.</p>}
-      <canvas ref={canvasRef} width={480} height={280} className="w-full max-w-xl rounded-xl bg-[#07111f]" />
+      {!tape.closed && <p className="text-xs font-bold uppercase tracking-wide text-[#f5c518]">En directo</p>}
+      <canvas ref={canvasRef} width={FIELD_W} height={FIELD_H} className="w-full max-w-3xl rounded-xl bg-[#07111f]" />
       <p className="text-xs text-[#d5dcf0]">Izquierda: {arrow(keys.p1)}</p>
       <p className="text-xs text-[#d5dcf0]">Derecha: {arrow(keys.p2)}</p>
       <div className="flex gap-2">
@@ -233,6 +346,16 @@ const ReplayBoard = () => {
     setMessage(null)
     setTape(result.tape)
   }
+
+  useEffect(() => {
+    if (!tape || tape.closed) return
+    const timer = setInterval(() => {
+      void getReplay(tape.matchId).then((result) => {
+        if (result.ok === true) setTape(result.tape)
+      })
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [tape?.matchId, tape?.closed])
 
   if (tape) return <ReplayPlayer tape={tape} onClose={() => setTape(null)} />
 
