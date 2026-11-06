@@ -43,7 +43,7 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
           <ul className="grid grid-cols-2 gap-2" aria-label="Puntos por semana del mes">
             {weekRows.map((row) => {
               const stateClass = row.counts
-                ? 'border-accent-100/40 bg-accent-100/5'
+                ? 'border-[#3ec8ff]/40 bg-[#3ec8ff]/5'
                 : 'border-bg-300 bg-bg-200 opacity-70'
               return (
                 <li key={row.week} className={`rounded-xl border px-3 py-2 ${stateClass}`}>
@@ -104,7 +104,7 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
           {prizeRanking.map((user, index) => {
             const isFirst = index === 0
             const rowClass = isFirst
-              ? 'bg-accent-100/10 border-accent-100'
+              ? 'bg-[#3ec8ff]/10 border-[#3ec8ff]'
               : 'bg-bg-200 border-bg-300'
             const points = user.id === currentUser.id ? ownMonthPoints : monthPointsOf(user)
             return (
@@ -114,10 +114,10 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs font-bold text-text-200 w-5">{index + 1}</span>
-                  {isFirst && <Trophy className="w-4 h-4 text-accent-100 shrink-0" aria-hidden="true" />}
+                  {isFirst && <Trophy className="w-4 h-4 text-[#3ec8ff] shrink-0" aria-hidden="true" />}
                   <span className="font-bold text-sm text-text-100 truncate">{user.username}</span>
                   {isFirst && (
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-accent-100 shrink-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#3ec8ff] shrink-0">
                       Elige el premio
                     </span>
                   )}

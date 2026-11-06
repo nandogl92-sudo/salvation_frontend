@@ -115,10 +115,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
   }
 
   const registerClass = authOpen && authMode === 'register'
-    ? 'bg-[#f5c518] text-[#1a1403]'
+    ? 'bg-[#3ec8ff] text-[#070b16]'
     : 'text-[#d5dcf0] hover:text-white'
   const loginClass = authOpen && authMode === 'login'
-    ? 'bg-[#f5c518] text-[#1a1403]'
+    ? 'bg-[#3ec8ff] text-[#070b16]'
     : 'text-[#d5dcf0] hover:text-white'
 
   return (
@@ -134,7 +134,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
         >
           <img src="/frizeplay-logo.png" alt="" className="w-9 h-9 object-contain" />
           <span className="font-pixel text-[9px] sm:text-[10px] tracking-wide text-white">
-            FRIZE<span className="text-[#f5c518]">PLAY</span>
+            FRIZE<span className="text-[#3ec8ff]">PLAY</span>
           </span>
         </button>
 
@@ -145,7 +145,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
             }
             const isHome = id === 'inicio'
             const linkClass = isHome
-              ? 'bg-[#f5c518] text-[#1a1403]'
+              ? 'bg-[#3ec8ff] text-[#070b16]'
               : 'text-[#d5dcf0] hover:text-white'
             return (
               <button
@@ -196,7 +196,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
           {user && (
             <>
               <div
-                className="flex items-center gap-2 text-[#f5c518] text-[10px] sm:text-sm font-bold"
+                className="flex items-center gap-2 text-[#3ec8ff] text-[10px] sm:text-sm font-bold"
                 aria-label={`${formatPoints(user.balance)} fichas para jugar`}
               >
                 <Wallet className="w-4 h-4" aria-hidden="true" />
@@ -208,7 +208,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 tabIndex={0}
                 onClick={handleOpenProfile}
                 onKeyDown={(event) => handleActivateKey(event, handleOpenProfile)}
-                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#f5c518] text-[#f5c518] text-sm font-bold"
+                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#3ec8ff] text-[#3ec8ff] text-sm font-bold"
               >
                 <span aria-hidden="true">{initial}</span>
                 <span
@@ -223,7 +223,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                   tabIndex={0}
                   onClick={handleOpenAdmin}
                   onKeyDown={(event) => handleActivateKey(event, handleOpenAdmin)}
-                  className="px-2 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#f5c518]"
+                  className="px-2 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#3ec8ff]"
                 >
                   Panel
                 </button>
@@ -261,7 +261,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
             hideTabs
             initialMode={authMode}
             notice={pendingGame ? `Inicia sesión para jugar ${pendingGame.name}.` : undefined}
-            className="bg-[#0e1528] p-4 rounded-2xl border border-[#f5c518]/50 shadow-xl"
+            className="bg-[#0e1528] p-4 rounded-2xl border border-[#3ec8ff]/50 shadow-xl"
           />
         </div>,
         document.body,
