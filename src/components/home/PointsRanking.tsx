@@ -27,11 +27,8 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
   return (
     <aside className="bg-bg-100 rounded-2xl border border-bg-300 p-5" aria-label={`Clasificación de ${monthLabel}`}>
       <h2 className="text-lg font-bold text-text-100 mb-1">Clasificación de {monthLabel}</h2>
-      <p className="text-sm text-text-200">
-        Solo el 1.º elige el premio. El 1.º aún se puede alcanzar: el mes no está cerrado.
-      </p>
       <p className="text-sm text-text-200 mb-4">
-        El mes tiene {WEEK_COUNT} semanas. Cuentan las {COUNTED_WEEK_COUNT} mejores. Una semana ruin se descarta.
+        {`El premio lo elige quien acabe primero. Cuentan las ${COUNTED_WEEK_COUNT} mejores semanas de ${WEEK_COUNT}.`}
       </p>
 
       {currentUser && competes && (

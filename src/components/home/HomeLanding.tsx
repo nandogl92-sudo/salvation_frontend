@@ -126,7 +126,7 @@ const HomeLanding = ({
           className="absolute inset-0 h-full w-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#070b16]/55 via-[#070b16]/35 to-[#070b16]" aria-hidden="true" />
-        <div className="relative z-10 min-h-[calc(100svh-4rem)] landscape:min-h-[calc(100svh-4rem)] flex items-center px-4 py-6 landscape:py-3">
+        <div className="relative z-10 min-h-[calc(100svh-4rem)] landscape:min-h-[calc(100svh-4rem)] flex items-start px-4 pt-4 pb-10 landscape:pt-2 landscape:pb-6">
           <div className="max-w-4xl mx-auto w-full space-y-3 landscape:space-y-2">
             <div className="relative mx-auto w-fit">
               <div
@@ -139,19 +139,18 @@ const HomeLanding = ({
                 className="relative mx-auto h-28 sm:h-40 landscape:h-24 w-auto object-contain drop-shadow-[0_0_28px_rgba(62,200,255,0.65)]"
               />
             </div>
-            <p className="text-[10px] sm:text-xs font-bold tracking-[0.35em] text-white/90">CLÁSICOS QUE NUNCA ENVEJECEN</p>
+            <p className="text-[10px] sm:text-xs font-bold tracking-[0.35em] text-white/90">JUEGA POR EL PREMIO</p>
             <h1 className="font-pixel text-sm sm:text-xl landscape:text-base leading-relaxed text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
-              5 JUEGOS <span className="text-[#3ec8ff]">LEGENDARIOS</span>
-              <span className="block">EN UN SOLO LUGAR</span>
+              1 TORNEO. <span className="text-[#3ec8ff]">4 JUEGOS CLÁSICOS.</span>
+              <span className="block">EL PRIMERO ELIGE EL GRAN PREMIO</span>
             </h1>
-            <p className="text-sm sm:text-base landscape:text-sm text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">Revive la magia de los clásicos. Juega, recuerda, disfruta.</p>
             <p className="text-xs sm:text-sm text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
               {currentUser
                 ? `Hola, ${currentUser.username}. Elige un juego para entrar al lobby.`
                 : 'Crea una cuenta o inicia sesión para jugar.'}
             </p>
             <p className="text-xs sm:text-sm font-bold text-[#3ec8ff] drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)]">
-              Cuentan tus 3 mejores semanas. El 1.º aún se puede alcanzar.
+              Inscríbete por tan solo 10 €. Incluye 100 fichas. Sin inscripción no compites.
             </p>
             <button
               type="button"
@@ -179,7 +178,17 @@ const HomeLanding = ({
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto px-4 py-10 flex flex-wrap justify-center gap-6 text-xs font-bold tracking-wide text-[#b7c0d4]">
+      <section id="ranking" className="max-w-3xl mx-auto px-4 pb-10 scroll-mt-20">
+        <PointsRanking currentUser={currentUser} />
+      </section>
+
+      <section id="info" className="max-w-3xl mx-auto px-4 pb-16 space-y-6 scroll-mt-20">
+        <div className="bg-bg-100 border border-bg-300 rounded-2xl p-6">
+          <h2 className="font-pixel text-[10px] text-[#3ec8ff]">Info</h2>
+        </div>
+      </section>
+
+      <section className="max-w-6xl mx-auto px-4 pt-2 pb-12 flex flex-wrap justify-center gap-6 text-xs font-bold tracking-wide text-[#b7c0d4]">
         {NOTES.map(({ text, Icon }) => (
           <p key={text} className="flex items-center gap-2">
             <Icon className="w-4 h-4 text-[#3ec8ff]" aria-hidden="true" />
@@ -187,43 +196,6 @@ const HomeLanding = ({
           </p>
         ))}
       </section>
-
-      <section id="ranking" className="max-w-3xl mx-auto px-4 pb-10 scroll-mt-20">
-        <PointsRanking currentUser={currentUser} />
-      </section>
-
-      <section id="info" className="max-w-3xl mx-auto px-4 pb-16 space-y-6 scroll-mt-20">
-        <div className="bg-bg-100 border border-bg-300 rounded-2xl p-6 space-y-2">
-          <h2 className="font-pixel text-[10px] text-[#3ec8ff]">Info</h2>
-          <p className="text-sm text-text-200">Si ganas, te llevas la ficha del rival. No hay comisión.</p>
-          <p className="text-sm text-text-200">Si pierdes, pierdes 1 ficha.</p>
-          <p className="text-sm text-text-200">Desconexión o abandono cuenta como derrota.</p>
-          <p className="text-sm text-text-200">Error de plataforma: las fichas de esa partida se devuelven.</p>
-          <h3 className="font-pixel text-[10px] text-[#3ec8ff] pt-3">Premio del mes</h3>
-          <p className="text-sm text-text-200">La inscripción del mes cuesta 10 € y suma 100 fichas.</p>
-          <p className="text-sm text-text-200">Ranking: otra persona, ambos inscritos. El bot no se usa.</p>
-          <p className="text-sm text-text-200">Una victoria ranqueada suma 1 punto a esa semana.</p>
-          <p className="text-sm text-text-200">Una derrota no quita puntos.</p>
-          <p className="text-sm text-text-200">Máximo 8 ranqueadas al día.</p>
-          <p className="text-sm text-text-200">Contra la misma persona, 2 por semana. El resto, amistoso.</p>
-          <p className="text-sm text-text-200">El mes tiene 4 semanas. Cuentan las 3 mejores. Una semana ruin se descarta.</p>
-          <p className="text-sm text-text-200">Solo el 1.º gana. El premio no está cerrado: aún se le puede alcanzar.</p>
-          <p className="text-sm text-text-200">Una persona, una plaza.</p>
-          <p className="text-sm text-text-200">Amistoso: bot o práctica. Bot y amistoso no cuentan para el premio.</p>
-          <p className="text-sm text-text-200">Las fichas sirven para jugar. No dan puesto en el premio.</p>
-        </div>
-      </section>
-
-      <button
-        type="button"
-        aria-label="Press start"
-        tabIndex={0}
-        onClick={handleStart}
-        onKeyDown={(event) => handleActivateKey(event, handleStart)}
-        className="block mx-auto mb-10 text-[10px] font-pixel tracking-[0.4em] text-[#3ec8ff]"
-      >
-        Press start
-      </button>
     </div>
   )
 }

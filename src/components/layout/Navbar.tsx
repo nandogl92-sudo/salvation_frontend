@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Gamepad2, Home, Info, LogOut, Moon, Sun, Trophy, Wallet } from 'lucide-react'
+import { Gamepad2, Home, Info, LogOut, Trophy, Wallet } from 'lucide-react'
 import AuthPanel from '../../auth/AuthPanel'
 import type { Game, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
@@ -30,7 +30,6 @@ const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
 
 const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, onLogout, onNavigate, compact = false }: NavbarProps) => {
   const headerRef = useRef<HTMLElement>(null)
-  const [isLight, setIsLight] = useState(false)
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('register')
   const [panelBox, setPanelBox] = useState({ top: 72, maxHeight: 480 })
@@ -90,12 +89,6 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
 
   const initial = user ? (user.username.trim().charAt(0).toUpperCase() || '?') : ''
   const lightLabel = 'Sesión iniciada'
-
-  const handleToggleTheme = () => {
-    const next = !isLight
-    document.documentElement.classList.toggle('theme-light', next)
-    setIsLight(next)
-  }
 
   const handleOpenAuth = (mode: AuthMode) => {
     if (authOpen && authMode === mode) {
@@ -240,16 +233,6 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
               </button>
             </>
           )}
-          <button
-            type="button"
-            aria-label="Cambiar entre tema oscuro y claro"
-            tabIndex={0}
-            onClick={handleToggleTheme}
-            onKeyDown={(event) => handleActivateKey(event, handleToggleTheme)}
-            className="text-[#d5dcf0] hover:text-white"
-          >
-            {isLight ? <Sun className="w-5 h-5" aria-hidden="true" /> : <Moon className="w-5 h-5" aria-hidden="true" />}
-          </button>
         </div>
       </div>
       {showAuth && authOpen && createPortal(
