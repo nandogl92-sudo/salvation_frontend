@@ -803,25 +803,31 @@ export default function Pong({
           state.trail.push({ x: state.ball.x, y: state.ball.y });
           if (state.trail.length > 8) state.trail.shift();
           const serverY = (side: 'p1' | 'p2') => (side === 'p1' ? view.p1y : view.p2y);
-          const glideShown = (shown: number, target: number, up: boolean, down: boolean) => {
-            if (countdown || (up === down)) {
-              const gap = target - shown;
-              if (Math.abs(gap) > 64) return target;
-              return shown + gap * (1 - Math.exp(-Math.max(0, dt) / 45));
+          const easeToServer = (shown: number, target: number) => {
+            const gap = target - shown;
+            if (Math.abs(gap) > 80) return target;
+            return shown + gap * (1 - Math.exp(-Math.max(0, dt) / 70));
+          };
+          const followOwn = (shown: number, target: number, up: boolean, down: boolean) => {
+            if (countdown || up === down) return easeToServer(shown, target);
+            const step = PADDLE_SPEED * Math.min(2, dt / FRAME_MS);
+            let next = clampPaddle(shown + (down ? step : -step));
+            const lead = PADDLE_SPEED * 3;
+            if (up) {
+              const cap = target - lead;
+              if (next < cap) next = Math.min(shown, cap);
+              next = Math.min(next, shown);
+            } else {
+              const cap = target + lead;
+              if (next > cap) next = Math.max(shown, cap);
+              next = Math.max(next, shown);
             }
-            let next = shown;
-            const step = PADDLE_SPEED * Math.min(1.5, dt / FRAME_MS);
-            if (up) next -= step;
-            if (down) next += step;
-            next = clampPaddle(next);
-            const lead = PADDLE_SPEED * 2;
-            if (up) return Math.max(target - lead, Math.min(next, target));
-            return Math.min(target + lead, Math.max(next, target));
+            return next;
           };
           const ownUp = keyHeld(state.keys, 'w', 'W', 'ArrowUp');
           const ownDown = keyHeld(state.keys, 's', 'S', 'ArrowDown');
-          state[you].y = glideShown(state[you].y, serverY(you), ownUp, ownDown);
-          state[them].y = glideShown(state[them].y, serverY(them), false, false);
+          state[you].y = followOwn(state[you].y, serverY(you), ownUp, ownDown);
+          state[them].y = easeToServer(state[them].y, serverY(them));
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;
