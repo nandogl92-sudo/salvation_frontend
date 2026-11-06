@@ -8,10 +8,10 @@ const PADDLE_SPEED = 18;
 
 const WIDTH = 960;
 const HEIGHT = 540;
-const FRAME = { x: 16, y: 90, w: 928, h: 434, cut: 26 };
-const SKY_BOTTOM = 136;
-const PLAY_TOP = 152;
-const PLAY_BOTTOM = 508;
+const FRAME = { x: 16, y: 90, w: 928, h: 446, cut: 26 };
+const SKY_BOTTOM = 128;
+const PLAY_TOP = 128;
+const PLAY_BOTTOM = 528;
 const WALL_H = 14;
 const PADDLE_W = 18;
 const PADDLE_H = 108;
@@ -530,6 +530,9 @@ export default function Pong({
     const isHost = !world || you === 'p1';
     let lastStamp = performance.now();
     let acc = 0;
+    let ownAcc = 0;
+    let ownLatch = 0;
+    let ownHoldUntil = 0;
     let ended = false;
     const endMatch = (winner: 'p1' | 'p2') => {
       onGameEnd(winner, matchId);
@@ -808,25 +811,29 @@ export default function Pong({
             if (Math.abs(gap) > 80) return target;
             return shown + gap * (1 - Math.exp(-Math.max(0, dt) / 70));
           };
-          const followOwn = (shown: number, target: number, up: boolean, down: boolean) => {
-            if (countdown || up === down) return easeToServer(shown, target);
-            const step = PADDLE_SPEED * Math.min(2, dt / FRAME_MS);
-            let next = clampPaddle(shown + (down ? step : -step));
-            const lead = PADDLE_SPEED * 3;
-            if (up) {
-              const cap = target - lead;
-              if (next < cap) next = Math.min(shown, cap);
-              next = Math.min(next, shown);
-            } else {
-              const cap = target + lead;
-              if (next > cap) next = Math.max(shown, cap);
-              next = Math.max(next, shown);
+          const ownUp = !countdown && keyHeld(state.keys, 'w', 'W', 'ArrowUp');
+          const ownDown = !countdown && keyHeld(state.keys, 's', 'S', 'ArrowDown');
+          const target = serverY(you);
+          if (ownUp !== ownDown) {
+            ownLatch = ownUp ? -1 : 1;
+            ownHoldUntil = now + 180;
+            ownAcc += dt;
+            while (ownAcc >= FRAME_MS) {
+              ownAcc -= FRAME_MS;
+              state[you].y = clampPaddle(state[you].y + ownLatch * PADDLE_SPEED);
             }
-            return next;
-          };
-          const ownUp = keyHeld(state.keys, 'w', 'W', 'ArrowUp');
-          const ownDown = keyHeld(state.keys, 's', 'S', 'ArrowDown');
-          state[you].y = followOwn(state[you].y, serverY(you), ownUp, ownDown);
+          } else {
+            ownAcc = 0;
+            const waiting = ownLatch === -1
+              ? state[you].y < target - 4
+              : ownLatch === 1
+                ? state[you].y > target + 4
+                : false;
+            if (!waiting || now >= ownHoldUntil) {
+              state[you].y = easeToServer(state[you].y, target);
+              if (Math.abs(state[you].y - target) < 3) ownLatch = 0;
+            }
+          }
           state[them].y = easeToServer(state[them].y, serverY(them));
           state.p1.score = view.p1;
           state.p2.score = view.p2;
