@@ -337,7 +337,9 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
         continue
       }
       const jumped = Math.abs(next.ballX - prev.ballX) > 48 || Math.abs(next.ballY - prev.ballY) > 48
+      const bounced = prev.ballVx * next.ballVx < 0
       if (jumped) return rallyView(prev)
+      if (bounced) return rallyView(next)
       const span = next.at - prev.at
       const blend = span > 0 ? (at - prev.at) / span : 0
       return {

@@ -530,8 +530,6 @@ export default function Pong({
     const isHost = !world || you === 'p1';
     let lastStamp = performance.now();
     let acc = 0;
-    let ownLatch = 0;
-    let ownHoldUntil = 0;
     let ended = false;
     const endMatch = (winner: 'p1' | 'p2') => {
       onGameEnd(winner, matchId);
@@ -774,60 +772,22 @@ export default function Pong({
     const tick = (now: number) => {
       if (ended) return;
       if (world && link) {
-        const dt = Math.min(50, Math.max(0, now - lastStamp));
         lastStamp = now;
         link.setLocalKeys(state.keys);
         const countdown = rankedCountdown(world.startAt, link.serverNow());
         const latestAt = link.rallyAt();
-        const view = latestAt > 0 ? link.readRally(latestAt) : null;
+        const showAt = latestAt > FRAME_MS ? latestAt - FRAME_MS : latestAt;
+        const view = latestAt > 0 ? link.readRally(showAt) : null;
         if (view) {
           if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
-          const age = Math.max(0, Math.min(36, link.serverNow() - latestAt));
-          const aimX = view.ballX + view.ballVx * (age / FRAME_MS);
-          const aimY = Math.max(
-            PLAY_TOP + BALL_R,
-            Math.min(PLAY_BOTTOM - BALL_R, view.ballY + view.ballVy * (age / FRAME_MS)),
-          );
-          const ballDx = aimX - state.ball.x;
-          const ballDy = aimY - state.ball.y;
-          const ballDist = Math.hypot(ballDx, ballDy);
-          if (ballDist > 56) {
-            state.ball.x = aimX;
-            state.ball.y = aimY;
-          } else if (ballDist > 0) {
-            const speed = Math.max(1, Math.hypot(view.ballVx, view.ballVy));
-            const step = Math.min(ballDist, speed * Math.max(age, dt) / FRAME_MS);
-            state.ball.x += (ballDx / ballDist) * step;
-            state.ball.y += (ballDy / ballDist) * step;
-          }
+          state.ball.x = view.ballX;
+          state.ball.y = view.ballY;
           state.ball.vx = view.ballVx;
           state.ball.vy = view.ballVy;
           state.trail.push({ x: state.ball.x, y: state.ball.y });
           if (state.trail.length > 8) state.trail.shift();
-          const serverY = (side: 'p1' | 'p2') => (side === 'p1' ? view.p1y : view.p2y);
-          const easeToServer = (shown: number, target: number) => {
-            const gap = target - shown;
-            if (Math.abs(gap) > 80) return target;
-            return shown + gap * (1 - Math.exp(-Math.max(0, dt) / 70));
-          };
-          const ownUp = !countdown && keyHeld(state.keys, 'w', 'W', 'ArrowUp');
-          const ownDown = !countdown && keyHeld(state.keys, 's', 'S', 'ArrowDown');
-          const target = serverY(you);
-          if (ownUp !== ownDown) {
-            const dir = ownUp ? -1 : 1;
-            ownLatch = dir;
-            ownHoldUntil = now + 220;
-            state[you].y = clampPaddle(state[you].y + dir * PADDLE_SPEED * (dt / FRAME_MS));
-          } else {
-            const ahead = ownLatch === -1
-              ? state[you].y < target - 1
-              : ownLatch === 1 && state[you].y > target + 1;
-            if (!ahead || now >= ownHoldUntil) {
-              state[you].y = target;
-              ownLatch = 0;
-            }
-          }
-          state[them].y = easeToServer(state[them].y, serverY(them));
+          state.p1.y = view.p1y;
+          state.p2.y = view.p2y;
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;
