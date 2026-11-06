@@ -119,20 +119,20 @@ const HomeLanding = ({
 
   return (
     <div id="inicio">
-      <section className="relative overflow-hidden text-center">
-        <img
-          src="/hero-sunset.jpg"
-          alt=""
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#070b16]/92 via-[#070b16]/75 to-[#070b16]" aria-hidden="true" />
+      <section className="relative overflow-hidden bg-[#070b16] text-center">
         <div className="relative z-10 min-h-[calc(100svh-4rem)] landscape:min-h-[calc(100svh-4rem)] flex items-center px-4 py-6 landscape:py-3">
           <div className="max-w-4xl mx-auto w-full space-y-3 landscape:space-y-2">
-            <img
-              src="/frizeplay-logo.png"
-              alt="Frizeplay"
-              className="mx-auto h-28 sm:h-40 landscape:h-24 w-auto object-contain drop-shadow-[0_0_28px_rgba(62,200,255,0.65)]"
-            />
+            <div className="relative mx-auto w-fit">
+              <div
+                className="pointer-events-none absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3ec8ff]/30 blur-3xl"
+                aria-hidden="true"
+              />
+              <img
+                src="/frizeplay-logo.png"
+                alt="Frizeplay"
+                className="relative mx-auto h-28 sm:h-40 landscape:h-24 w-auto object-contain drop-shadow-[0_0_28px_rgba(62,200,255,0.65)]"
+              />
+            </div>
             <p className="text-[10px] sm:text-xs font-bold tracking-[0.35em] text-white/90">CLÁSICOS QUE NUNCA ENVEJECEN</p>
             <h1 className="font-pixel text-sm sm:text-xl landscape:text-base leading-relaxed text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">
               5 JUEGOS <span className="text-[#3ec8ff]">LEGENDARIOS</span>
