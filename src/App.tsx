@@ -25,6 +25,7 @@ import LobbyPanel from './components/lobby/LobbyPanel';
 import GameResultPanel, { type GameResult } from './components/play/GameResultPanel';
 import PlayingArena from './components/play/PlayingArena';
 import { buildSharedWorld, type SharedWorld } from './games/sharedWorld';
+import { reloadHome } from './components/utils/reloadHome';
 
 /** El siguiente GET de cola va cuando acaba el anterior. En móvil el setInterval se pausa. */
 const QUEUE_POLL_INTERVAL_MS = 700;
@@ -95,6 +96,11 @@ export default function App() {
     setResetToken(null);
     setView('home');
   };
+
+  useEffect(() => {
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+  }, []);
 
   useEffect(() => {
     if (isChoosingPassword || userId === null) {
@@ -270,7 +276,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo debe reaccionar a cambios de sesión/vista.
   }, [currentUser, view]);
 
-  const enterMatchedQueue = (
+  const enterMatchedQueue = async (
     currentTicket: MatchTicket,
     result: Extract<Awaited<ReturnType<typeof tryMatch>>, { status: 'matched' }>,
     rankedSearch: boolean,
@@ -282,6 +288,12 @@ export default function App() {
       return;
     }
     const ranked = rankedSearch && !matchedBot;
+    if (ranked) {
+      setQueueHold(result.opponent.username);
+      setQueueStatus('searching');
+      await new Promise((resolve) => window.setTimeout(resolve, 600));
+      if (!searchLockRef.current) return;
+    }
     setQueueHold(null);
     setLastRivalId(result.opponent.userId);
     setOpponent(result.opponent);
@@ -320,16 +332,26 @@ export default function App() {
     setQueueIsRanked(isRanked);
     setQueueError(null);
     setQueueHold(null);
+    setQueueStatus('searching');
     const result = await joinQueue({ gameId: selectedGame.id, betAmount, ranked: isRanked });
+    if (!searchLockRef.current) {
+      if (result.ok) void cancelQueue(result.ticket.id);
+      return;
+    }
     if (!result.ok) {
       searchLockRef.current = false;
+      setQueueStatus('idle');
       setQueueError(result.message);
       return;
     }
 
     const already = await tryMatch(result.ticket);
+    if (!searchLockRef.current) {
+      void cancelQueue(result.ticket.id);
+      return;
+    }
     if (already.status === 'matched') {
-      enterMatchedQueue(result.ticket, already, isRanked);
+      await enterMatchedQueue(result.ticket, already, isRanked);
       await syncBalanceFromServer();
       return;
     }
@@ -426,7 +448,7 @@ export default function App() {
       if (stopped) return;
 
       if (result.status === 'matched') {
-        enterMatchedQueue(ticket, result, queueIsRanked);
+        await enterMatchedQueue(ticket, result, queueIsRanked);
         return;
       }
 
@@ -789,7 +811,7 @@ export default function App() {
                 result={gameResult}
                 betAmount={betAmount}
                 balance={currentUser.balance}
-                onGoHome={goHome}
+                onGoHome={reloadHome}
               />
             ) : matchError ? (
               <div className="bg-bg-100 rounded-2xl border border-bg-300 p-8 text-center space-y-4" role="alert">
@@ -797,7 +819,7 @@ export default function App() {
                 <p className="text-sm text-text-200">{matchError}</p>
                 <button
                   type="button"
-                  onClick={goHome}
+                  onClick={reloadHome}
                   className="bg-primary-100 hover:bg-primary-200 text-white px-6 py-3 rounded-xl font-bold"
                 >
                   Volver al inicio

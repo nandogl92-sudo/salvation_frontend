@@ -126,7 +126,7 @@ const HomeLanding = ({
           className="absolute inset-0 h-full w-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#070b16]/55 via-[#070b16]/35 to-[#070b16]" aria-hidden="true" />
-        <div className="relative z-10 min-h-[calc(100svh-4rem)] landscape:min-h-[calc(100svh-4rem)] flex items-start px-4 pt-4 pb-10 landscape:pt-2 landscape:pb-6">
+        <div className="relative z-10 min-h-[calc(100svh-4rem)] flex items-start px-4 pt-20 pb-10 [@media(orientation:landscape)_and_(max-height:520px)]:pt-8 [@media(orientation:landscape)_and_(max-height:520px)]:pb-6">
           <div className="max-w-4xl mx-auto w-full space-y-3 landscape:space-y-2">
             <div className="relative mx-auto w-fit">
               <div
@@ -158,7 +158,7 @@ const HomeLanding = ({
               tabIndex={0}
               onClick={handleStart}
               onKeyDown={(event) => handleActivateKey(event, handleStart)}
-              className="inline-flex items-center gap-2 bg-[#3ec8ff] text-[#070b16] font-bold px-6 py-3 landscape:py-2 rounded-lg"
+              className="inline-flex items-center gap-2 bg-[#f5c518] text-[#1a1403] font-bold px-6 py-3 landscape:py-2 rounded-lg"
             >
               <Play className="w-4 h-4" aria-hidden="true" />
               Empezar a jugar

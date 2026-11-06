@@ -5,6 +5,7 @@ import AuthPanel from '../../auth/AuthPanel'
 import type { Game, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
+import { reloadHome } from '../utils/reloadHome'
 
 type NavSection = 'inicio' | 'juegos' | 'ranking' | 'info'
 
@@ -68,8 +69,8 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
     }
   }, [authOpen])
 
-  const handleReload = () => {
-    window.location.reload()
+  const handleGoHome = () => {
+    reloadHome()
   }
 
   const handleOpenProfile = () => {
@@ -119,10 +120,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
       <div className={`max-w-6xl mx-auto px-3 py-2 flex flex-wrap items-center justify-between gap-2 min-h-16 ${compact ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-nowrap [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-h-12 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1' : ''}`}>
         <button
           type="button"
-          aria-label="Recargar Frizeplay"
+          aria-label="Ir al inicio"
           tabIndex={0}
-          onClick={handleReload}
-          onKeyDown={(event) => handleActivateKey(event, handleReload)}
+          onClick={handleGoHome}
+          onKeyDown={(event) => handleActivateKey(event, handleGoHome)}
           className="flex items-center gap-2 shrink-0"
         >
           <img src="/frizeplay-logo.png" alt="" className="w-9 h-9 object-contain" />
@@ -134,6 +135,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
         <nav className={`flex items-center gap-1 order-3 w-full sm:order-none sm:w-auto sm:flex-1 sm:justify-center overflow-x-auto ${compact ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:hidden' : ''}`} aria-label="Secciones">
           {LINKS.map(({ id, label, icon: Icon }) => {
             const handleNavigate = () => {
+              if (id === 'inicio') {
+                handleGoHome()
+                return
+              }
               onNavigate(id)
             }
             const isHome = id === 'inicio'

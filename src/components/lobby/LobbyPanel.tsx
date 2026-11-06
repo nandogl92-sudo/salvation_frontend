@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertCircle, WifiOff } from 'lucide-react'
+import { AlertCircle, LoaderCircle, WifiOff } from 'lucide-react'
 import { isCurrentSubscriptionMonth } from '../../api/subscriptionsApi'
 import {
   RANKED_PER_RIVAL_WEEK,
@@ -141,9 +141,6 @@ const LobbyPanel = ({
           </div>
         )}
         <h2 className="text-2xl font-bold">{selectedGame.name}</h2>
-        <p className="text-text-200 text-sm mt-2">
-          Ranking: otra persona. Amistoso: bot o práctica. Cada partida se juega por 1 ficha.
-        </p>
       </div>
 
       <div className="space-y-6">
@@ -175,17 +172,12 @@ const LobbyPanel = ({
         </div>
 
         {isRanked ? (
-          <div className="space-y-2">
-            <p className="text-xs text-text-200">
-              Ranking: otra persona. El bot no se usa. La cola elige rival.
-            </p>
-            <p className="text-sm font-bold text-text-100">
-              Pruebas: sin tope diario de ranqueadas.
-            </p>
-          </div>
+          <p className="text-sm text-text-200">
+            Si ganas, sumas 1 punto para el premio.
+          </p>
         ) : (
-          <p className="text-xs text-text-200">
-            Amistoso: bot o persona de prueba. No cambia los puntos del mes ni el puesto del premio.
+          <p className="text-sm text-text-200">
+            Juegas tus fichas contra otra persona.
           </p>
         )}
 
@@ -235,16 +227,25 @@ const LobbyPanel = ({
 
         {isSearching ? (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 text-text-200 text-sm bg-bg-200 p-3 rounded-lg" role="status">
-              <WifiOff className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+            <div className="flex items-center gap-2 text-text-200 text-sm bg-bg-200 p-3 rounded-lg" role="status" aria-live="polite">
+              <LoaderCircle className="w-4 h-4 flex-shrink-0 animate-spin" aria-hidden="true" />
               <span>
                 {queueHold
-                  ? `Encontrado: ${queueHold}. Esperando a que entre en la misma partida.`
+                  ? 'Encontrado. Entrando en la partida…'
                   : isRanked
-                  ? 'Esperando a otra persona. El bot no se usa. Buscad los dos a la vez; el móvil puede tardar un poco más.'
-                  : 'Buscando rival...'}
+                    ? 'Buscando a otra persona…'
+                    : 'Buscando rival…'}
               </span>
             </div>
+            <button
+              type="button"
+              aria-label="Buscando"
+              tabIndex={0}
+              disabled
+              className="w-full py-4 rounded-xl font-bold text-lg bg-accent-100 text-white shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              Buscando…
+            </button>
           </div>
         ) : isTimeout ? (
           <div className="space-y-3">

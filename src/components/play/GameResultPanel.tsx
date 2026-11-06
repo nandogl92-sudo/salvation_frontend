@@ -128,17 +128,19 @@ const GameResultPanel = ({
         </>
       )}
 
-      <button
-        type="button"
-        aria-label="Volver al inicio"
-        tabIndex={0}
-        onClick={handleGoHome}
-        onKeyDown={(event) => handleActivateKey(event, handleGoHome)}
-        className="mt-4 flex items-center gap-2 bg-primary-100 hover:bg-primary-200 text-white px-8 py-3 rounded-xl font-bold transition-colors"
-      >
-        <Home className="w-5 h-5" aria-hidden="true" />
-        Volver al inicio
-      </button>
+      {!result.pending && (
+        <button
+          type="button"
+          aria-label="Volver al inicio"
+          tabIndex={0}
+          onClick={handleGoHome}
+          onKeyDown={(event) => handleActivateKey(event, handleGoHome)}
+          className="mt-4 flex items-center gap-2 bg-primary-100 hover:bg-primary-200 text-white px-8 py-3 rounded-xl font-bold transition-colors"
+        >
+          <Home className="w-5 h-5" aria-hidden="true" />
+          Volver al inicio
+        </button>
+      )}
     </div>
   )
 }
