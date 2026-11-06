@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, startLiveInputs, stepPlayHead } from './liveInputs';
+import { keyHeld, otherSide, startLiveInputs } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 /** Velocidad máxima del bot (píxeles por frame). Ajustar para cambiar dificultad. */
@@ -534,8 +534,6 @@ export default function Pong({
     const endMatch = (winner: 'p1' | 'p2') => {
       onGameEnd(winner, matchId);
     };
-    let playHead = 0;
-
     const stepBall = () => {
       state.trail.push({ x: state.ball.x, y: state.ball.y });
       if (state.trail.length > 8) state.trail.shift();
@@ -779,15 +777,51 @@ export default function Pong({
         link.setLocalKeys(state.keys);
         const countdown = rankedCountdown(world.startAt, link.serverNow());
         const latestAt = link.rallyAt();
-        playHead = stepPlayHead(playHead, dt, latestAt, link.serverNow());
-        const view = playHead > 0 ? link.readRally(playHead) : null;
+        const view = latestAt > 0 ? link.readRally(latestAt) : null;
         if (view) {
           if (view.p1 !== state.p1.score || view.p2 !== state.p2.score) state.shake = SHAKE_FRAMES;
-          state.trail.push({ x: view.ballX, y: view.ballY });
+          const age = Math.max(0, Math.min(36, link.serverNow() - latestAt));
+          const aimX = view.ballX + view.ballVx * (age / FRAME_MS);
+          const aimY = Math.max(
+            PLAY_TOP + BALL_R,
+            Math.min(PLAY_BOTTOM - BALL_R, view.ballY + view.ballVy * (age / FRAME_MS)),
+          );
+          const ballDx = aimX - state.ball.x;
+          const ballDy = aimY - state.ball.y;
+          const ballDist = Math.hypot(ballDx, ballDy);
+          if (ballDist > 56) {
+            state.ball.x = aimX;
+            state.ball.y = aimY;
+          } else if (ballDist > 0) {
+            const speed = Math.max(1, Math.hypot(view.ballVx, view.ballVy));
+            const step = Math.min(ballDist, speed * Math.max(age, dt) / FRAME_MS);
+            state.ball.x += (ballDx / ballDist) * step;
+            state.ball.y += (ballDy / ballDist) * step;
+          }
+          state.ball.vx = view.ballVx;
+          state.ball.vy = view.ballVy;
+          state.trail.push({ x: state.ball.x, y: state.ball.y });
           if (state.trail.length > 8) state.trail.shift();
-          state.ball = { x: view.ballX, y: view.ballY, vx: 0, vy: 0 };
-          state.p1.y = view.p1y;
-          state.p2.y = view.p2y;
+          const serverY = (side: 'p1' | 'p2') => (side === 'p1' ? view.p1y : view.p2y);
+          const glideShown = (shown: number, target: number, up: boolean, down: boolean) => {
+            if (countdown || (up === down)) {
+              const gap = target - shown;
+              if (Math.abs(gap) > 64) return target;
+              return shown + gap * (1 - Math.exp(-Math.max(0, dt) / 45));
+            }
+            let next = shown;
+            const step = PADDLE_SPEED * Math.min(1.5, dt / FRAME_MS);
+            if (up) next -= step;
+            if (down) next += step;
+            next = clampPaddle(next);
+            const lead = PADDLE_SPEED * 2;
+            if (up) return Math.max(target - lead, Math.min(next, target));
+            return Math.min(target + lead, Math.max(next, target));
+          };
+          const ownUp = keyHeld(state.keys, 'w', 'W', 'ArrowUp');
+          const ownDown = keyHeld(state.keys, 's', 'S', 'ArrowDown');
+          state[you].y = glideShown(state[you].y, serverY(you), ownUp, ownDown);
+          state[them].y = glideShown(state[them].y, serverY(them), false, false);
           state.p1.score = view.p1;
           state.p2.score = view.p2;
           if (state.shake > 0) state.shake -= 1;

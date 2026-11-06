@@ -77,6 +77,8 @@ export type PaddleMove = {
 export type RallyView = {
   ballX: number
   ballY: number
+  ballVx: number
+  ballVy: number
   p1y: number
   p2y: number
   p1: number
@@ -314,6 +316,8 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
   const rallyView = (snap: RallySnap): RallyView => ({
     ballX: snap.ballX,
     ballY: snap.ballY,
+    ballVx: snap.ballVx,
+    ballVy: snap.ballVy,
     p1y: snap.p1y,
     p2y: snap.p2y,
     p1: snap.p1,
@@ -339,6 +343,8 @@ export const startLiveInputs = (matchId: string, localUserId: string): LiveInput
       return {
         ballX: prev.ballX + (next.ballX - prev.ballX) * blend,
         ballY: prev.ballY + (next.ballY - prev.ballY) * blend,
+        ballVx: prev.ballVx + (next.ballVx - prev.ballVx) * blend,
+        ballVy: prev.ballVy + (next.ballVy - prev.ballVy) * blend,
         p1y: prev.p1y + (next.p1y - prev.p1y) * blend,
         p2y: prev.p2y + (next.p2y - prev.p2y) * blend,
         p1: prev.p1,
