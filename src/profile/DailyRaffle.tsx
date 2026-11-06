@@ -57,6 +57,10 @@ const DailyRaffle = () => {
   const mine = raffle?.seats.filter((seat) => seat.yours) ?? [];
   const rivals = mine.map((seat) => seat.rivalName).filter((name) => name !== null);
   const hours = raffle && raffle.hours.length > 0 ? raffle.hours : FALLBACK_HOURS;
+  const sharedHour = mine.length > 1
+    && mine.every((seat) => seat.rivalHour !== null && seat.rivalHour === mine[0].rivalHour)
+    ? mine[0].rivalHour
+    : null;
 
   return (
     <section className="bg-bg-100 rounded-2xl border border-bg-300 p-5 space-y-3" aria-label="Sorteo de hoy">
@@ -93,12 +97,19 @@ const DailyRaffle = () => {
               })}
             </ul>
           </div>
+          {sharedHour !== null && (
+            <p className="text-sm font-bold text-text-100" role="status">
+              {rivals.join(' y ')} han elegido la misma hora: las {hourLabel(sharedHour)}.
+            </p>
+          )}
           {mine.map((seat) => (
             <SeatHours
               key={seat.id}
               seat={seat}
               hours={hours}
               savingKey={savingKey}
+              sharedHour={sharedHour}
+              sharedNames={rivals}
               onChoose={handleChoose}
             />
           ))}
@@ -117,11 +128,15 @@ const SeatHours = ({
   seat,
   hours,
   savingKey,
+  sharedHour,
+  sharedNames,
   onChoose,
 }: {
   seat: RaffleSeat;
   hours: number[];
   savingKey: string | null;
+  sharedHour: number | null;
+  sharedNames: string[];
   onChoose: (seatId: string, hour: number) => void;
 }) => {
   const canChoose = seat.agreedHour === null;
@@ -138,7 +153,7 @@ const SeatHours = ({
       {canChoose && seat.cleared && (
         <p className="text-sm font-bold text-red-500" role="status">No coincidís. Esas horas ya no se pueden elegir.</p>
       )}
-      {canChoose && seat.rivalHour !== null && (
+      {canChoose && seat.rivalHour !== null && seat.rivalHour !== sharedHour && (
         <p className="text-sm font-bold text-text-100" role="status">
           {seat.rivalName} ha elegido las {hourLabel(seat.rivalHour)}. Esa hora está marcada en el calendario.
         </p>
@@ -154,15 +169,19 @@ const SeatHours = ({
           const blocked = seat.blocked.includes(hour);
           const selected = !blocked && (seat.agreedHour === hour || seat.yourHour === hour);
           const rivalPick = canChoose && !blocked && !selected && seat.rivalHour === hour;
+          const bothPick = rivalPick && sharedHour === hour;
+          const pickNames = bothPick ? sharedNames.join(' y ') : seat.rivalName;
           const chooseThisHour = () => {
             if (blocked) return;
             handleHour(hour);
           };
           const label = blocked
             ? `Las ${hourLabel(hour)} ya no se pueden elegir`
-            : rivalPick
-              ? `${seat.rivalName} ha elegido las ${hourLabel(hour)}. Pulsa para elegir la misma hora`
-              : `Elegir las ${hourLabel(hour)} contra ${seat.rivalName}`;
+            : bothPick
+              ? `${pickNames} han elegido las ${hourLabel(hour)}. Pulsa para elegir la misma hora`
+              : rivalPick
+                ? `${seat.rivalName} ha elegido las ${hourLabel(hour)}. Pulsa para elegir la misma hora`
+                : `Elegir las ${hourLabel(hour)} contra ${seat.rivalName}`;
           return (
             <button
               key={hour}
@@ -175,7 +194,7 @@ const SeatHours = ({
             >
               {hourLabel(hour)}
               {rivalPick && (
-                <span className="mt-1 block text-[10px] font-bold leading-tight text-[#f5c518]">{seat.rivalName}</span>
+                <span className="mt-1 block text-[10px] font-bold leading-tight text-[#f5c518]">{pickNames}</span>
               )}
             </button>
           );
