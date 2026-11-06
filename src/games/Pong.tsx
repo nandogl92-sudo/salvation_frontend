@@ -453,8 +453,8 @@ export default function Pong({
     };
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const paddleStart = (PLAY_TOP + PLAY_BOTTOM - PADDLE_H) / 2;
-    const minPaddle = PLAY_TOP + 6;
-    const maxPaddle = PLAY_BOTTOM - PADDLE_H - 6;
+    const minPaddle = PLAY_TOP;
+    const maxPaddle = PLAY_BOTTOM - PADDLE_H;
     
     const state = {
       p1: { y: paddleStart, score: 0, swing: 0, moving: 0 },
