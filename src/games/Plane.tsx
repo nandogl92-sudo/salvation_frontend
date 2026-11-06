@@ -14,7 +14,8 @@ const FLAP = -340;
 const FLAP_GAP = 0.14;
 const MAX_FALL = 170;
 const START_SIZE = 16;
-const GROW_STEP = 5;
+const GROW_STEP = 3;
+const SPEED_BLEND_S = 1.6;
 const GROW_EVERY = 10;
 const MAX_GROWS = 6;
 const RING_THICK = 12;
@@ -109,10 +110,20 @@ const canPass = (plane: PlaneUnit, ring: Ring) => ring.inner > plane.size + 8;
 
 const pullOf = (vy: number) => (vy < 0 ? RISE_G : FALL_G);
 
-const scrollSpeed = (gameTime: number) => {
-  const phase = Math.min(SPEED_PHASES, Math.floor(gameTime / GROW_EVERY));
-  return 170 + phase * 75;
+const smoothstep = (t: number) => {
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
 };
+
+const easedPhase = (gameTime: number, every: number, max: number) => {
+  if (gameTime <= 0) return 0;
+  const step = Math.min(max, Math.floor(gameTime / every));
+  if (step <= 0) return 0;
+  const into = gameTime - step * every;
+  return Math.min(max, step - 1 + smoothstep(into / SPEED_BLEND_S));
+};
+
+const scrollSpeed = (gameTime: number) => 170 + easedPhase(gameTime, GROW_EVERY, SPEED_PHASES) * 75;
 
 const ringEvery = (gameTime: number) => 520 / scrollSpeed(gameTime);
 

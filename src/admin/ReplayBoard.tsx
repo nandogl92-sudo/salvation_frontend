@@ -182,12 +182,16 @@ const drawRings = (ctx: CanvasRenderingContext2D, scene: ReplayScene): void => {
 
 const HAZARD_COLOR = ['#a21caf', '#fb7185', '#22d3ee', '#f97316']
 
+const DROP_H = 900
+
 const drawDrop = (ctx: CanvasRenderingContext2D, scene: ReplayScene): void => {
-  const sky = ctx.createLinearGradient(0, 0, 0, FIELD_H)
+  ctx.save()
+  ctx.scale(FIELD_W / 960, FIELD_H / DROP_H)
+  const sky = ctx.createLinearGradient(0, 0, 0, DROP_H)
   sky.addColorStop(0, '#2f6fb3')
   sky.addColorStop(1, '#d7f0ff')
   ctx.fillStyle = sky
-  ctx.fillRect(0, 0, FIELD_W, FIELD_H)
+  ctx.fillRect(0, 0, 960, DROP_H)
   scene.items.forEach((item) => {
     ctx.fillStyle = HAZARD_COLOR[item.k ?? 3] ?? '#f97316'
     ctx.fillRect(item.x, item.y, Math.max(8, item.w), Math.max(8, item.h))
@@ -201,6 +205,7 @@ const drawDrop = (ctx: CanvasRenderingContext2D, scene: ReplayScene): void => {
   }
   jumper(scene.p1, '#c026d3')
   jumper(scene.p2, '#facc15')
+  ctx.restore()
   paintScore(ctx, scene.winner ? scene.winner : 'SKY DROP')
 }
 

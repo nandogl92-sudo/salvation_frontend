@@ -3,17 +3,31 @@ import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } fro
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
-const HEIGHT = 540;
+const HEIGHT = 900;
 const PIX = '"Press Start 2P", monospace';
-const FIELD = { left: 18, top: 70, right: 942, bottom: 530 };
+const FIELD = { left: 18, top: 70, right: 942, bottom: 890 };
 const INTRO_S = 10;
 const KO_S = 0.35;
 const PHASE_S = 5;
 const MAX_PHASE = 8;
 const MIN_GAP = 112;
 const MOVE = 310;
+const SPEED_BLEND_S = 1.6;
 
-const fallSpeedOf = (phase: number) => 160 + phase * 65;
+const smoothstep = (t: number) => {
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
+};
+
+const easedPhase = (gameTime: number) => {
+  if (gameTime <= 0) return 0;
+  const step = Math.min(MAX_PHASE, Math.floor(gameTime / PHASE_S));
+  if (step <= 0) return 0;
+  const into = gameTime - step * PHASE_S;
+  return Math.min(MAX_PHASE, step - 1 + smoothstep(into / SPEED_BLEND_S));
+};
+
+const fallSpeedOf = (gameTime: number) => 160 + easedPhase(gameTime) * 65;
 
 type Ctx = CanvasRenderingContext2D;
 type Side = 'p1' | 'p2';
@@ -452,7 +466,7 @@ const drawSparks = (ctx: Ctx, sparks: Spark[]) => {
   ctx.globalAlpha = 1;
 };
 
-const drawHud = (ctx: Ctx, p1: Jumper, p2: Jumper, gameTime: number, phase: number) => {
+const drawHud = (ctx: Ctx, p1: Jumper, p2: Jumper, gameTime: number) => {
   paint(ctx, 0, 0, WIDTH, 58, 'rgba(12, 20, 36, 0.72)');
   paint(ctx, 8, 6, 250, 46, '#142033');
   ctx.strokeStyle = p1.canopy;
@@ -486,22 +500,24 @@ const drawHud = (ctx: Ctx, p1: Jumper, p2: Jumper, gameTime: number, phase: numb
   ctx.fillText('SKY DROP', 480, 24);
   ctx.fillStyle = '#f4f7fb';
   ctx.font = `8px ${PIX}`;
-  ctx.fillText(`${formatTime(gameTime)}  FASE ${phase + 1}`, 480, 44);
+  const shownPhase = Math.min(MAX_PHASE, Math.floor(gameTime / PHASE_S));
+  ctx.fillText(`${formatTime(gameTime)}  FASE ${shownPhase + 1}`, 480, 44);
   ctx.textAlign = 'left';
 };
 
 const drawBanner = (ctx: Ctx, title: string, sub: string) => {
-  paint(ctx, 140, 196, 680, 148, 'rgba(10, 16, 28, 0.88)');
+  const bannerY = Math.round(HEIGHT / 2 - 74);
+  paint(ctx, 140, bannerY, 680, 148, 'rgba(10, 16, 28, 0.88)');
   ctx.strokeStyle = '#f5c518';
   ctx.lineWidth = 3;
-  ctx.strokeRect(140, 196, 680, 148);
+  ctx.strokeRect(140, bannerY, 680, 148);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f5c518';
   ctx.font = `20px ${PIX}`;
-  ctx.fillText(title, 480, 256);
+  ctx.fillText(title, 480, bannerY + 60);
   ctx.fillStyle = '#f4f7fb';
   ctx.font = `9px ${PIX}`;
-  ctx.fillText(sub, 480, 298);
+  ctx.fillText(sub, 480, bannerY + 102);
   ctx.textAlign = 'left';
 };
 
@@ -725,7 +741,7 @@ export default function Skydive({
         playHead = stepPlayHead(playHead, stepMs, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
         if (scene?.kind === 'drop') applyDrop(scene);
-        const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
+        const phase = easedPhase(state.gameTime);
         const anim = now / 1000;
         state.sparks = state.sparks.filter((spark) => {
           spark.x += spark.vx * dt;
@@ -739,7 +755,7 @@ export default function Skydive({
         drawJumper(ctx, state.p1, anim, Math.sin(state.gameTime * 3.1) * 7, 0);
         drawJumper(ctx, state.p2, anim, Math.sin(state.gameTime * 3.1 + 1.4) * 7, 1.4);
         drawSparks(ctx, state.sparks);
-        drawHud(ctx, state.p1, state.p2, state.gameTime, phase);
+        drawHud(ctx, state.p1, state.p2, state.gameTime);
         const rankedWait = rankedCountdown(world.startAt, link.serverNow());
         if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA');
         if (state.winner === 'draw') {
@@ -766,8 +782,8 @@ export default function Skydive({
         state.intro -= dt;
       } else if (!state.winner) {
         state.gameTime += dt;
-        const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
-        const fallSpeed = fallSpeedOf(phase);
+        const phase = easedPhase(state.gameTime);
+        const fallSpeed = fallSpeedOf(state.gameTime);
         const spawnEvery = Math.max(0.48, 1.15 - phase * 0.08);
         state.fall += fallSpeed * dt;
         state.spawnWait += dt;
@@ -847,7 +863,7 @@ export default function Skydive({
         return spark.life > 0;
       });
 
-      const phase = Math.min(MAX_PHASE, Math.floor(state.gameTime / PHASE_S));
+      const phase = easedPhase(state.gameTime);
       const anim = now / 1000;
       drawBackdrop(ctx);
       drawAmbient(ctx, state.fall, anim, phase);
@@ -855,7 +871,7 @@ export default function Skydive({
       drawJumper(ctx, state.p1, anim, Math.sin(state.gameTime * 3.1) * 7, 0);
       drawJumper(ctx, state.p2, anim, Math.sin(state.gameTime * 3.1 + 1.4) * 7, 1.4);
       drawSparks(ctx, state.sparks);
-      drawHud(ctx, state.p1, state.p2, state.gameTime, phase);
+      drawHud(ctx, state.p1, state.p2, state.gameTime);
 
       if (rankedWait) {
         drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA');
