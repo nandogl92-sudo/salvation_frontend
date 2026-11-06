@@ -16,27 +16,21 @@ export type GameResult = {
 type GameResultPanelProps = {
   result: GameResult
   betAmount: number
-  balance: number
   onGoHome: () => void
 }
 
 const GameResultPanel = ({
   result,
   betAmount,
-  balance,
   onGoHome,
 }: GameResultPanelProps) => {
   const handleGoHome = () => {
     onGoHome()
   }
 
-  const monthPointsMessage = !result.isRanked
-    ? 'Esta partida no cambia los puntos del mes (amistoso o bot).'
-    : result.won && result.monthPointsDelta > 0
-      ? `+1 a tus 3 mejores semanas. Ahora tienes ${formatPoints(result.monthPoints)}.`
-      : result.won
-        ? `Esta semana no entra en las 3 mejores. Sigues con ${formatPoints(result.monthPoints)}.`
-        : `Los puntos del mes no bajan. Sigues con ${formatPoints(result.monthPoints)}.`
+  const monthChipMessage = result.isRanked && result.won && result.monthPointsDelta > 0
+    ? 'Se gana una ficha de un mes.'
+    : null
 
   const abandonMessage = !result.byAbandon
     ? null
@@ -82,11 +76,9 @@ const GameResultPanel = ({
           <p className="text-text-200 text-center max-w-sm">
             {abandonMessage ?? 'Tus fichas no cambian.'}
           </p>
-          <p className="text-text-200 text-sm">
-            Fichas:{' '}
-            <span className="font-bold text-text-100">{formatPoints(balance)}</span>
-          </p>
-          <p className="text-text-200 text-sm text-center max-w-sm">{monthPointsMessage}</p>
+          {monthChipMessage && (
+            <p className="text-text-200 text-sm text-center max-w-sm">{monthChipMessage}</p>
+          )}
         </>
       ) : result.won ? (
         <>
@@ -101,11 +93,9 @@ const GameResultPanel = ({
             <p className="text-text-200 text-sm">Fichas ganadas</p>
             <p className="text-4xl font-bold text-accent-100">+{formatPoints(result.profit)}</p>
           </div>
-          <p className="text-text-200 text-sm">
-            Fichas:{' '}
-            <span className="font-bold text-text-100">{formatPoints(balance)}</span>
-          </p>
-          <p className="text-text-200 text-sm text-center max-w-sm">{monthPointsMessage}</p>
+          {monthChipMessage && (
+            <p className="text-text-200 text-sm text-center max-w-sm">{monthChipMessage}</p>
+          )}
         </>
       ) : (
         <>
@@ -120,11 +110,6 @@ const GameResultPanel = ({
             <p className="text-text-200 text-sm">Fichas perdidas</p>
             <p className="text-4xl font-bold text-primary-100">-{formatPoints(betAmount)}</p>
           </div>
-          <p className="text-text-200 text-sm">
-            Fichas:{' '}
-            <span className="font-bold text-text-100">{formatPoints(balance)}</span>
-          </p>
-          <p className="text-text-200 text-sm text-center max-w-sm">{monthPointsMessage}</p>
         </>
       )}
 

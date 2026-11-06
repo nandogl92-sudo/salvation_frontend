@@ -810,7 +810,6 @@ export default function App() {
               <GameResultPanel
                 result={gameResult}
                 betAmount={betAmount}
-                balance={currentUser.balance}
                 onGoHome={reloadHome}
               />
             ) : matchError ? (
