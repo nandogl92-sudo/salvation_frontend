@@ -530,7 +530,6 @@ export default function Pong({
     const isHost = !world || you === 'p1';
     let lastStamp = performance.now();
     let acc = 0;
-    let ownAcc = 0;
     let ownLatch = 0;
     let ownHoldUntil = 0;
     let ended = false;
@@ -815,23 +814,17 @@ export default function Pong({
           const ownDown = !countdown && keyHeld(state.keys, 's', 'S', 'ArrowDown');
           const target = serverY(you);
           if (ownUp !== ownDown) {
-            ownLatch = ownUp ? -1 : 1;
-            ownHoldUntil = now + 180;
-            ownAcc += dt;
-            while (ownAcc >= FRAME_MS) {
-              ownAcc -= FRAME_MS;
-              state[you].y = clampPaddle(state[you].y + ownLatch * PADDLE_SPEED);
-            }
+            const dir = ownUp ? -1 : 1;
+            ownLatch = dir;
+            ownHoldUntil = now + 220;
+            state[you].y = clampPaddle(state[you].y + dir * PADDLE_SPEED * (dt / FRAME_MS));
           } else {
-            ownAcc = 0;
-            const waiting = ownLatch === -1
-              ? state[you].y < target - 4
-              : ownLatch === 1
-                ? state[you].y > target + 4
-                : false;
-            if (!waiting || now >= ownHoldUntil) {
-              state[you].y = easeToServer(state[you].y, target);
-              if (Math.abs(state[you].y - target) < 3) ownLatch = 0;
+            const ahead = ownLatch === -1
+              ? state[you].y < target - 1
+              : ownLatch === 1 && state[you].y > target + 1;
+            if (!ahead || now >= ownHoldUntil) {
+              state[you].y = target;
+              ownLatch = 0;
             }
           }
           state[them].y = easeToServer(state[them].y, serverY(them));
