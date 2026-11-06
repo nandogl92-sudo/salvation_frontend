@@ -120,6 +120,12 @@ const HomeLanding = ({
   return (
     <div id="inicio">
       <section className="relative overflow-hidden bg-[#070b16] text-center">
+        <img
+          src="/hero-frizeplay.jpg"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#070b16]/55 via-[#070b16]/35 to-[#070b16]" aria-hidden="true" />
         <div className="relative z-10 min-h-[calc(100svh-4rem)] landscape:min-h-[calc(100svh-4rem)] flex items-center px-4 py-6 landscape:py-3">
           <div className="max-w-4xl mx-auto w-full space-y-3 landscape:space-y-2">
             <div className="relative mx-auto w-fit">
