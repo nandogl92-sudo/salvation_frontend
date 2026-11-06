@@ -4,7 +4,6 @@ type PadKey = {
   key: string
   label: string
   ariaLabel: string
-  vertical?: boolean
   mark?: string
 }
 
@@ -64,14 +63,6 @@ const sendKey = (type: 'keydown' | 'keyup', key: string) => {
   window.dispatchEvent(new KeyboardEvent(type, { key, code: keyCode(key), bubbles: true }))
 }
 
-const VerticalWord = ({ text }: { text: string }) => (
-  <span className="flex flex-col items-center justify-center text-base leading-none tracking-normal">
-    {Array.from(text).map((letter, index) => (
-      <span key={`${letter}-${index}`}>{letter}</span>
-    ))}
-  </span>
-)
-
 const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }) => {
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     event.preventDefault()
@@ -113,7 +104,7 @@ const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }
           <span className="text-2xl leading-none">{padKey.mark}</span>
           <span className="max-w-full text-center text-[10px] leading-tight tracking-normal">{padKey.label}</span>
         </span>
-      ) : padKey.vertical ? <VerticalWord text={padKey.label} /> : padKey.label}
+      ) : padKey.label}
     </button>
   )
 }
@@ -130,26 +121,26 @@ const PADDLE_KEYS: PadKey[] = [
 ]
 
 
-const CAR_BUTTON = 'flex min-h-0 min-w-0 w-full flex-1 items-center justify-center self-stretch overflow-hidden rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-lg font-bold leading-tight tracking-wide text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+const CAR_BUTTON = 'flex min-h-0 min-w-0 w-full flex-1 items-center justify-center self-stretch overflow-hidden rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-5xl font-bold leading-none text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
 
 const CAR_SIDE_LEFT = 'flex min-h-0 min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-auto [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-w-[4.5rem] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:[flex:1_0_4.5rem]'
 
 const CAR_SIDE_RIGHT = 'flex min-h-0 min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-auto [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-w-[4.5rem] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:[flex:1_0_4.5rem]'
 
 const STEER_BUTTONS: PadKey[] = [
-  { key: 'ArrowLeft', label: 'IZQUIERDA', ariaLabel: 'Girar a la izquierda', vertical: true },
-  { key: 'ArrowRight', label: 'DERECHA', ariaLabel: 'Girar a la derecha', vertical: true },
+  { key: 'ArrowLeft', label: '↶', ariaLabel: 'Girar a la izquierda' },
+  { key: 'ArrowRight', label: '↷', ariaLabel: 'Girar a la derecha' },
 ]
 
-const DROP_BUTTON = 'flex min-h-24 w-full min-w-0 flex-1 items-center justify-center overflow-hidden rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-[#f5c518] text-base font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'
+const DROP_BUTTON = 'flex min-h-24 w-full min-w-0 flex-1 items-center justify-center self-stretch overflow-hidden rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-5xl font-bold leading-none text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-h-0'
 
-const DROP_LEFT = 'flex min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
+const DROP_LEFT = 'flex min-h-0 min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-auto [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-w-[4.5rem] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:[flex:1_0_4.5rem]'
 
-const DROP_RIGHT = 'flex min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
+const DROP_RIGHT = 'flex min-h-0 min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-auto [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-w-[4.5rem] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:[flex:1_0_4.5rem]'
 
 const DROP_BUTTONS: PadKey[] = [
-  { key: 'a', label: 'IZQUIERDA', mark: '◀', ariaLabel: 'Mover a la izquierda' },
-  { key: 'd', label: 'DERECHA', mark: '▶', ariaLabel: 'Mover a la derecha' },
+  { key: 'a', label: '◀', ariaLabel: 'Mover a la izquierda' },
+  { key: 'd', label: '▶', ariaLabel: 'Mover a la derecha' },
 ]
 
 const PADDLE_UP = 'flex w-full max-w-xs [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-28 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-2'
