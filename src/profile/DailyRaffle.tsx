@@ -5,6 +5,13 @@ const FALLBACK_HOURS = [15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 const hourLabel = (hour: number): string => `${hour}:00`;
 
+const hourClass = (blocked: boolean, selected: boolean, rivalPick: boolean): string => {
+  if (blocked) return 'bg-bg-200 text-text-200 line-through';
+  if (selected) return 'bg-[#f5c518] text-[#1a1403]';
+  if (rivalPick) return 'bg-bg-300 text-text-100 ring-2 ring-[#f5c518]';
+  return 'bg-bg-300 text-text-100';
+};
+
 const DailyRaffle = () => {
   const [raffle, setRaffle] = useState<DailyRaffleView | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -132,7 +139,9 @@ const SeatHours = ({
         <p className="text-sm font-bold text-red-500" role="status">No coincidís. Esas horas ya no se pueden elegir.</p>
       )}
       {canChoose && seat.rivalHour !== null && (
-        <p className="text-sm text-text-200">La otra persona ha elegido las {hourLabel(seat.rivalHour)}.</p>
+        <p className="text-sm font-bold text-text-100" role="status">
+          {seat.rivalName} ha elegido las {hourLabel(seat.rivalHour)}. Esa hora está marcada en el calendario.
+        </p>
       )}
       {canChoose && seat.yourHour !== null && seat.rivalHour === null && (
         <p className="text-sm text-text-200">Has elegido las {hourLabel(seat.yourHour)}. Falta la otra persona.</p>
@@ -144,26 +153,30 @@ const SeatHours = ({
         {hours.map((hour) => {
           const blocked = seat.blocked.includes(hour);
           const selected = !blocked && (seat.agreedHour === hour || seat.yourHour === hour);
+          const rivalPick = canChoose && !blocked && !selected && seat.rivalHour === hour;
           const chooseThisHour = () => {
             if (blocked) return;
             handleHour(hour);
           };
-          const buttonClass = blocked
-            ? 'bg-bg-200 text-text-200 line-through'
-            : selected
-              ? 'bg-[#f5c518] text-[#1a1403]'
-              : 'bg-bg-300 text-text-100';
+          const label = blocked
+            ? `Las ${hourLabel(hour)} ya no se pueden elegir`
+            : rivalPick
+              ? `${seat.rivalName} ha elegido las ${hourLabel(hour)}. Pulsa para elegir la misma hora`
+              : `Elegir las ${hourLabel(hour)} contra ${seat.rivalName}`;
           return (
             <button
               key={hour}
               type="button"
-              aria-label={blocked ? `Las ${hourLabel(hour)} ya no se pueden elegir` : `Elegir las ${hourLabel(hour)} contra ${seat.rivalName}`}
+              aria-label={label}
               aria-pressed={selected}
               disabled={blocked || !canChoose || savingKey !== null}
               onClick={chooseThisHour}
-              className={`rounded-lg px-3 py-3 text-sm font-bold disabled:opacity-50 ${buttonClass}`}
+              className={`rounded-lg px-3 py-3 text-sm font-bold disabled:opacity-50 ${hourClass(blocked, selected, rivalPick)}`}
             >
               {hourLabel(hour)}
+              {rivalPick && (
+                <span className="mt-1 block text-[10px] font-bold leading-tight text-[#f5c518]">{seat.rivalName}</span>
+              )}
             </button>
           );
         })}

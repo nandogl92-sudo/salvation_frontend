@@ -4,6 +4,7 @@ import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedW
 
 /** Velocidad máxima del bot (píxeles por frame). Ajustar para cambiar dificultad. */
 const BOT_SPEED = 4;
+const PADDLE_SPEED = 18;
 
 const WIDTH = 960;
 const HEIGHT = 540;
@@ -516,40 +517,10 @@ export default function Pong({
       resetBall();
     };
 
-    const TAP_DIST = 14;
-    const TAP_STEP = 2;
-    const TAP_FRAMES = 8;
-    const paddleGlide = {
-      p1: { left: 0, prev: 0, held: 0 },
-      p2: { left: 0, prev: 0, held: 0 },
-    };
     const movePaddle = (side: 'p1' | 'p2', up: boolean, down: boolean) => {
-      if (up) state[side].y = Math.max(minPaddle, state[side].y - 7);
-      if (down) state[side].y = Math.min(maxPaddle, state[side].y + 7);
-    };
-    const slidePaddle = (side: 'p1' | 'p2', up: boolean, down: boolean) => {
-      const steer = up === down ? 0 : down ? 1 : -1;
-      const pad = paddleGlide[side];
-      if (steer !== 0) {
-        if (pad.prev !== steer) {
-          pad.left = steer * TAP_DIST;
-          pad.held = 0;
-        }
-        pad.held += 1;
-        pad.prev = steer;
-        if (pad.held > TAP_FRAMES) {
-          pad.left = 0;
-          movePaddle(side, up, down);
-          return;
-        }
-      } else {
-        pad.prev = 0;
-        pad.held = 0;
-      }
-      if (pad.left === 0) return;
-      const step = Math.sign(pad.left) * Math.min(TAP_STEP, Math.abs(pad.left));
-      pad.left -= step;
-      state[side].y = clampPaddle(state[side].y + step);
+      if (up === down) return;
+      if (up) state[side].y = Math.max(minPaddle, state[side].y - PADDLE_SPEED);
+      if (down) state[side].y = Math.min(maxPaddle, state[side].y + PADDLE_SPEED);
     };
 
     const clampPaddle = (y: number) => Math.max(minPaddle, Math.min(maxPaddle, y));
@@ -703,13 +674,13 @@ export default function Pong({
           const p2Down = Boolean(state.keys['ArrowDown']);
           faceMine = { up: p1Up, down: p1Down };
           faceTheirs = botEnabled ? { up: false, down: false } : { up: p2Up, down: p2Down };
-          slidePaddle('p1', p1Up, p1Down);
+          movePaddle('p1', p1Up, p1Down);
           if (botEnabled) {
             const paddleCenter = state.p2.y + PADDLE_H / 2;
             if (state.ball.y > paddleCenter) state.p2.y = Math.min(maxPaddle, state.p2.y + BOT_SPEED);
             else if (state.ball.y < paddleCenter) state.p2.y = Math.max(minPaddle, state.p2.y - BOT_SPEED);
           } else {
-            slidePaddle('p2', p2Up, p2Down);
+            movePaddle('p2', p2Up, p2Down);
           }
         }
       }
