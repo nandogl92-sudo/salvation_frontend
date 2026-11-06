@@ -937,6 +937,11 @@ export default function Racing({
       drive(car, steer);
     };
 
+    const publishHeading = () => {
+      const mine = you === 'p1' ? state.p1 : state.p2;
+      window.dispatchEvent(new CustomEvent('frize-car-heading', { detail: mine.angle }));
+    };
+
     const applyRace = (scene: SceneSnap) => {
       const put = (car: Car, actor: SceneSnap['p1']) => {
         car.x = actor.x;
@@ -978,6 +983,7 @@ export default function Racing({
         playHead = stepPlayHead(playHead, dt, link.sceneAt(), link.serverNow());
         const scene = link.readScene(playHead);
         if (scene?.kind === 'race') applyRace(scene);
+        publishHeading();
         state.frames += 1;
         state.sparks = state.sparks.filter((spark) => {
           spark.x += spark.vx;
@@ -1055,6 +1061,7 @@ export default function Racing({
 
       noteTrail(state.p1);
       noteTrail(state.p2);
+      publishHeading();
       drawWorld();
       state.oils.forEach((oil) => drawOil(ctx, oil, now));
       drawTrail(ctx, state.p1);

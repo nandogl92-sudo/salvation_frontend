@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 
 type PadKey = {
   key: string
@@ -63,7 +63,30 @@ const sendKey = (type: 'keydown' | 'keyup', key: string) => {
   window.dispatchEvent(new KeyboardEvent(type, { key, code: keyCode(key), bubbles: true }))
 }
 
-const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }) => {
+const SteerMark = ({ turn }: { turn: 'left' | 'right' }) => {
+  const markRef = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    const handleHeading = (event: Event) => {
+      const angle = (event as CustomEvent<number>).detail
+      const mark = markRef.current
+      if (!mark || typeof angle !== 'number') return
+      const degrees = (angle * 180) / Math.PI
+      const spin = turn === 'left' ? degrees : degrees + 180
+      mark.style.transform = `rotate(${spin}deg)`
+    }
+    window.addEventListener('frize-car-heading', handleHeading)
+    return () => window.removeEventListener('frize-car-heading', handleHeading)
+  }, [turn])
+
+  return (
+    <span ref={markRef} className="inline-block origin-center leading-none" aria-hidden="true">
+      ▲
+    </span>
+  )
+}
+
+const PadButton = ({ padKey, className, children }: { padKey: PadKey; className?: string; children?: ReactNode }) => {
   const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -99,12 +122,12 @@ const PadButton = ({ padKey, className }: { padKey: PadKey; className?: string }
       onKeyUp={handleKeyUp}
       className={className ?? 'min-w-12 min-h-12 px-3 rounded-xl bg-[#1a2340] border border-[#f5c518]/60 text-[#f5c518] text-[10px] font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'}
     >
-      {padKey.mark ? (
+      {children ?? (padKey.mark ? (
         <span className="flex max-w-full flex-col items-center justify-center gap-1 leading-none">
           <span className="text-2xl leading-none">{padKey.mark}</span>
           <span className="max-w-full text-center text-[10px] leading-tight tracking-normal">{padKey.label}</span>
         </span>
-      ) : padKey.label}
+      ) : padKey.label)}
     </button>
   )
 }
@@ -213,10 +236,14 @@ const TouchControls = ({ gameId }: { gameId: string; stickSide?: 'left' | 'right
       {gameId === 'tetris' && (
         <>
           <div className={CAR_SIDE_LEFT} aria-label="Girar a la izquierda">
-            <PadButton padKey={STEER_BUTTONS[0]} className={CAR_BUTTON} />
+            <PadButton padKey={STEER_BUTTONS[0]} className={CAR_BUTTON}>
+              <SteerMark turn="left" />
+            </PadButton>
           </div>
           <div className={CAR_SIDE_RIGHT} aria-label="Girar a la derecha">
-            <PadButton padKey={STEER_BUTTONS[1]} className={CAR_BUTTON} />
+            <PadButton padKey={STEER_BUTTONS[1]} className={CAR_BUTTON}>
+              <SteerMark turn="right" />
+            </PadButton>
           </div>
         </>
       )}
