@@ -196,7 +196,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
           {user && (
             <>
               <div
-                className="flex items-center gap-2 text-[#3ec8ff] text-[10px] sm:text-sm font-bold"
+                className="flex items-center gap-2 text-[#f5c518] text-[10px] sm:text-sm font-bold"
                 aria-label={`${formatPoints(user.balance)} fichas para jugar`}
               >
                 <Wallet className="w-4 h-4" aria-hidden="true" />
@@ -209,7 +209,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 disabled={menuLocked}
                 onClick={handleOpenProfile}
                 onKeyDown={(event) => handleActivateKey(event, handleOpenProfile)}
-                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#3ec8ff] text-[#3ec8ff] text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40"
+                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#d5dcf0] text-white text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span aria-hidden="true">{initial}</span>
                 <span

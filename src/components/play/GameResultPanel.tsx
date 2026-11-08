@@ -1,4 +1,5 @@
-import { AlertCircle, Home, RefreshCcw, Trophy } from 'lucide-react'
+import { useState } from 'react'
+import { Home, RefreshCcw, Trophy } from 'lucide-react'
 import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
 
@@ -24,7 +25,10 @@ const GameResultPanel = ({
   betAmount,
   onGoHome,
 }: GameResultPanelProps) => {
+  const [leaving, setLeaving] = useState(false)
   const handleGoHome = () => {
+    if (leaving) return
+    setLeaving(true)
     onGoHome()
   }
 
@@ -46,11 +50,15 @@ const GameResultPanel = ({
       ? '¡Ganaste!'
       : 'Perdiste'
 
+  const trophyClass = result.won
+    ? 'bg-accent-100/10 text-accent-100'
+    : 'bg-primary-100/10 text-primary-100'
+
   return (
     <div className="flex flex-col items-center justify-center py-16 space-y-6">
       {result.pending ? (
         <>
-          <div className="bg-bg-300 text-text-200 p-5 rounded-full">
+          <div className={`${trophyClass} p-5 rounded-full`}>
             <Trophy className="w-12 h-12" aria-hidden="true" />
           </div>
           <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
@@ -69,7 +77,7 @@ const GameResultPanel = ({
         </>
       ) : result.profit === 0 ? (
         <>
-          <div className="bg-bg-300 text-text-200 p-5 rounded-full">
+          <div className={`${trophyClass} p-5 rounded-full`}>
             <Trophy className="w-12 h-12" aria-hidden="true" />
           </div>
           <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
@@ -100,7 +108,7 @@ const GameResultPanel = ({
       ) : (
         <>
           <div className="bg-primary-100/10 text-primary-100 p-5 rounded-full">
-            <AlertCircle className="w-12 h-12" aria-hidden="true" />
+            <Trophy className="w-12 h-12" aria-hidden="true" />
           </div>
           <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
           {abandonMessage && (
@@ -113,19 +121,18 @@ const GameResultPanel = ({
         </>
       )}
 
-      {!result.pending && (
-        <button
-          type="button"
-          aria-label="Volver al inicio"
-          tabIndex={0}
-          onClick={handleGoHome}
-          onKeyDown={(event) => handleActivateKey(event, handleGoHome)}
-          className="mt-4 flex items-center gap-2 bg-primary-100 hover:bg-primary-200 text-white px-8 py-3 rounded-xl font-bold transition-colors"
-        >
-          <Home className="w-5 h-5" aria-hidden="true" />
-          Volver al inicio
-        </button>
-      )}
+      <button
+        type="button"
+        aria-label="Volver al inicio"
+        tabIndex={0}
+        disabled={leaving && result.pending}
+        onClick={handleGoHome}
+        onKeyDown={(event) => handleActivateKey(event, handleGoHome)}
+        className="mt-4 flex items-center gap-2 bg-primary-100 hover:bg-primary-200 text-white px-8 py-3 rounded-xl font-bold transition-colors disabled:opacity-70"
+      >
+        <Home className="w-5 h-5" aria-hidden="true" />
+        {leaving && result.pending ? 'Guardando las fichas...' : 'Volver al inicio'}
+      </button>
     </div>
   )
 }

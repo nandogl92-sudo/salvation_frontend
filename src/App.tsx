@@ -142,11 +142,26 @@ export default function App() {
   const settlingRef = useRef(false);
   const settledMatchIdRef = useRef<string | null>(null);
   const resultSeqRef = useRef(0);
+  const leaveAfterSaveRef = useRef(false);
   const searchLockRef = useRef(false);
   const endGameRef = useRef<(winner: 'p1' | 'p2', matchId: string) => void>(() => {});
   const handleEnd = useCallback((winner: 'p1' | 'p2', matchId: string) => {
     endGameRef.current(winner, matchId);
   }, []);
+
+  useEffect(() => {
+    if (!leaveAfterSaveRef.current || gameResult?.pending) return;
+    leaveAfterSaveRef.current = false;
+    reloadHome();
+  }, [gameResult, matchError]);
+
+  const leaveResult = () => {
+    if (gameResult?.pending) {
+      leaveAfterSaveRef.current = true;
+      return;
+    }
+    reloadHome();
+  };
   const rankedPlayRef = useRef({
     matchId: null as string | null,
     isRanked: false,
@@ -762,7 +777,7 @@ export default function App() {
         pendingGame={pendingGame}
         compact={view === 'playing' && !gameResult && !matchError}
         menuLocked={Boolean(gameResult || matchError)}
-        menuNote={gameResult?.pending ? 'Espera a que se guarden las fichas.' : gameResult || matchError ? 'Pulsa Volver al inicio para jugar otra vez.' : null}
+        menuNote={gameResult || matchError ? 'Pulsa Volver al inicio para jugar otra vez.' : null}
         onNavigate={(section) => {
           if (isChoosingPassword) leavePasswordReset();
           forfeitRankedLeave(false);
@@ -813,7 +828,7 @@ export default function App() {
               <GameResultPanel
                 result={gameResult}
                 betAmount={betAmount}
-                onGoHome={reloadHome}
+                onGoHome={leaveResult}
               />
             ) : matchError ? (
               <div className="bg-bg-100 rounded-2xl border border-bg-300 p-8 text-center space-y-4" role="alert">

@@ -178,7 +178,7 @@ const HomeLanding = ({
         </div>
       </section>
 
-      <section id="ranking" className="max-w-3xl mx-auto px-4 pb-10 scroll-mt-20">
+      <section id="ranking" className="max-w-3xl mx-auto px-4 mt-8 pb-10 scroll-mt-20">
         <PointsRanking currentUser={currentUser} />
       </section>
 
