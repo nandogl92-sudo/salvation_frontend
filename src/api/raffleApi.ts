@@ -116,12 +116,19 @@ export const getTodayRaffle = async (): Promise<RaffleResult> => {
   if (!headers) return { ok: false, message: 'Sesión no válida o expirada.' }
 
   try {
-    const response = await fetch(`${API_URL}/users/raffle`, { headers, cache: 'no-store' })
+    const response = await fetch(`${API_URL}/users/raffle`, {
+      headers,
+      cache: 'no-store',
+      signal: AbortSignal.timeout(12000),
+    })
     if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
     const raffle = readRaffle(await response.json())
     if (!raffle) return { ok: false, message: 'El sorteo no tiene la forma esperada.' }
     return { ok: true, raffle }
   } catch (error) {
+    if (error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+      return { ok: false, message: 'El sorteo está tardando. Se vuelve a intentar.' }
+    }
     const message = error instanceof Error ? error.message : 'No se pudo conectar con el servidor.'
     return { ok: false, message }
   }

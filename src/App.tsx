@@ -257,7 +257,7 @@ export default function App() {
     const wantsAdmin = window.location.pathname === '/admin';
     if (!wantsAdmin && view !== 'admin') return;
     if (currentUser?.role === 'admin') {
-      if (wantsAdmin && view !== 'admin') setView('admin');
+      if (wantsAdmin && view === 'home') setView('admin');
       return;
     }
     if (wantsAdmin) window.history.replaceState({}, '', '/');
@@ -752,6 +752,7 @@ export default function App() {
         user={currentUser}
         onOpenProfile={() => {
           forfeitRankedLeave(false);
+          if (window.location.pathname === '/admin') window.history.replaceState({}, '', '/');
           if (view === 'playing' && !gameResult) goHome();
           else setView('profile');
         }}
@@ -760,6 +761,8 @@ export default function App() {
         isAuthReady={isAuthReady}
         pendingGame={pendingGame}
         compact={view === 'playing' && !gameResult && !matchError}
+        menuLocked={Boolean(gameResult || matchError)}
+        menuNote={gameResult?.pending ? 'Espera a que se guarden las fichas.' : gameResult || matchError ? 'Pulsa Volver al inicio para jugar otra vez.' : null}
         onNavigate={(section) => {
           if (isChoosingPassword) leavePasswordReset();
           forfeitRankedLeave(false);

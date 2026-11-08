@@ -20,6 +20,8 @@ type NavbarProps = {
   onLogout: () => void
   onNavigate: (section: NavSection) => void
   compact?: boolean
+  menuLocked?: boolean
+  menuNote?: string | null
 }
 
 const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
@@ -29,7 +31,7 @@ const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
   { id: 'info', label: 'Info', icon: Info },
 ]
 
-const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, onLogout, onNavigate, compact = false }: NavbarProps) => {
+const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, onLogout, onNavigate, compact = false, menuLocked = false, menuNote = null }: NavbarProps) => {
   const headerRef = useRef<HTMLElement>(null)
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('register')
@@ -70,21 +72,22 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
   }, [authOpen])
 
   const handleGoHome = () => {
+    if (menuLocked) return
     reloadHome()
   }
 
   const handleOpenProfile = () => {
-    if (!user) return
+    if (menuLocked || !user) return
     onOpenProfile()
   }
 
   const handleLogout = () => {
-    if (!user) return
+    if (menuLocked || !user) return
     onLogout()
   }
 
   const handleOpenAdmin = () => {
-    if (user?.role !== 'admin') return
+    if (menuLocked || user?.role !== 'admin') return
     onOpenAdmin()
   }
 
@@ -122,9 +125,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
           type="button"
           aria-label="Ir al inicio"
           tabIndex={0}
+          disabled={menuLocked}
           onClick={handleGoHome}
           onKeyDown={(event) => handleActivateKey(event, handleGoHome)}
-          className="flex items-center gap-2 shrink-0"
+          className="flex items-center gap-2 shrink-0 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <img src="/frizeplay-logo.png" alt="" className="w-9 h-9 object-contain" />
           <span className="font-pixel text-[9px] sm:text-[10px] tracking-wide text-white">
@@ -135,10 +139,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
         <nav className={`flex items-center gap-1 order-3 w-full sm:order-none sm:w-auto sm:flex-1 sm:justify-center overflow-x-auto ${compact ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:hidden' : ''}`} aria-label="Secciones">
           {LINKS.map(({ id, label, icon: Icon }) => {
             const handleNavigate = () => {
-              if (id === 'inicio') {
-                handleGoHome()
-                return
-              }
+              if (menuLocked) return
               onNavigate(id)
             }
             const isHome = id === 'inicio'
@@ -151,9 +152,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 type="button"
                 aria-label={label}
                 tabIndex={0}
+                disabled={menuLocked}
                 onClick={handleNavigate}
                 onKeyDown={(event) => handleActivateKey(event, handleNavigate)}
-                className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide ${linkClass}`}
+                className={`flex items-center gap-2 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wide disabled:cursor-not-allowed disabled:opacity-40 ${linkClass}`}
               >
                 <Icon className="w-4 h-4" aria-hidden="true" />
                 <span className="hidden lg:inline">{label}</span>
@@ -204,9 +206,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 type="button"
                 aria-label={`Cuenta de ${user.username}. Inicial ${initial}. ${lightLabel}`}
                 tabIndex={0}
+                disabled={menuLocked}
                 onClick={handleOpenProfile}
                 onKeyDown={(event) => handleActivateKey(event, handleOpenProfile)}
-                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#3ec8ff] text-[#3ec8ff] text-sm font-bold"
+                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#3ec8ff] text-[#3ec8ff] text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span aria-hidden="true">{initial}</span>
                 <span
@@ -219,9 +222,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                   type="button"
                   aria-label="Abrir el panel de administrador"
                   tabIndex={0}
+                  disabled={menuLocked}
                   onClick={handleOpenAdmin}
                   onKeyDown={(event) => handleActivateKey(event, handleOpenAdmin)}
-                  className="px-2 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#3ec8ff]"
+                  className="px-2 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#3ec8ff] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Panel
                 </button>
@@ -230,9 +234,10 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 type="button"
                 aria-label="Cerrar sesión"
                 tabIndex={0}
+                disabled={menuLocked}
                 onClick={handleLogout}
                 onKeyDown={(event) => handleActivateKey(event, handleLogout)}
-                className="text-[#d5dcf0] hover:text-white"
+                className="text-[#d5dcf0] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <LogOut className="w-5 h-5" aria-hidden="true" />
               </button>
@@ -240,6 +245,11 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
           )}
         </div>
       </div>
+      {menuNote && (
+        <p className="px-3 pb-2 text-center text-[11px] text-[#d5dcf0]" role="status">
+          {menuNote}
+        </p>
+      )}
       {showAuth && authOpen && createPortal(
         <div
           className="fixed z-50 left-3 right-3 overflow-y-auto overscroll-contain sm:left-auto sm:right-4 sm:w-[360px]"

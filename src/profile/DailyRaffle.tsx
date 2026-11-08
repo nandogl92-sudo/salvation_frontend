@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { chooseRaffleHour, getTodayRaffle, type DailyRaffle as DailyRaffleView, type RaffleSeat } from '../api/raffleApi';
 
 const FALLBACK_HOURS = [15, 16, 17, 18, 19, 20, 21, 22, 23];
@@ -16,22 +16,29 @@ const DailyRaffle = () => {
   const [raffle, setRaffle] = useState<DailyRaffleView | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const hasRaffle = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    let loading = false;
     const load = () => {
+      if (loading) return;
+      loading = true;
       getTodayRaffle().then((result) => {
+        loading = false;
         if (cancelled) return;
         if (result.ok === true) {
+          hasRaffle.current = true;
           setRaffle(result.raffle);
           setMessage(null);
           return;
         }
+        if (hasRaffle.current) return;
         setMessage(result.message);
       });
     };
     load();
-    const timer = window.setInterval(load, 3000);
+    const timer = window.setInterval(load, 8000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -83,20 +90,6 @@ const DailyRaffle = () => {
           {raffle.youPlay && (
             <p className="text-xs text-text-200">Quien gana su partido del día suma 1 punto a la semana del ranking.</p>
           )}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-text-100">Partidos de hoy</h3>
-            <ul className="space-y-1">
-              {raffle.seats.map((seat) => {
-                const agreed = seat.agreedHour !== null ? ` a las ${hourLabel(seat.agreedHour)}` : '';
-                const point = seat.counts ? '' : ' No suma punto: ya se han enfrentado 2 veces esta semana.';
-                return (
-                  <li key={seat.id} className="text-sm text-text-200">
-                    {seat.names.join(' contra ')}{agreed}.{point}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
           {sharedHour !== null && (
             <p className="text-sm font-bold text-text-100" role="status">
               {rivals.join(' y ')} han elegido la misma hora: las {hourLabel(sharedHour)}.
