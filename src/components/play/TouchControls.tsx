@@ -156,12 +156,6 @@ const STEER_BUTTONS: PadKey[] = [
   { key: 'ArrowRight', label: '↷', ariaLabel: 'Girar a la derecha' },
 ]
 
-const DROP_BUTTON = 'flex min-h-24 w-full min-w-0 flex-1 items-center justify-center self-stretch overflow-hidden rounded-2xl bg-[#1a2340] border-2 border-[#f5c518]/70 px-1 text-center text-5xl font-bold leading-none text-[#f5c518] select-none touch-none active:bg-[#f5c518] active:text-[#1a1403] [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-h-0 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:text-8xl'
-
-const DROP_LEFT = 'flex min-h-0 min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-auto [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-w-14 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:[flex:1_0_3.5rem]'
-
-const DROP_RIGHT = 'flex min-h-0 min-w-0 flex-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:order-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-full [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:w-auto [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-w-14 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:self-stretch [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:[flex:1_0_3.5rem]'
-
 const DROP_BUTTONS: PadKey[] = [
   { key: 'a', label: '◀', ariaLabel: 'Mover a la izquierda' },
   { key: 'd', label: '▶', ariaLabel: 'Mover a la derecha' },
@@ -209,15 +203,13 @@ const TouchControls = ({ gameId }: { gameId: string; stickSide?: 'left' | 'right
   const pad = PADS[gameId]
   if (!pad) return null
 
-  const rowClass = gameId === 'tetris'
+  const rowClass = gameId === 'tetris' || gameId === 'combat'
     ? 'flex min-h-0 w-full flex-1 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
     : gameId === 'pong'
       ? 'flex w-full flex-col items-center gap-3 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
       : gameId === 'snake'
         ? 'flex w-full shrink-0 lg:hidden px-2 pb-2 pt-1 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
-        : `${gameId === 'combat'
-          ? 'w-full flex lg:hidden items-stretch justify-between gap-3 px-3 py-3 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
-          : 'w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3'} ${gameId === 'combat' ? '' : FLOAT_ON_LANDSCAPE}`
+        : `w-full flex lg:hidden items-end justify-between gap-4 px-2 py-3 ${FLOAT_ON_LANDSCAPE}`
 
   return (
     <div
@@ -250,11 +242,11 @@ const TouchControls = ({ gameId }: { gameId: string; stickSide?: 'left' | 'right
       )}
       {gameId === 'combat' && (
         <>
-          <div className={DROP_LEFT} aria-label="Mover a la izquierda">
-            <PadButton padKey={DROP_BUTTONS[0]} className={DROP_BUTTON} />
+          <div className={CAR_SIDE_LEFT} aria-label="Mover a la izquierda">
+            <PadButton padKey={DROP_BUTTONS[0]} className={CAR_BUTTON} />
           </div>
-          <div className={DROP_RIGHT} aria-label="Mover a la derecha">
-            <PadButton padKey={DROP_BUTTONS[1]} className={DROP_BUTTON} />
+          <div className={CAR_SIDE_RIGHT} aria-label="Mover a la derecha">
+            <PadButton padKey={DROP_BUTTONS[1]} className={CAR_BUTTON} />
           </div>
         </>
       )}
