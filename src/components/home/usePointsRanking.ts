@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { listUsers } from '../../api/usersApi'
-import { monthTotalOf } from '../../matchmaking/rankedWeeks'
-import { monthPointsOf } from '../utils/monthPointsOf'
+import { monthPointsOf, weeksOf } from '../utils/monthPointsOf'
 import type { UserProfile } from '../../types'
 
 type RankingStatus = 'idle' | 'loading' | 'success' | 'error'
@@ -14,6 +13,7 @@ export const usePointsRanking = (currentUser: UserProfile | null, enabled = true
 
   const userId = currentUser?.id ?? ''
   const points = currentUser?.balance
+  const monthPoints = currentUser?.monthPoints
 
   useEffect(() => {
     if (!userId || !enabled) {
@@ -41,7 +41,7 @@ export const usePointsRanking = (currentUser: UserProfile | null, enabled = true
     return () => {
       cancelled = true
     }
-  }, [userId, points, attempt, enabled])
+  }, [userId, points, monthPoints, attempt, enabled])
 
   const ranking = users
     .map((user) => {
@@ -49,11 +49,12 @@ export const usePointsRanking = (currentUser: UserProfile | null, enabled = true
         return {
           ...user,
           balance: currentUser.balance,
-          monthPoints: monthTotalOf(currentUser.id),
+          monthPoints: monthPointsOf(user),
+          weeks: weeksOf(user.weeks),
           subscriptionMonth: currentUser.subscriptionMonth,
         }
       }
-      return { ...user, monthPoints: monthPointsOf(user) }
+      return { ...user, monthPoints: monthPointsOf(user), weeks: weeksOf(user.weeks) }
     })
     .sort((left, right) => {
       const leftMonth = monthPointsOf(left)

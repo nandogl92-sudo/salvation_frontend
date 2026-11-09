@@ -28,8 +28,8 @@ type AuthContextValue = {
   completePasswordReset: (input: PasswordChangeInput) => Promise<AuthResult>;
   /** Actualiza el saldo del usuario actual (en memoria + persistido en el mock). */
   setBalance: (balance: number) => Promise<void>;
-  /** Actualiza los puntos del mes en la sesión local (el servidor aún no los guarda). */
-  setMonthPoints: (monthPoints: number) => Promise<void>;
+  /** Guarda en la sesión los puntos del mes que devuelve el servidor. */
+  setMonthPoints: (monthPoints: number, weeks?: UserProfile['weeks']) => Promise<void>;
   /** Marca o quita el acceso a los juegos. No cambia fichas ni puntos del mes. */
   setGamesAccess: (userId: string, email: string, gamesAccess: boolean) => Promise<{ ok: true; user: UserProfile } | { ok: false; message: string }>;
   clearError: () => void;
@@ -119,9 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (updated) setUser(updated);
   }, [user]);
 
-  const setMonthPoints = useCallback(async (monthPoints: number) => {
+  const setMonthPoints = useCallback(async (monthPoints: number, weeks?: UserProfile['weeks']) => {
     if (!user) return;
-    const updated = await authService.updateUserMonthPoints(user.id, monthPoints);
+    const updated = await authService.updateUserMonthPoints(user.id, monthPoints, weeks);
     if (updated) setUser(updated);
   }, [user]);
 

@@ -1,6 +1,6 @@
 import { Trophy } from 'lucide-react'
 import { currentMonthLabel, isCurrentSubscriptionMonth } from '../../api/subscriptionsApi'
-import { COUNTED_WEEK_COUNT, WEEK_COUNT, monthTotalOf, weekRowsOf } from '../../matchmaking/rankedWeeks'
+import { COUNTED_WEEK_COUNT, WEEK_COUNT, currentWeekIndex } from '../../matchmaking/rankedWeeks'
 import type { UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
@@ -16,9 +16,11 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
   const monthLabel = currentMonthLabel()
   const prizeRanking = ranking.filter((user) => isCurrentSubscriptionMonth(user.subscriptionMonth))
   const competes = isCurrentSubscriptionMonth(currentUser?.subscriptionMonth)
-  const ownMonthPoints = currentUser ? monthTotalOf(currentUser.id) : 0
+  const me = ranking.find((user) => user.id === currentUser?.id)
+  const ownMonthPoints = monthPointsOf(me ?? currentUser)
   const ownPlace = prizeRanking.findIndex((user) => user.id === currentUser?.id) + 1
-  const weekRows = currentUser && competes ? weekRowsOf(currentUser.id) : []
+  const weekRows = me?.weeks ?? currentUser?.weeks ?? []
+  const currentWeek = currentWeekIndex() + 1
 
   const handleRetry = () => {
     retry()
@@ -37,7 +39,8 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
             Tus puntos del mes: {formatPoints(ownMonthPoints)}
             {ownPlace > 0 ? ` · puesto ${ownPlace}` : ''}
           </p>
-          <ul className="grid grid-cols-2 gap-2" aria-label="Puntos por semana del mes">
+          {currentUser && competes && weekRows.length > 0 && (
+            <ul className="grid grid-cols-2 gap-2" aria-label="Puntos por semana del mes">
             {weekRows.map((row) => {
               const stateClass = row.counts
                 ? 'border-[#3ec8ff]/40 bg-[#3ec8ff]/5'
@@ -45,8 +48,8 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
               return (
                 <li key={row.week} className={`rounded-xl border px-3 py-2 ${stateClass}`}>
                   <p className="text-xs font-bold text-text-100">
-                    {row.label}
-                    {row.isCurrent ? ' · ahora' : ''}
+                    {`Semana ${row.week}`}
+                    {row.week === currentWeek ? ' · ahora' : ''}
                   </p>
                   <p className="text-sm font-bold text-text-100">{formatPoints(row.points)} pts</p>
                   <p className="text-[10px] uppercase tracking-wide text-text-200">
@@ -56,6 +59,7 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
               )
             })}
           </ul>
+          )}
           <p className="text-xs text-text-200">
             Total = {COUNTED_WEEK_COUNT} mejores semanas, no las {WEEK_COUNT}.
           </p>

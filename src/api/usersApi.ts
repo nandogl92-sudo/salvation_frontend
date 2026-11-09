@@ -3,7 +3,7 @@
 
 import { API_URL } from './config'
 import { getAccessToken } from './authApi'
-import { monthPointsOf } from '../components/utils/monthPointsOf'
+import { monthPointsOf, weeksOf } from '../components/utils/monthPointsOf'
 import type { UserProfile } from '../types'
 
 export type UsersResult =
@@ -46,7 +46,7 @@ export const listUsers = async (): Promise<UsersResult> => {
       return { ok: false, message: 'La lista de jugadores no tiene la forma esperada.' }
     }
     const users = body.map((user) => {
-      return { ...user, monthPoints: monthPointsOf(user) }
+      return { ...user, monthPoints: monthPointsOf(user), weeks: weeksOf(user.weeks) }
     })
     return { ok: true, users }
   } catch (error) {
@@ -77,7 +77,7 @@ export const setGamesAccess = async (userId: string, gamesAccess: boolean): Prom
 
     const body = (await response.json()) as unknown
     if (!isUserProfile(body)) return { ok: false, message: 'El perfil no tiene la forma esperada.' }
-    return { ok: true, user: { ...body, monthPoints: monthPointsOf(body) } }
+    return { ok: true, user: { ...body, monthPoints: monthPointsOf(body), weeks: weeksOf(body.weeks) } }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo conectar con el servidor.'
     return { ok: false, message }

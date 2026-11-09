@@ -17,7 +17,7 @@
 
 import { API_URL } from './config'
 import { applyAccountAccess } from '../auth/accessStore'
-import { monthPointsOf } from '../components/utils/monthPointsOf'
+import { monthPointsOf, weeksOf } from '../components/utils/monthPointsOf'
 import type { AuthResult, AuthSession, LoginInput, RegisterInput, UserProfile } from '../types'
 
 const SESSION_KEY = 'betplay.api.session'
@@ -37,10 +37,15 @@ const isBrowser = (): boolean => {
 }
 
 const withMonthPoints = (user: UserProfile, fallback = 0): UserProfile => {
-  const withPoints = typeof user.monthPoints === 'number' && Number.isFinite(user.monthPoints)
-    ? { ...user, monthPoints: Math.max(0, user.monthPoints) }
-    : { ...user, monthPoints: Math.max(0, fallback) }
-  return applyAccountAccess(withPoints)
+  const points = typeof user.monthPoints === 'number' && Number.isFinite(user.monthPoints)
+    ? Math.max(0, user.monthPoints)
+    : Math.max(0, fallback)
+  const weeks = weeksOf(user.weeks)
+  return applyAccountAccess({
+    ...user,
+    monthPoints: points,
+    weeks: weeks.length > 0 ? weeks : user.weeks,
+  })
 }
 
 export const getAccessToken = (): string | null => {
@@ -302,12 +307,20 @@ export const updateUserBalance = async (userId: string, balance: number): Promis
   return user
 }
 
-/** Guarda los puntos del mes en la sesión local. El servidor aún no los envía. */
-export const updateUserMonthPoints = async (userId: string, monthPoints: number): Promise<UserProfile | null> => {
+/** Guarda en la sesión los puntos del mes que acaba de devolver el servidor. */
+export const updateUserMonthPoints = async (
+  userId: string,
+  monthPoints: number,
+  weeks?: UserProfile['weeks'],
+): Promise<UserProfile | null> => {
   const stored = loadStoredSession()
   if (!stored || stored.user.id !== userId) return null
 
-  const user: UserProfile = { ...stored.user, monthPoints: Math.max(0, monthPoints) }
+  const user: UserProfile = {
+    ...stored.user,
+    monthPoints: Math.max(0, monthPoints),
+    weeks: weeks && weeks.length > 0 ? weeks : stored.user.weeks,
+  }
   saveStoredSession({ token: stored.token, user })
   return user
 }

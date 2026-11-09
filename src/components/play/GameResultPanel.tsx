@@ -33,7 +33,7 @@ const GameResultPanel = ({
   }
 
   const monthChipMessage = result.isRanked && result.won && result.monthPointsDelta > 0
-    ? 'Se gana una ficha de un mes.'
+    ? 'Se gana un punto del mes.'
     : null
 
   const abandonMessage = !result.byAbandon
@@ -55,7 +55,7 @@ const GameResultPanel = ({
     : 'bg-primary-100/10 text-primary-100'
 
   return (
-    <div className="flex flex-col items-center justify-center py-16 space-y-6">
+    <div className="flex flex-col items-center justify-center px-4 pb-28 pt-6 space-y-5">
       {result.pending ? (
         <>
           <div className={`${trophyClass} p-5 rounded-full`}>
@@ -125,13 +125,12 @@ const GameResultPanel = ({
         type="button"
         aria-label="Volver al inicio"
         tabIndex={0}
-        disabled={leaving && result.pending}
         onClick={handleGoHome}
         onKeyDown={(event) => handleActivateKey(event, handleGoHome)}
-        className="mt-4 flex items-center gap-2 bg-primary-100 hover:bg-primary-200 text-white px-8 py-3 rounded-xl font-bold transition-colors disabled:opacity-70"
+        className="fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 bg-primary-100 hover:bg-primary-200 text-white px-8 py-3 rounded-xl font-bold transition-colors"
       >
         <Home className="w-5 h-5" aria-hidden="true" />
-        {leaving && result.pending ? 'Guardando las fichas...' : 'Volver al inicio'}
+        Volver al inicio
       </button>
     </div>
   )

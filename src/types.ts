@@ -7,6 +7,13 @@ import type { ReactNode } from 'react';
 /** admin abre el panel. user no. El registro nuevo siempre es user. */
 export type AccountRole = 'admin' | 'user';
 
+/** Una semana del mes. `counts` es false en la semana que no entra en el total. */
+export type MonthWeek = {
+  week: number;
+  points: number;
+  counts: boolean;
+};
+
 /** Perfil de usuario expuesto a la UI. Nunca incluye la contraseña ni su hash. */
 export type UserProfile = {
   id: string;
@@ -16,6 +23,8 @@ export type UserProfile = {
   balance: number;
   /** Puntos del mes para el premio. 0 si el servidor no los envía o aún no hay. */
   monthPoints?: number;
+  /** Las 4 semanas del mes. El total es la suma de las 3 que cuentan. */
+  weeks?: MonthWeek[];
   /** Mes ya cobrado, con la forma 2026-10. Ausente o null si este mes no está pagado. */
   subscriptionMonth?: string | null;
   /** Sale del almacén local. El servidor no lo envía. */

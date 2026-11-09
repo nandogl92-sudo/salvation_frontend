@@ -13,7 +13,6 @@ import { cancelMatch, fetchMatchStatus, forfeitMatch, submitMatchResult, type Ma
 import { getCurrentSession } from './api/authApi';
 import type { Game, MatchPlayer, MatchTicket, QueueStatus, UserProfile } from './types';
 import { monthPointsOf } from './components/utils/monthPointsOf';
-import { monthTotalOf, recordRankedWin } from './matchmaking/rankedWeeks';
 import ProfilePanel from './profile/ProfilePanel';
 import AdminPanel from './admin/AdminPanel';
 import Navbar from './components/layout/Navbar';
@@ -111,14 +110,6 @@ export default function App() {
   }, [userId, isChoosingPassword, currentUser?.subscriptionMonth]);
 
   useEffect(() => {
-    if (!userId) return;
-    const total = monthTotalOf(userId);
-    if (total === monthPointsOf(currentUser)) return;
-    void setMonthPoints(total);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar de cuenta; el total sale de las 3 mejores semanas locales.
-  }, [userId]);
-
-  useEffect(() => {
     if (view !== 'home' || !scrollTarget) return;
     const section = scrollTarget;
     const frame = window.requestAnimationFrame(() => {
@@ -156,11 +147,16 @@ export default function App() {
   }, [gameResult, matchError]);
 
   const leaveResult = () => {
-    if (gameResult?.pending) {
-      leaveAfterSaveRef.current = true;
+    if (!gameResult?.pending) {
+      reloadHome();
       return;
     }
-    reloadHome();
+    leaveAfterSaveRef.current = true;
+    window.setTimeout(() => {
+      if (!leaveAfterSaveRef.current) return;
+      leaveAfterSaveRef.current = false;
+      reloadHome();
+    }, 2000);
   };
   const rankedPlayRef = useRef({
     matchId: null as string | null,
@@ -514,15 +510,17 @@ export default function App() {
     };
   }, [queueStatus, ticket, queueIsRanked]);
 
-  const applyRankedMonthPoints = async (isRanked: boolean, won: boolean, isRefund: boolean) => {
-    const before = currentUser ? monthTotalOf(currentUser.id) : 0;
-    if (!currentUser || !isRanked || isRefund || !won) {
-      return { monthPoints: before, monthPointsDelta: 0 };
-    }
-    recordRankedWin(currentUser.id);
-    const next = monthTotalOf(currentUser.id);
-    await setMonthPoints(next);
-    return { monthPoints: next, monthPointsDelta: next - before };
+  const monthScoreOf = (player?: SettlementPlayer) => {
+    const before = monthPointsOf(currentUser);
+    const after = typeof player?.monthPoints === 'number' ? player.monthPoints : before;
+    return { monthPoints: after, monthPointsDelta: after - before };
+  };
+
+  const rememberMonthScore = async (player?: SettlementPlayer) => {
+    if (!player || typeof player.monthPoints !== 'number') return monthScoreOf();
+    const month = monthScoreOf(player);
+    await setMonthPoints(month.monthPoints, player.weeks);
+    return month;
   };
 
   const closeRankedMatch = async (input: {
@@ -544,7 +542,7 @@ export default function App() {
     const me = input.players.find((player) => player.id === currentUser.id);
     if (me) await setBalance(me.balance);
     const profit = input.isRefund || !me ? 0 : me.balance - currentUser.balance;
-    const month = await applyRankedMonthPoints(true, won, input.isRefund);
+    const month = await rememberMonthScore(me);
     searchLockRef.current = false;
     if (resultSeqRef.current === uiSeq) {
       setGameResult({
@@ -588,10 +586,16 @@ export default function App() {
     const stillShowing = () => resultSeqRef.current === uiSeq;
 
     if (activeMatch.isBot) {
-      const month = await applyRankedMonthPoints(false, won, false);
       searchLockRef.current = false;
       if (stillShowing()) {
-        setGameResult({ won, profit: 0, isRefund: false, isRanked: false, ...month });
+        setGameResult({
+          won,
+          profit: 0,
+          isRefund: false,
+          isRanked: false,
+          monthPoints: monthPointsOf(currentUser),
+          monthPointsDelta: 0,
+        });
         setOpponent(null);
         setActiveMatch(null);
       }
@@ -613,7 +617,7 @@ export default function App() {
         profit: 0,
         isRefund,
         isRanked,
-        monthPoints: monthTotalOf(currentUser.id),
+        monthPoints: monthPointsOf(currentUser),
         monthPointsDelta: 0,
         byAbandon: endReason === 'forfeit',
         pending: true,
@@ -640,7 +644,10 @@ export default function App() {
         }
       }
       if (stillShowing()) {
-        setGameResult(null);
+        setGameResult((current) => {
+          if (current?.pending) return { ...current, pending: false };
+          return current;
+        });
         setMatchError(settlement.message);
       }
       settlingRef.current = false;
@@ -672,7 +679,7 @@ export default function App() {
 
     const profit = isRefund ? 0 : me.balance - currentUser.balance;
     await setBalance(me.balance);
-    const month = await applyRankedMonthPoints(false, won, isRefund);
+    const month = await rememberMonthScore(me);
     searchLockRef.current = false;
     if (stillShowing()) {
       setGameResult({
@@ -697,7 +704,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (view !== 'playing' || !activeMatch || !activeMatch.isRanked || activeMatch.isBot || gameResult || !currentUser) {
+    if (view !== 'playing' || !activeMatch || !activeMatch.isRanked || activeMatch.isBot || (gameResult && !gameResult.pending) || !currentUser) {
       return;
     }
 

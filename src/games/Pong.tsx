@@ -776,6 +776,17 @@ export default function Pong({
         link.setLocalKeys(state.keys);
         const countdown = rankedCountdown(world.startAt, link.serverNow());
         const latestAt = link.rallyAt();
+        const latest = latestAt > 0 ? link.readRally(latestAt) : null;
+        if (latest && (latest.p1 >= 10 || latest.p2 >= 10)) {
+          state.p1.score = latest.p1;
+          state.p2.score = latest.p2;
+          state.ball.x = latest.ballX;
+          state.ball.y = latest.ballY;
+          paint(null, 0);
+          ended = true;
+          endMatch(latest.p1 >= 10 ? 'p1' : 'p2');
+          return;
+        }
         const showAt = latestAt > FRAME_MS ? latestAt - FRAME_MS : latestAt;
         const view = latestAt > 0 ? link.readRally(showAt) : null;
         if (view) {

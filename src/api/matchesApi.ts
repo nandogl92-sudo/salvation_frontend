@@ -10,12 +10,16 @@
 
 import { API_URL } from './config'
 import { getAccessToken } from './authApi'
+import { weeksOf } from '../components/utils/monthPointsOf'
+import type { MonthWeek } from '../types'
 
 export type SettlementPlayer = {
   id: string
   username: string
   email: string
   balance: number
+  monthPoints?: number
+  weeks?: MonthWeek[]
 }
 
 export type MatchEndReason = 'play' | 'forfeit'
@@ -85,8 +89,17 @@ const isPlayer = (value: unknown): value is SettlementPlayer => {
 }
 
 const readPlayers = (value: unknown): SettlementPlayer[] | null => {
-  if (!Array.isArray(value) || !value.every(isPlayer)) return null
-  return value
+  if (!Array.isArray(value)) return null
+  const players = value.filter(isPlayer).map((player) => {
+    const points = (player as { monthPoints?: unknown }).monthPoints
+    return {
+      ...player,
+      monthPoints: typeof points === 'number' && Number.isFinite(points) ? Math.max(0, points) : undefined,
+      weeks: weeksOf((player as { weeks?: unknown }).weeks),
+    }
+  })
+  if (players.length !== value.length) return null
+  return players
 }
 
 const readSettlement = async (response: Response): Promise<SettlementResult> => {
