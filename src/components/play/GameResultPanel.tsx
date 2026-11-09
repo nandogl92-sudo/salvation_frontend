@@ -32,9 +32,13 @@ const GameResultPanel = ({
     onGoHome()
   }
 
-  const monthChipMessage = result.isRanked && result.won && result.monthPointsDelta > 0
-    ? 'Se gana un punto del mes.'
-    : null
+  const note = !result.won
+    ? 'Pierdes una ficha.'
+    : !result.isRanked
+      ? 'Tus fichas no cambian.'
+      : result.monthPointsDelta > 0
+        ? 'Se gana un punto del mes.'
+        : ''
 
   const trophyClass = result.won
     ? 'bg-accent-100/10 text-accent-100'
@@ -71,14 +75,12 @@ const GameResultPanel = ({
   }
 
   return (
-    <div className="flex flex-col items-center px-4 pt-8 space-y-5">
+    <div className="flex flex-col items-center px-4 pt-6 space-y-3">
       <div className={`${trophyClass} p-5 rounded-full`}>
         <Trophy className="w-12 h-12" aria-hidden="true" />
       </div>
+      {note && <p className="text-text-100 text-center max-w-sm font-bold">{note}</p>}
       {homeButton}
-      {monthChipMessage && (
-        <p className="text-text-100 text-center max-w-sm font-bold">{monthChipMessage}</p>
-      )}
     </div>
   )
 }

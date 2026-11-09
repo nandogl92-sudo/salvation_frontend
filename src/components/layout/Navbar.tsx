@@ -22,6 +22,7 @@ type NavbarProps = {
   compact?: boolean
   menuLocked?: boolean
   menuNote?: string | null
+  immersive?: boolean
 }
 
 const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
@@ -31,7 +32,7 @@ const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
   { id: 'info', label: 'Info', icon: Info },
 ]
 
-const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, onLogout, onNavigate, compact = false, menuLocked = false, menuNote = null }: NavbarProps) => {
+const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, onLogout, onNavigate, compact = false, menuLocked = false, menuNote = null, immersive = false }: NavbarProps) => {
   const headerRef = useRef<HTMLElement>(null)
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('register')
@@ -119,7 +120,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
     : 'text-[#d5dcf0] hover:text-white'
 
   return (
-    <header ref={headerRef} className="relative shrink-0 bg-[#0c1224]/95 border-b border-[#243056] sticky top-0 z-20 backdrop-blur">
+    <header ref={headerRef} className={`relative shrink-0 bg-[#0c1224]/95 border-b border-[#243056] sticky top-0 z-20 backdrop-blur ${immersive ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:hidden' : ''}`}>
       <div className={`max-w-6xl mx-auto px-3 py-2 flex flex-wrap items-center justify-between gap-2 min-h-16 ${compact ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:flex-nowrap [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:min-h-12 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-1' : ''}`}>
         <button
           type="button"

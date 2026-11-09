@@ -771,6 +771,7 @@ export default function App() {
         isAuthReady={isAuthReady}
         pendingGame={pendingGame}
         compact={view === 'playing' && !gameResult && !matchError}
+        immersive={view === 'playing' && !gameResult && !matchError && selectedGame?.id === 'combat'}
         menuLocked={Boolean(gameResult || matchError || (view === 'playing' && activeMatch))}
         menuNote={gameResult || matchError ? 'Pulsa Volver al inicio para jugar otra vez.' : null}
         onNavigate={(section) => {
@@ -798,7 +799,7 @@ export default function App() {
         )}
 
         {!isChoosingPassword && view !== 'home' && (
-        <div className={view === 'playing' && !gameResult && !matchError ? 'mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-2 py-2' : 'max-w-6xl mx-auto px-4 py-8'}>
+        <div className={view === 'playing' && !gameResult && !matchError ? `mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-2 py-2 ${selectedGame?.id === 'combat' ? '[@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:max-w-none [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:px-0 [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:py-0' : ''}` : 'max-w-6xl mx-auto px-4 py-8'}>
 
         {view === 'lobby' && selectedGame && currentUser && (
           <LobbyPanel
@@ -820,7 +821,7 @@ export default function App() {
         )}
 
         {view === 'playing' && selectedGame && currentUser && (
-          <div className={gameResult || matchError ? 'max-w-4xl mx-auto space-y-4 animate-fade-in' : 'mx-auto flex min-h-0 w-full max-w-4xl flex-1 flex-col'}>
+          <div className={gameResult || matchError ? 'max-w-4xl mx-auto space-y-4 animate-fade-in' : `mx-auto flex min-h-0 w-full flex-1 flex-col ${selectedGame?.id === 'combat' ? 'max-w-none' : 'max-w-4xl'}`}>
             {gameResult ? (
               <GameResultPanel
                 result={gameResult}
