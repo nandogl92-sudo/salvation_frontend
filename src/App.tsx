@@ -18,7 +18,6 @@ import AdminPanel from './admin/AdminPanel';
 import Navbar from './components/layout/Navbar';
 import HomeLanding from './components/home/HomeLanding';
 import SubscriptionPayDialog from './components/home/SubscriptionPayDialog';
-import { isCurrentSubscriptionMonth } from './api/subscriptionsApi';
 import { recordRankedPlay } from './matchmaking/rankedLimits';
 import LobbyPanel from './components/lobby/LobbyPanel';
 import GameResultPanel, { type GameResult } from './components/play/GameResultPanel';
@@ -105,8 +104,8 @@ export default function App() {
       setSubscriptionOpen(false);
       return;
     }
-    setSubscriptionOpen(!isCurrentSubscriptionMonth(currentUser?.subscriptionMonth));
-  }, [userId, isChoosingPassword, currentUser?.subscriptionMonth]);
+    setSubscriptionOpen(currentUser?.gamesAccess !== true);
+  }, [userId, isChoosingPassword, currentUser?.gamesAccess]);
 
   useEffect(() => {
     if (view !== 'home' || !scrollTarget) return;

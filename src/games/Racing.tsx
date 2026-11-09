@@ -746,18 +746,29 @@ const drawHud = (ctx: Ctx, p1: Car, p2: Car) => {
   ctx.textAlign = 'left';
 };
 
-const drawBanner = (ctx: Ctx, title: string, sub: string) => {
-  paint(ctx, 150, 200, 660, 140, 'rgba(10, 12, 20, 0.86)');
-  ctx.strokeStyle = '#f5c518';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(150, 200, 660, 140);
+const drawBanner = (ctx: Ctx, title: string, sub: string, mark?: { name: string; hex: string }) => {
+  const height = mark ? 200 : 140;
+  paint(ctx, 150, 170, 660, height, 'rgba(10, 12, 20, 0.9)');
+  ctx.strokeStyle = mark ? mark.hex : '#f5c518';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(150, 170, 660, height);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f5c518';
   ctx.font = `22px ${PIX}`;
-  ctx.fillText(title, 480, 258);
+  ctx.fillText(title, 480, 220);
   ctx.fillStyle = '#f4f7fb';
-  ctx.font = `9px ${PIX}`;
-  ctx.fillText(sub, 480, 298);
+  ctx.font = `8px ${PIX}`;
+  ctx.fillText(sub, 480, 252);
+  if (mark) {
+    ctx.fillStyle = mark.hex;
+    ctx.fillRect(400, 268, 160, 36);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(400, 268, 160, 36);
+    ctx.fillStyle = mark.hex;
+    ctx.font = `13px ${PIX}`;
+    ctx.fillText(`TE TOCA EL ${mark.name}`, 480, 344);
+  }
   ctx.textAlign = 'left';
 };
 
@@ -826,6 +837,9 @@ export default function Racing({
     let lastStamp = performance.now();
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
+    const yours = you === 'p1'
+      ? { name: 'FUCSIA', hex: '#ec4899' }
+      : { name: 'CIAN', hex: '#22d3ee' };
     const them = otherSide(you);
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const track = makeTrack(rand);
@@ -1006,7 +1020,7 @@ export default function Racing({
         });
         drawHud(ctx, state.p1, state.p2);
         const rankedWait = rankedCountdown(world.startAt, link.serverNow());
-        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN');
+        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN', yours);
         if (state.winner) {
           ended = true;
           cancelAnimationFrame(raf);
@@ -1076,9 +1090,9 @@ export default function Racing({
       drawHud(ctx, state.p1, state.p2);
 
       if (rankedWait) {
-        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN');
+        drawBanner(ctx, rankedWait, 'MISMO CIRCUITO    FLECHA IZQUIERDA Y DERECHA GIRAN', yours);
       } else if (localWait) {
-        drawBanner(ctx, localWait, 'FLECHA IZQUIERDA Y DERECHA GIRAN');
+        drawBanner(ctx, localWait, 'FLECHA IZQUIERDA Y DERECHA GIRAN', yours);
       }
       if (state.winner) {
         ended = true;

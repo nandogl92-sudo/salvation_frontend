@@ -334,18 +334,29 @@ const drawLaser = (ctx: Ctx, x: number, y: number, owner: Side) => {
   paint(ctx, x + 2, y + 1, 8, 1, '#fff');
 };
 
-const drawBanner = (ctx: Ctx, title: string, sub: string, accent: string) => {
-  paint(ctx, 180, 200, 600, 130, 'rgba(10, 8, 24, 0.82)');
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = 3;
-  ctx.strokeRect(180, 200, 600, 130);
+const drawBanner = (ctx: Ctx, title: string, sub: string, accent: string, mark?: { name: string; hex: string }) => {
+  const height = mark ? 190 : 130;
+  paint(ctx, 140, 170, 680, height, 'rgba(10, 8, 24, 0.88)');
+  ctx.strokeStyle = mark ? mark.hex : accent;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(140, 170, 680, height);
   ctx.textAlign = 'center';
   ctx.fillStyle = accent;
   ctx.font = `22px ${PIX}`;
-  ctx.fillText(title, 480, 252);
+  ctx.fillText(title, 480, 220);
   ctx.fillStyle = '#f4f7fb';
-  ctx.font = `10px ${PIX}`;
-  ctx.fillText(sub, 480, 288);
+  ctx.font = `8px ${PIX}`;
+  ctx.fillText(sub, 480, 252);
+  if (mark) {
+    ctx.fillStyle = mark.hex;
+    ctx.fillRect(400, 268, 160, 36);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(400, 268, 160, 36);
+    ctx.fillStyle = mark.hex;
+    ctx.font = `12px ${PIX}`;
+    ctx.fillText(`TE TOCA EL ${mark.name}`, 480, 340);
+  }
   ctx.textAlign = 'left';
 };
 
@@ -392,6 +403,9 @@ export default function Shooter({
     };
     let animationFrameId = 0;
     const you = world?.localSide ?? 'p1';
+    const yours = you === 'p1'
+      ? { name: 'CIAN', hex: CYAN.glow }
+      : { name: 'NARANJA', hex: AMBER.glow };
     const them = otherSide(you);
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const p1Name = sideLabel(world, 'p1', CYAN.name);
@@ -484,7 +498,7 @@ export default function Shooter({
       drawHud(ctx, state.p1, state.p2, state.frames, p1Name, p2Name);
       const count = world ? rankedCountdown(world.startAt) : rankedCountdown(openAt + COUNT_MS);
       if (count) {
-        drawBanner(ctx, count, 'MISMO PATIO    TU LADO SOLO', '#5cf0ff');
+        drawBanner(ctx, count, 'MISMO PATIO    TU LADO SOLO', yours.hex, yours);
       }
       if (state.ko) {
         const winner = state.ko === 'p1' ? CYAN.name : AMBER.name;

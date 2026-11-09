@@ -436,19 +436,30 @@ const drawHud = (ctx: Ctx, p1: PlaneUnit, p2: PlaneUnit) => {
   meter(686, p2.grows, shadeTowardBlack(p2.color, p2.grows / MAX_GROWS));
 };
 
-const drawBanner = (ctx: Ctx, title: string, sub: string) => {
-  ctx.fillStyle = 'rgba(15, 39, 68, 0.72)';
-  ctx.fillRect(80, 170, 800, 200);
-  ctx.strokeStyle = '#f5c518';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(80, 170, 800, 200);
+const drawBanner = (ctx: Ctx, title: string, sub: string, mark?: { name: string; hex: string }) => {
+  const height = mark ? 250 : 200;
+  ctx.fillStyle = 'rgba(15, 39, 68, 0.82)';
+  ctx.fillRect(80, 150, 800, height);
+  ctx.strokeStyle = mark ? mark.hex : '#f5c518';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(80, 150, 800, height);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f5c518';
   ctx.font = `22px ${PIX}`;
-  ctx.fillText(title, 480, 240);
+  ctx.fillText(title, 480, 210);
   ctx.fillStyle = '#e2e8f0';
-  ctx.font = `9px ${PIX}`;
-  ctx.fillText(sub, 480, 290);
+  ctx.font = `8px ${PIX}`;
+  ctx.fillText(sub, 480, 248);
+  if (mark) {
+    ctx.fillStyle = mark.hex;
+    ctx.fillRect(400, 268, 160, 40);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(400, 268, 160, 40);
+    ctx.fillStyle = mark.hex;
+    ctx.font = `13px ${PIX}`;
+    ctx.fillText(`TE TOCA EL ${mark.name}`, 480, 352);
+  }
 };
 
 export default function Plane({
@@ -487,6 +498,9 @@ export default function Plane({
     let holdFlapUntil = 0;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
+    const yours = you === 'p1'
+      ? { name: 'ROSA', hex: '#ec4899' }
+      : { name: 'VERDE', hex: '#84cc16' };
     const them = otherSide(you);
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const state = {
@@ -760,7 +774,7 @@ export default function Plane({
         ctx.globalAlpha = 1;
       });
       drawHud(ctx, state.p1, state.p2);
-      if (rankedWait) drawBanner(ctx, rankedWait, 'TU COLOR -1    OTRO COLOR O BORDE +1');
+      if (rankedWait) drawBanner(ctx, rankedWait, 'TU COLOR -1    OTRO COLOR O BORDE +1', yours);
       else if (state.winner) {
         const title = state.winner === you ? 'VICTORIA' : 'GANA EL RIVAL';
         drawBanner(ctx, title, `${state.p1.name} ${state.p1.score}   ${state.p2.name} ${state.p2.score}`);
@@ -923,12 +937,12 @@ export default function Plane({
       drawHud(ctx, state.p1, state.p2);
 
       if (rankedWait) {
-        drawBanner(ctx, rankedWait, 'TU COLOR -1    OTRO COLOR O BORDE +1');
+        drawBanner(ctx, rankedWait, 'TU COLOR -1    OTRO COLOR O BORDE +1', yours);
       } else if (!world && state.intro > 0) {
         const n = String(Math.max(1, Math.ceil(state.intro)));
-        drawBanner(ctx, n, 'PINCHOS, SUELO O EL TOPE EXPLOTAN');
+        drawBanner(ctx, n, 'PINCHOS, SUELO O EL TOPE EXPLOTAN', yours);
       } else if (!world && !state.started) {
-        drawBanner(ctx, 'ESPACIO', 'TU COLOR -1    OTRO COLOR O BORDE +1');
+        drawBanner(ctx, 'ESPACIO', 'TU COLOR -1    OTRO COLOR O BORDE +1', yours);
       } else if (state.winner) {
         const title = state.winner === you ? 'VICTORIA' : 'GANA EL RIVAL';
         drawBanner(ctx, title, `${state.p1.name} ${state.p1.score}   ${state.p2.name} ${state.p2.score}`);

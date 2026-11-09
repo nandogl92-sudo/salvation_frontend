@@ -57,6 +57,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!isReady) return;
+    const timer = window.setInterval(() => {
+      void authService.getCurrentSession().then((session) => {
+        setUser((current) => {
+          if (!current || !session || current.id !== session.user.id) return current;
+          if (current.gamesAccess === session.user.gamesAccess) return current;
+          return { ...current, gamesAccess: session.user.gamesAccess === true };
+        });
+      });
+    }, 6000);
+    return () => window.clearInterval(timer);
+  }, [isReady]);
+
+  useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key !== ACCESS_STORAGE_KEY) return;
       setUser((current) => (current ? applyAccountAccess(current) : current));

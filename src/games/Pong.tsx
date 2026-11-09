@@ -398,19 +398,27 @@ const drawSparks = (ctx: Ctx, sparks: Spark[]) => {
   ctx.globalAlpha = 1;
 };
 
-const drawCountBanner = (ctx: Ctx, title: string) => {
-  ctx.fillStyle = 'rgba(5, 7, 15, 0.72)';
-  ctx.fillRect(180, 210, 600, 140);
-  ctx.strokeStyle = '#3ec8ff';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(180, 210, 600, 140);
+const drawCountBanner = (ctx: Ctx, title: string, colorName: string, colorHex: string) => {
+  ctx.fillStyle = 'rgba(5, 7, 15, 0.82)';
+  ctx.fillRect(140, 160, 680, 220);
+  ctx.strokeStyle = colorHex;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(140, 160, 680, 220);
   ctx.textAlign = 'center';
   ctx.font = '28px "Press Start 2P", monospace';
   ctx.fillStyle = '#d9f23c';
-  ctx.fillText(title, 480, 280);
+  ctx.fillText(title, 480, 214);
+  ctx.fillStyle = colorHex;
+  ctx.fillRect(400, 236, 160, 40);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(400, 236, 160, 40);
+  ctx.font = '14px "Press Start 2P", monospace';
+  ctx.fillStyle = colorHex;
+  ctx.fillText(`TE TOCA EL ${colorName}`, 480, 320);
   ctx.font = '8px "Press Start 2P", monospace';
-  ctx.fillStyle = '#9fb3c8';
-  ctx.fillText('MISMO CAMPO    MISMO SAQUE', 480, 318);
+  ctx.fillStyle = '#f4f7fb';
+  ctx.fillText('ESTE ES EL COLOR DE TU PALA', 480, 352);
 };
 
 export default function Pong({
@@ -766,7 +774,8 @@ export default function Pong({
         hintFor('p1'),
         hintFor('p2'),
       );
-      if (rankedWait) drawCountBanner(ctx, rankedWait);
+      const yours = you === 'p1' ? { name: 'CIAN', hex: CYAN } : { name: 'NARANJA', hex: ORANGE };
+      if (rankedWait) drawCountBanner(ctx, rankedWait, yours.name, yours.hex);
     };
 
     const tick = (now: number) => {

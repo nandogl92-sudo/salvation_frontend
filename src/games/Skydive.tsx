@@ -505,19 +505,30 @@ const drawHud = (ctx: Ctx, p1: Jumper, p2: Jumper, gameTime: number) => {
   ctx.textAlign = 'left';
 };
 
-const drawBanner = (ctx: Ctx, title: string, sub: string) => {
-  const bannerY = Math.round(HEIGHT / 2 - 74);
-  paint(ctx, 140, bannerY, 680, 148, 'rgba(10, 16, 28, 0.88)');
-  ctx.strokeStyle = '#f5c518';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(140, bannerY, 680, 148);
+const drawBanner = (ctx: Ctx, title: string, sub: string, mark?: { name: string; hex: string }) => {
+  const bannerY = Math.round(HEIGHT / 2 - (mark ? 110 : 74));
+  const height = mark ? 210 : 148;
+  paint(ctx, 120, bannerY, 720, height, 'rgba(10, 16, 28, 0.9)');
+  ctx.strokeStyle = mark ? mark.hex : '#f5c518';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(120, bannerY, 720, height);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f5c518';
   ctx.font = `20px ${PIX}`;
-  ctx.fillText(title, 480, bannerY + 60);
+  ctx.fillText(title, 480, bannerY + 52);
   ctx.fillStyle = '#f4f7fb';
-  ctx.font = `9px ${PIX}`;
-  ctx.fillText(sub, 480, bannerY + 102);
+  ctx.font = `8px ${PIX}`;
+  ctx.fillText(sub, 480, bannerY + 86);
+  if (mark) {
+    ctx.fillStyle = mark.hex;
+    ctx.fillRect(400, bannerY + 104, 160, 40);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(400, bannerY + 104, 160, 40);
+    ctx.fillStyle = mark.hex;
+    ctx.font = `13px ${PIX}`;
+    ctx.fillText(`TE TOCA EL ${mark.name}`, 480, bannerY + 180);
+  }
   ctx.textAlign = 'left';
 };
 
@@ -560,6 +571,9 @@ export default function Skydive({
     let playHead = 0;
     const rand = world ? makeRng(world.seed) : Math.random;
     const you = world?.localSide ?? 'p1';
+    const yours = you === 'p1'
+      ? { name: 'MORADO', hex: '#e879f9' }
+      : { name: 'AMARILLO', hex: '#fde047' };
     const them = otherSide(you);
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const state = {
@@ -757,7 +771,7 @@ export default function Skydive({
         drawSparks(ctx, state.sparks);
         drawHud(ctx, state.p1, state.p2, state.gameTime);
         const rankedWait = rankedCountdown(world.startAt, link.serverNow());
-        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA');
+        if (rankedWait) drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA', yours);
         if (state.winner === 'draw') {
           drawBanner(ctx, 'EMPATE', `${formatTime(state.p1.lived)} = ${formatTime(state.p2.lived)}`);
         } else if (state.winner) {
@@ -874,10 +888,10 @@ export default function Skydive({
       drawHud(ctx, state.p1, state.p2, state.gameTime);
 
       if (rankedWait) {
-        drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA');
+        drawBanner(ctx, rankedWait, 'MISMO CIELO    ESQUIVA Y AGUANTA', yours);
       } else if (!world && state.intro > 0) {
         const n = String(Math.max(1, Math.ceil(state.intro)));
-        drawBanner(ctx, n, 'QUIEN CHOCA PIERDE    CADA 10s BAJAS MAS');
+        drawBanner(ctx, n, 'QUIEN CHOCA PIERDE    CADA 10s BAJAS MAS', yours);
       }
       if (state.winner === 'draw') {
         drawBanner(ctx, 'EMPATE', `${formatTime(state.p1.lived)} = ${formatTime(state.p2.lived)}`);
