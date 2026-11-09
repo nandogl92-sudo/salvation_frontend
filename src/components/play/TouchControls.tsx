@@ -1,4 +1,4 @@
-import { ArrowUp } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ArrowUp } from 'lucide-react'
 import { useEffect, useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 
 type PadKey = {
@@ -243,10 +243,14 @@ const TouchControls = ({ gameId }: { gameId: string; stickSide?: 'left' | 'right
       {gameId === 'combat' && (
         <>
           <div className={CAR_SIDE_LEFT} aria-label="Mover a la izquierda">
-            <PadButton padKey={DROP_BUTTONS[0]} className={CAR_BUTTON} />
+            <PadButton padKey={DROP_BUTTONS[0]} className={CAR_BUTTON}>
+              <ArrowLeft className="h-16 w-16" strokeWidth={3} aria-hidden="true" />
+            </PadButton>
           </div>
           <div className={CAR_SIDE_RIGHT} aria-label="Mover a la derecha">
-            <PadButton padKey={DROP_BUTTONS[1]} className={CAR_BUTTON} />
+            <PadButton padKey={DROP_BUTTONS[1]} className={CAR_BUTTON}>
+              <ArrowRight className="h-16 w-16" strokeWidth={3} aria-hidden="true" />
+            </PadButton>
           </div>
         </>
       )}
