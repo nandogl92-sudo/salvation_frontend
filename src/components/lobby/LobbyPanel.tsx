@@ -182,7 +182,7 @@ const LobbyPanel = ({
     if (isRanked) {
       if (!canRanked) return
       if (accessCode.trim() === '') {
-        setCodeError('Escribe el código. Está en tu perfil, en Sorteo de hoy.')
+        setCodeError('Escribe el código de tu pareja. Está en Sorteo de hoy.')
         return
       }
       onRetry(true, accessCode.trim().toUpperCase())
@@ -208,7 +208,7 @@ const LobbyPanel = ({
   const handleRetry = () => {
     if (isInvalidBet) return
     if (isRanked && accessCode.trim() === '') {
-      setCodeError('Escribe el código. Está en tu perfil, en Sorteo de hoy.')
+      setCodeError('Escribe el código de tu pareja. Está en Sorteo de hoy.')
       return
     }
     onRetry(isRanked, accessCode.trim().toUpperCase())
@@ -356,7 +356,7 @@ const LobbyPanel = ({
         {isRanked && !isSearching && !isTimeout && (
           <div className="space-y-2">
             <label htmlFor="ranked-access-code" className="block text-sm font-bold text-text-100">
-              Código del perfil
+              Código de tu pareja
             </label>
             <input
               id="ranked-access-code"
@@ -365,13 +365,13 @@ const LobbyPanel = ({
               autoComplete="off"
               maxLength={8}
               value={accessCode}
-              aria-label="Código del perfil"
+              aria-label="Código de tu pareja"
               placeholder="CÓDIGO"
               onChange={handleAccessCode}
               className="w-full rounded-xl border border-bg-300 bg-bg-200 px-4 py-3 text-center text-lg font-bold tracking-[0.35em] text-text-100 uppercase"
             />
             <p className="text-xs text-text-200">
-              El código está en tu perfil, en Sorteo de hoy. Si no es el de hoy, la partida no empieza.
+              El código es el de tu pareja, en Sorteo de hoy. Solo vale 10 minutos desde la hora acordada.
             </p>
             {codeError && (
               <p className="text-sm text-red-500" role="alert">{codeError}</p>
@@ -418,7 +418,7 @@ const LobbyPanel = ({
             <div className="flex items-center gap-2 text-text-200 text-sm bg-bg-200 p-3 rounded-lg" role="status">
               <WifiOff className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <span>
-                No coincidió la búsqueda. Pulsa Seguir buscando los dos a la vez. El móvil tarda más; tened Ranking, el mismo juego y el código del perfil.
+                No coincidió la búsqueda. Pulsa Seguir buscando los dos a la vez. El móvil tarda más; tened Ranking, el mismo juego y el código de vuestra pareja.
               </span>
             </div>
             <button

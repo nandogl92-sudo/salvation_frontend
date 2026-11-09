@@ -16,6 +16,10 @@ export type RaffleSeat = {
   cleared: boolean
   counts: boolean
   blocked: number[]
+  code: string | null
+  codeUntil: number | null
+  codeState: 'none' | 'waiting' | 'open' | 'closed'
+  noShowNote: string | null
 }
 
 export type DailyRaffle = {
@@ -62,6 +66,10 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     cleared?: unknown
     counts?: unknown
     blocked?: unknown
+    code?: unknown
+    codeUntil?: unknown
+    codeState?: unknown
+    noShowNote?: unknown
   }
   if (typeof seat.id !== 'string' || !Array.isArray(seat.names)) return null
   const names = seat.names.filter((name) => typeof name === 'string')
@@ -77,6 +85,10 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     cleared: seat.cleared === true,
     counts: seat.counts !== false,
     blocked: Array.isArray(seat.blocked) ? seat.blocked.map(readHour).filter((hour) => hour !== null) : [],
+    code: typeof seat.code === 'string' && seat.code.length > 0 ? seat.code : null,
+    codeUntil: typeof seat.codeUntil === 'number' && Number.isFinite(seat.codeUntil) ? seat.codeUntil : null,
+    codeState: seat.codeState === 'waiting' || seat.codeState === 'open' || seat.codeState === 'closed' ? seat.codeState : 'none',
+    noShowNote: typeof seat.noShowNote === 'string' && seat.noShowNote.length > 0 ? seat.noShowNote : null,
   }
 }
 
@@ -134,7 +146,13 @@ export const getTodayRaffle = async (): Promise<RaffleResult> => {
   }
 }
 
-export const chooseRaffleHour = async (hour: number, seatId: string): Promise<RaffleResult> => {
+export const rejectRaffleHour = async (hour: number, seatId: string): Promise<RaffleResult> =>
+  sendRaffleHour({ hour, seatId, reject: true })
+
+export const chooseRaffleHour = async (hour: number, seatId: string): Promise<RaffleResult> =>
+  sendRaffleHour({ hour, seatId })
+
+const sendRaffleHour = async (body: { hour: number; seatId: string; reject?: boolean }): Promise<RaffleResult> => {
   const headers = authHeaders()
   if (!headers) return { ok: false, message: 'Sesión no válida o expirada.' }
 
@@ -143,7 +161,7 @@ export const chooseRaffleHour = async (hour: number, seatId: string): Promise<Ra
       method: 'POST',
       cache: 'no-store',
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hour, seatId }),
+      body: JSON.stringify(body),
     })
     if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
     const raffle = readRaffle(await response.json())

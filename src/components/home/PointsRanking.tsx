@@ -103,11 +103,22 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
       {currentUser && prizeRanking.length > 0 && (
         <ol className="space-y-2">
           {prizeRanking.map((user, index) => {
-            const isFirst = index === 0
-            const rowClass = isFirst
-              ? 'bg-accent-100/10 border-accent-100'
-              : 'bg-bg-200 border-bg-300'
-            const points = user.id === currentUser.id ? ownMonthPoints : monthPointsOf(user)
+            const isYou = user.id === currentUser.id
+            const points = isYou ? ownMonthPoints : monthPointsOf(user)
+            const leaderPoints = prizeRanking[0].id === currentUser.id
+              ? ownMonthPoints
+              : monthPointsOf(prizeRanking[0])
+            const isTied = prizeRanking.filter((row) => {
+              const rowPoints = row.id === currentUser.id ? ownMonthPoints : monthPointsOf(row)
+              return rowPoints === leaderPoints
+            }).length > 1 && points === leaderPoints
+            const isFirst = index === 0 && !isTied
+            const rowClass = isYou
+              ? 'bg-[#ff8c24]/15 border-[#ff8c24]'
+              : isFirst
+                ? 'bg-accent-100/10 border-accent-100'
+                : 'bg-bg-200 border-bg-300'
+            const nameClass = isYou ? 'text-[#ff8c24]' : 'text-text-100'
             return (
               <li
                 key={user.id}
@@ -116,14 +127,19 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs font-bold text-text-200 w-5">{index + 1}</span>
                   {isFirst && <Trophy className="w-4 h-4 text-accent-100 shrink-0" aria-hidden="true" />}
-                  <span className="font-bold text-sm text-text-100 truncate">{user.username}</span>
+                  <span className={`font-bold text-sm truncate ${nameClass}`}>{user.username}</span>
+                  {isTied && (
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#3ec8ff] shrink-0">
+                      Empate
+                    </span>
+                  )}
                   {isFirst && (
                     <span className="text-[10px] font-bold uppercase tracking-wide text-accent-100 shrink-0">
                       Elige el premio
                     </span>
                   )}
                 </div>
-                <span className="text-sm font-bold text-text-100 shrink-0">
+                <span className={`text-sm font-bold shrink-0 ${nameClass}`}>
                   {formatPoints(points)} pts mes
                 </span>
               </li>
