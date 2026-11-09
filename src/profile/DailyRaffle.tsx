@@ -34,6 +34,7 @@ const DailyRaffle = () => {
           return;
         }
         if (hasRaffle.current) return;
+        if (result.message === 'El sorteo está tardando. Se vuelve a intentar.') return;
         setMessage(result.message);
       });
     };

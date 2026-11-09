@@ -119,7 +119,7 @@ export const getTodayRaffle = async (): Promise<RaffleResult> => {
     const response = await fetch(`${API_URL}/users/raffle`, {
       headers,
       cache: 'no-store',
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(20000),
     })
     if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
     const raffle = readRaffle(await response.json())
