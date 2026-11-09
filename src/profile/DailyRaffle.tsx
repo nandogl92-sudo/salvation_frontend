@@ -110,7 +110,7 @@ const DailyRaffle = () => {
           <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código ${raffle.code}`}>
             {raffle.code}
           </p>
-          <p className="text-xs text-text-200">Es el mismo para todas las cuentas. De momento no hace falta escribirlo para jugar.</p>
+          <p className="text-xs text-text-200">Es el mismo para todas las cuentas. Hace falta para entrar en una partida de ranking.</p>
         </>
       )}
     </section>

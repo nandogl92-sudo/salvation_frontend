@@ -8,10 +8,10 @@ import Skydive from './games/Skydive';
 import Shooter from './games/Shooter';
 import { useAuth } from './auth/AuthContext';
 import ResetPasswordScreen from './auth/ResetPasswordScreen';
-import { cancelQueue, createBotMatch, joinQueue, startDirectMatch, tryMatch } from './api/matchmakingApi';
+import { cancelQueue, joinQueue, leaveFriendly, offerFriendly, tryMatch, type FriendlyLookResult } from './api/matchmakingApi';
 import { cancelMatch, fetchMatchStatus, forfeitMatch, submitMatchResult, type MatchStatusView, type SettlementPlayer } from './api/matchesApi';
 import { getCurrentSession } from './api/authApi';
-import type { Game, MatchPlayer, MatchTicket, QueueStatus, UserProfile } from './types';
+import type { Game, MatchPlayer, MatchTicket, QueueStatus } from './types';
 import { monthPointsOf } from './components/utils/monthPointsOf';
 import ProfilePanel from './profile/ProfilePanel';
 import AdminPanel from './admin/AdminPanel';
@@ -68,7 +68,6 @@ export default function App() {
   const [queueHold, setQueueHold] = useState<string | null>(null);
   const [queueIsRanked, setQueueIsRanked] = useState(false);
   const [ticket, setTicket] = useState<MatchTicket | null>(null);
-  const [lastRivalId, setLastRivalId] = useState<string | null>(null);
   const [opponent, setOpponent] = useState<MatchPlayer | null>(null);
   const [activeMatch, setActiveMatch] = useState<{
     id: string;
@@ -135,6 +134,7 @@ export default function App() {
   const resultSeqRef = useRef(0);
   const leaveAfterSaveRef = useRef(false);
   const searchLockRef = useRef(false);
+  const friendlyEnteredRef = useRef(false);
   const endGameRef = useRef<(winner: 'p1' | 'p2', matchId: string) => void>(() => {});
   const handleEnd = useCallback((winner: 'p1' | 'p2', matchId: string) => {
     endGameRef.current(winner, matchId);
@@ -279,6 +279,7 @@ export default function App() {
   useEffect(() => {
     if (!currentUser && (view === 'lobby' || view === 'playing')) {
       if (ticket) void cancelQueue(ticket.id);
+      void leaveFriendly();
       setTicket(null);
       setQueueStatus('idle');
       setView('home');
@@ -306,7 +307,6 @@ export default function App() {
       if (!searchLockRef.current) return;
     }
     setQueueHold(null);
-    setLastRivalId(result.opponent.userId);
     setOpponent(result.opponent);
     settledMatchIdRef.current = null;
     settlingRef.current = false;
@@ -315,7 +315,7 @@ export default function App() {
       id: result.match.id,
       isBot: matchedBot,
       isRanked: ranked,
-      world: ranked
+      world: result.world
         ? buildSharedWorld({
             matchId: result.match.id,
             createdAt: result.match.createdAt,
@@ -323,8 +323,9 @@ export default function App() {
             rivalUserId: result.opponent.userId,
             youName: currentTicket.username,
             rivalName: result.opponent.username,
-            seed: result.world?.seed,
-            startAt: result.world?.startAt,
+            seed: result.world.seed,
+            startAt: result.world.startAt,
+            localSide: result.world.localSide,
           })
         : null,
     });
@@ -335,7 +336,7 @@ export default function App() {
   };
 
   // El backend descuenta la apuesta al crear el ticket y la devuelve al cancelar o al expirar.
-  const startMatchmaking = async (isRanked = false) => {
+  const startMatchmaking = async (isRanked = false, accessCode = '') => {
     if (!currentUser || !selectedGame || betAmount > currentUser.balance || betAmount <= 0) return;
     if (searchLockRef.current || queueStatus === 'searching') return;
     searchLockRef.current = true;
@@ -344,7 +345,7 @@ export default function App() {
     setQueueError(null);
     setQueueHold(null);
     setQueueStatus('searching');
-    const result = await joinQueue({ gameId: selectedGame.id, betAmount, ranked: isRanked });
+    const result = await joinQueue({ gameId: selectedGame.id, betAmount, ranked: isRanked, accessCode });
     if (!searchLockRef.current) {
       if (result.ok) void cancelQueue(result.ticket.id);
       return;
@@ -374,6 +375,8 @@ export default function App() {
 
   const cancelSearch = async () => {
     searchLockRef.current = false;
+    friendlyEnteredRef.current = false;
+    void leaveFriendly();
     if (ticket) {
       const result = await cancelQueue(ticket.id);
       if (!result.ok && result.message) setQueueError(result.message);
@@ -388,62 +391,47 @@ export default function App() {
   };
 
   // SRC-04 — Tras un timeout, permite reintentar con la misma apuesta.
-  const retrySearch = (isRanked: boolean) => {
+  const retrySearch = (isRanked: boolean, accessCode = '') => {
     searchLockRef.current = false;
     setQueueStatus('idle');
-    startMatchmaking(isRanked);
+    void startMatchmaking(isRanked, accessCode);
   };
 
-  const startAgainstRival = async (rival: UserProfile, isRanked: boolean) => {
-    if (!currentUser || !selectedGame || betAmount > currentUser.balance || betAmount <= 0) return;
-    if (queueStatus === 'searching') return;
-    if (isRanked) {
-      await startMatchmaking(true);
-      return;
-    }
+  const beginFriendlyWait = () => {
+    setQueueError(null);
+    setQueueHold(null);
     setQueueIsRanked(false);
     setQueueStatus('searching');
-    setQueueError(null);
-    const result = await startDirectMatch({
-      gameId: selectedGame.id,
-      betAmount,
-      rivalUserId: rival.id,
-    });
-    if (!result.ok) {
-      setQueueError(result.message);
-      setQueueStatus('idle');
-      return;
-    }
-    searchLockRef.current = false;
-    settledMatchIdRef.current = null;
-    settlingRef.current = false;
-    setPlaySerial((value) => value + 1);
-    setLastRivalId(rival.id);
-    setOpponent({ ...result.opponent, isBot: false });
-    setActiveMatch({ id: result.match.id, isBot: false, isRanked: false, world: null });
-    setQueueStatus('idle');
-    setView('playing');
-    await syncBalanceFromServer();
   };
 
-  const playAgainstBot = async () => {
-    if (!ticket || queueIsRanked) return;
-    const result = await createBotMatch(ticket);
-    if (!result.ok) {
-      setQueueError(result.message);
-      return;
-    }
-    searchLockRef.current = false;
-    settledMatchIdRef.current = null;
-    settlingRef.current = false;
-    setPlaySerial((value) => value + 1);
-    setOpponent(result.opponent);
-    setActiveMatch({ id: result.match.id, isBot: true, isRanked: false, world: null });
-    setTicket(null);
-    setQueueStatus('idle');
-    setQueueError(null);
-    setView('playing');
+  const lookForFriendly = async (rivalUserId: string | null, stamp: number): Promise<FriendlyLookResult> => {
+    if (!currentUser || !selectedGame) return { ok: false, message: 'No hay una partida preparada.' };
+    const result = await offerFriendly({
+      gameId: selectedGame.id,
+      betAmount,
+      rivalUserId,
+      stamp,
+    });
+    if (!result.ok || result.status !== 'matched') return result;
+    if (friendlyEnteredRef.current) return result;
+    friendlyEnteredRef.current = true;
+    const currentTicket: MatchTicket = {
+      id: result.match.id,
+      userId: currentUser.id,
+      username: currentUser.username,
+      gameId: selectedGame.id,
+      betAmount,
+      createdAt: result.match.createdAt,
+    };
+    await enterMatchedQueue(currentTicket, {
+      status: 'matched',
+      match: result.match,
+      opponent: result.opponent,
+      arenaOpen: true,
+      world: result.world,
+    }, false);
     await syncBalanceFromServer();
+    return result;
   };
 
   // El servidor empareja al crear el ticket y al consultar. En móvil no usamos setInterval: se pausa.
@@ -749,7 +737,7 @@ export default function App() {
     const matchId = activeMatch?.id ?? 'local';
 
     // IA local solo en amistoso. Ranking comparte el mundo; el rival no es un bot.
-    const botEnabled = Boolean(opponent) && !activeMatch?.isRanked;
+    const botEnabled = Boolean(opponent) && !activeMatch?.isRanked && !activeMatch?.world;
 
     switch(selectedGame?.id) {
       case 'pong': return <Pong key={matchKey} matchId={matchId} onGameEnd={handleEnd} botEnabled={botEnabled} world={world} youName={currentUser?.username ?? ''} rivalName={opponent?.username ?? ''} />;
@@ -820,12 +808,14 @@ export default function App() {
             queueStatus={queueStatus}
             onCancel={cancelSearch}
             onRetry={retrySearch}
-            onPlayBot={playAgainstBot}
             queueError={queueError}
             queueHold={queueHold}
             currentUser={currentUser}
-            lastRivalId={lastRivalId}
-            onPlayRival={startAgainstRival}
+            onBeginFriendlyWait={beginFriendlyWait}
+            onFriendlyLook={lookForFriendly}
+            onFriendlyStop={() => {
+              void leaveFriendly();
+            }}
           />
         )}
 

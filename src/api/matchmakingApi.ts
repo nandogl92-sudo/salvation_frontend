@@ -8,6 +8,8 @@
 //   GET    /matchmaking/tickets/:ticketId
 //   DELETE /matchmaking/tickets/:ticketId
 //   POST   /matchmaking/tickets/:ticketId/bot-match
+//   POST   /matchmaking/friendly
+//   DELETE /matchmaking/friendly
 // ==========================================
 
 import { API_URL } from './config'
@@ -168,6 +170,7 @@ export const joinQueue = async (input: {
   gameId: string
   betAmount: number
   ranked?: boolean
+  accessCode?: string
 }): Promise<JoinQueueResult> => {
   try {
     const response = await request('/matchmaking/tickets', {
@@ -176,6 +179,7 @@ export const joinQueue = async (input: {
         gameId: input.gameId,
         betAmount: input.betAmount,
         ranked: Boolean(input.ranked),
+        accessCode: input.accessCode ?? '',
       }),
     })
     if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
@@ -256,6 +260,81 @@ export const tryMatch = async (ticket: MatchTicket): Promise<QueuePoll> => {
     if (isAbortError(error)) return { status: 'waiting' }
     const message = error instanceof Error ? error.message : 'No se pudo consultar la búsqueda.'
     return { status: 'error', message }
+  }
+}
+
+export type ActivePlayer = {
+  id: string
+  username: string
+}
+
+export type FriendlyLookResult =
+  | { ok: true; status: 'waiting'; users: ActivePlayer[] }
+  | { ok: true; status: 'matched'; match: MatchRecord; opponent: MatchPlayer; world: RankedWorld | null }
+  | { ok: false; message: string }
+
+const readActivePlayers = (value: unknown): ActivePlayer[] => {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return []
+    const player = item as { id?: unknown; username?: unknown }
+    if (typeof player.id !== 'string' || typeof player.username !== 'string') return []
+    return [{ id: player.id, username: player.username }]
+  })
+}
+
+export const offerFriendly = async (input: {
+  gameId: string
+  betAmount: number
+  rivalUserId: string | null
+  stamp: number
+}): Promise<FriendlyLookResult> => {
+  try {
+    const response = await request('/matchmaking/friendly', {
+      method: 'POST',
+      body: JSON.stringify({
+        gameId: input.gameId,
+        betAmount: input.betAmount,
+        rivalUserId: input.rivalUserId,
+        stamp: input.stamp,
+      }),
+    })
+    if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
+
+    const body = (await response.json()) as ApiPoll & { users?: unknown }
+    if (body.status === 'waiting') {
+      return { ok: true, status: 'waiting', users: readActivePlayers(body.users) }
+    }
+    if (body.status !== 'matched' || !body.match || !body.rival) {
+      return { ok: false, message: 'La respuesta de la partida no tiene la forma esperada.' }
+    }
+
+    const self: MatchPlayer = {
+      ticketId: body.match.id,
+      userId: '',
+      username: '',
+    }
+    const match = toMatchRecord(body.match, self)
+    if (!match) return { ok: false, message: 'La partida no incluye a los dos jugadores.' }
+
+    return {
+      ok: true,
+      status: 'matched',
+      match,
+      opponent: toPlayer(body.rival, false),
+      world: readWorld(body.world),
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo buscar la partida.'
+    return { ok: false, message }
+  }
+}
+
+export const leaveFriendly = async (): Promise<void> => {
+  try {
+    await request('/matchmaking/friendly', { method: 'DELETE' })
+  } catch {
+    // Si se corta, el servidor deja de contar al jugador a los pocos segundos.
   }
 }
 

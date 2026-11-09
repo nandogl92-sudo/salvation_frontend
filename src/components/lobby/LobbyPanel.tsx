@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { AlertCircle, LoaderCircle, WifiOff } from 'lucide-react'
+import { type ActivePlayer, type FriendlyLookResult } from '../../api/matchmakingApi'
 import { isCurrentSubscriptionMonth } from '../../api/subscriptionsApi'
 import {
   RANKED_PER_RIVAL_WEEK,
@@ -11,6 +12,76 @@ import type { Game, PlayMode, QueueStatus, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
 import { usePointsRanking } from '../home/usePointsRanking'
+
+const FriendlyPicker = ({
+  query,
+  users,
+  error,
+  onQuery,
+  onChoose,
+}: {
+  query: string
+  users: ActivePlayer[]
+  error: string | null
+  onQuery: (event: ChangeEvent<HTMLInputElement>) => void
+  onChoose: (player: ActivePlayer) => void
+}) => {
+  const needle = query.trim().toLowerCase()
+  const shown = needle === ''
+    ? users
+    : users.filter((user) => user.username.toLowerCase().includes(needle))
+
+  return (
+    <div className="space-y-3">
+      <label htmlFor="friendly-player-search" className="block text-sm font-bold text-text-100">
+        Jugadores activos
+      </label>
+      <input
+        id="friendly-player-search"
+        type="search"
+        value={query}
+        aria-label="Buscar jugador activo"
+        placeholder="Buscar jugador"
+        onChange={onQuery}
+        className="w-full rounded-xl border border-bg-300 bg-bg-200 px-4 py-3 text-sm text-text-100"
+      />
+      <p className="text-xs text-text-200">
+        Solo aparecen quienes tienen abierto el buscador de este juego.
+      </p>
+      {error && <p className="text-sm text-red-500" role="alert">{error}</p>}
+      {shown.length === 0 && (
+        <p className="text-sm text-text-200" role="status">
+          No hay otros jugadores activos ahora. El rival tiene que pulsar Jugar en Amistoso, en este mismo juego.
+        </p>
+      )}
+      {shown.length > 0 && (
+        <div className="max-h-48 overflow-y-auto space-y-2" role="listbox" aria-label="Jugadores activos">
+          {shown.map((user) => {
+            const handleChoose = () => {
+              onChoose(user)
+            }
+            return (
+              <button
+                key={user.id}
+                type="button"
+                role="option"
+                aria-selected={false}
+                aria-label={`Jugar con ${user.username}`}
+                tabIndex={0}
+                onClick={handleChoose}
+                onKeyDown={(event) => handleActivateKey(event, handleChoose)}
+                className="w-full flex items-center justify-between gap-2 rounded-xl border border-bg-300 bg-bg-200 px-3 py-2 text-left"
+              >
+                <span className="font-bold text-sm text-text-100 truncate">{user.username}</span>
+                <span className="text-xs text-text-200 shrink-0">Activo</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const GAME_POSTER: Record<string, string> = {
   pong: '/paddle-duel-cover.jpg',
@@ -25,13 +96,13 @@ type LobbyPanelProps = {
   betAmount: number
   queueStatus: QueueStatus
   onCancel: () => void
-  onRetry: (isRanked: boolean) => void
-  onPlayBot: () => void
+  onRetry: (isRanked: boolean, accessCode: string) => void
   queueError: string | null
   queueHold: string | null
   currentUser: UserProfile
-  lastRivalId: string | null
-  onPlayRival: (rival: UserProfile, isRanked: boolean) => void
+  onBeginFriendlyWait: () => void
+  onFriendlyLook: (rivalUserId: string | null, stamp: number) => Promise<FriendlyLookResult>
+  onFriendlyStop: () => void
 }
 
 const LobbyPanel = ({
@@ -41,12 +112,12 @@ const LobbyPanel = ({
   queueStatus,
   onCancel,
   onRetry,
-  onPlayBot,
   queueError,
   queueHold,
   currentUser,
-  lastRivalId,
-  onPlayRival,
+  onBeginFriendlyWait,
+  onFriendlyLook,
+  onFriendlyStop,
 }: LobbyPanelProps) => {
   const hasInsufficientBalance = betAmount > balance
   const isInvalidBet = hasInsufficientBalance || betAmount <= 0
@@ -55,48 +126,79 @@ const LobbyPanel = ({
   const canRanked = isCurrentSubscriptionMonth(currentUser.subscriptionMonth)
   const [playMode, setPlayMode] = useState<PlayMode>(canRanked ? 'ranked' : 'friendly')
   const [selectedRivalId, setSelectedRivalId] = useState<string | null>(null)
+  const [accessCode, setAccessCode] = useState('')
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [friendlyOpen, setFriendlyOpen] = useState(false)
+  const [playerQuery, setPlayerQuery] = useState('')
+  const [activeUsers, setActiveUsers] = useState<ActivePlayer[]>([])
+  const [friendlyError, setFriendlyError] = useState<string | null>(null)
+  const [waitingName, setWaitingName] = useState<string | null>(null)
+  const lookRef = useRef(onFriendlyLook)
+  const lookStampRef = useRef(0)
+  const stopRef = useRef(onFriendlyStop)
+  lookRef.current = onFriendlyLook
+  stopRef.current = onFriendlyStop
   const { status: rivalsStatus, ranking, error: rivalsError, retry } = usePointsRanking(
     currentUser,
-    !isSearching && playMode === 'friendly',
+    !isSearching && playMode === 'ranked',
   )
   const allRivals = ranking.filter((user) => user.id !== currentUser.id)
   const rankedRivals = allRivals.filter((user) => isCurrentSubscriptionMonth(user.subscriptionMonth))
   const eligibleRanked = rankedRivals.filter((user) => canRankedVsRival(currentUser.id, user.id))
   const leftToday = rankedLeftToday(currentUser.id)
   const isRanked = playMode === 'ranked'
-  const selectedRival = allRivals.find((user) => user.id === selectedRivalId) ?? null
   const weekBlockedCount = rankedRivals.filter((user) => {
     return rankedVsRivalThisWeek(currentUser.id, user.id) >= RANKED_PER_RIVAL_WEEK
   }).length
 
   const handleSelectRanked = () => {
-    if (!canRanked) return
+    if (!canRanked || isSearching) return
+    setFriendlyOpen(false)
+    onFriendlyStop()
     setPlayMode('ranked')
     setSelectedRivalId(null)
+    setWaitingName(null)
   }
 
   const handleSelectFriendly = () => {
+    if (isSearching) return
     setPlayMode('friendly')
+    setFriendlyOpen(false)
+    setSelectedRivalId(null)
+    setWaitingName(null)
+  }
+
+  const handleAccessCode = (event: ChangeEvent<HTMLInputElement>) => {
+    setAccessCode(event.target.value.toUpperCase())
+    setCodeError(null)
+  }
+
+  const handlePlayerQuery = (event: ChangeEvent<HTMLInputElement>) => {
+    setPlayerQuery(event.target.value)
   }
 
   const handlePlay = () => {
     if (isInvalidBet) return
     if (isRanked) {
       if (!canRanked) return
-      onRetry(true)
+      if (accessCode.trim() === '') {
+        setCodeError('Escribe el código. Está en tu perfil, en Sorteo de hoy.')
+        return
+      }
+      onRetry(true, accessCode.trim().toUpperCase())
       return
     }
-    if (allRivals.length === 0) return
-    if (selectedRival) {
-      onPlayRival(selectedRival, false)
-      return
-    }
-    const unseen = allRivals.filter((user) => user.id !== lastRivalId)
-    const pool = unseen.length > 0 ? unseen : allRivals
-    const index = Math.floor(Math.random() * pool.length)
-    const picked = pool[index]
-    if (!picked) return
-    onPlayRival(picked, false)
+    setFriendlyError(null)
+    setPlayerQuery('')
+    setActiveUsers([])
+    setFriendlyOpen(true)
+  }
+
+  const handleChoosePlayer = (player: ActivePlayer) => {
+    setSelectedRivalId(player.id)
+    setWaitingName(player.username)
+    setFriendlyError(null)
+    onBeginFriendlyWait()
   }
 
   const handleRetryRivals = () => {
@@ -105,8 +207,47 @@ const LobbyPanel = ({
 
   const handleRetry = () => {
     if (isInvalidBet) return
-    onRetry(isRanked)
+    if (isRanked && accessCode.trim() === '') {
+      setCodeError('Escribe el código. Está en tu perfil, en Sorteo de hoy.')
+      return
+    }
+    onRetry(isRanked, accessCode.trim().toUpperCase())
   }
+
+  useEffect(() => {
+    if (isRanked || !friendlyOpen) return
+    let stopped = false
+    let inFlight = false
+    const tick = async () => {
+      if (stopped || inFlight) return
+      inFlight = true
+      lookStampRef.current += 1
+      const result = await lookRef.current(isSearching ? selectedRivalId : null, lookStampRef.current)
+      inFlight = false
+      if (stopped || (result.ok && result.status === 'matched')) return
+      if (!result.ok) {
+        setFriendlyError(result.message)
+        return
+      }
+      setActiveUsers(result.users)
+      setFriendlyError(null)
+    }
+    void tick()
+    const timer = window.setInterval(() => {
+      void tick()
+    }, 2000)
+    return () => {
+      stopped = true
+      window.clearInterval(timer)
+    }
+  }, [isRanked, friendlyOpen, isSearching, selectedRivalId])
+
+  useEffect(() => {
+    if (isRanked || !friendlyOpen) return
+    return () => {
+      stopRef.current()
+    }
+  }, [isRanked, friendlyOpen])
 
   const rankedClass = isRanked
     ? 'bg-accent-100 text-white'
@@ -116,15 +257,9 @@ const LobbyPanel = ({
     : 'bg-bg-200 text-text-100'
 
   const rankedBlocked = !canRanked
-  const playDisabled = isInvalidBet || isSearching || (isRanked
-    ? rankedBlocked
-    : allRivals.length === 0)
+  const playDisabled = isInvalidBet || isSearching || (isRanked && rankedBlocked)
 
-  const playLabel = isRanked
-    ? 'Buscar a otra persona'
-    : selectedRival
-      ? `Jugar amistoso contra ${selectedRival.username}`
-      : 'Jugar amistoso contra un rival al azar'
+  const playLabel = isRanked ? 'Buscar a otra persona' : 'Jugar amistoso'
 
   return (
     <div className="max-w-md mx-auto bg-bg-100 rounded-3xl shadow-sm border border-bg-300 p-8 animate-fade-in">
@@ -177,7 +312,7 @@ const LobbyPanel = ({
           </p>
         ) : (
           <p className="text-sm text-text-200">
-            Juegas tus fichas contra otra persona.
+            Elige a alguien que esté activo. La partida empieza cuando esa persona te elige a ti.
           </p>
         )}
 
@@ -218,6 +353,32 @@ const LobbyPanel = ({
           </div>
         )}
 
+        {isRanked && !isSearching && !isTimeout && (
+          <div className="space-y-2">
+            <label htmlFor="ranked-access-code" className="block text-sm font-bold text-text-100">
+              Código del perfil
+            </label>
+            <input
+              id="ranked-access-code"
+              type="text"
+              inputMode="text"
+              autoComplete="off"
+              maxLength={8}
+              value={accessCode}
+              aria-label="Código del perfil"
+              placeholder="CÓDIGO"
+              onChange={handleAccessCode}
+              className="w-full rounded-xl border border-bg-300 bg-bg-200 px-4 py-3 text-center text-lg font-bold tracking-[0.35em] text-text-100 uppercase"
+            />
+            <p className="text-xs text-text-200">
+              El código está en tu perfil, en Sorteo de hoy. Si no es el de hoy, la partida no empieza.
+            </p>
+            {codeError && (
+              <p className="text-sm text-red-500" role="alert">{codeError}</p>
+            )}
+          </div>
+        )}
+
         {queueError && (
           <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 p-3 rounded-lg" role="alert">
             <AlertCircle className="w-4 h-4" aria-hidden="true" />
@@ -234,9 +395,14 @@ const LobbyPanel = ({
                   ? 'Encontrado. Entrando en la partida…'
                   : isRanked
                     ? 'Buscando a otra persona…'
-                    : 'Buscando rival…'}
+                    : waitingName
+                      ? `Buscando partida con ${waitingName}. Empieza cuando esa persona te seleccione.`
+                      : 'Buscando partida…'}
               </span>
             </div>
+            {!isRanked && friendlyError && (
+              <p className="text-sm text-red-500" role="alert">{friendlyError}</p>
+            )}
             <button
               type="button"
               aria-label="Buscando"
@@ -252,23 +418,9 @@ const LobbyPanel = ({
             <div className="flex items-center gap-2 text-text-200 text-sm bg-bg-200 p-3 rounded-lg" role="status">
               <WifiOff className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <span>
-                {isRanked
-                  ? 'No coincidió la búsqueda. Pulsa Seguir buscando los dos a la vez. El móvil tarda más; tened Ranking y el mismo juego.'
-                  : `No hay otra persona en ${selectedGame.name}. Puedes jugar contra el bot de prueba. No suma al premio.`}
+                No coincidió la búsqueda. Pulsa Seguir buscando los dos a la vez. El móvil tarda más; tened Ranking, el mismo juego y el código del perfil.
               </span>
             </div>
-            {!isRanked && (
-              <button
-                type="button"
-                aria-label="Jugar amistoso contra bot de prueba"
-                tabIndex={0}
-                onClick={onPlayBot}
-                onKeyDown={(event) => handleActivateKey(event, onPlayBot)}
-                className="w-full py-4 rounded-xl font-bold text-lg bg-accent-100 hover:bg-accent-200 text-white shadow-md hover:shadow-lg transition-all"
-              >
-                Jugar contra el bot
-              </button>
-            )}
             <button
               type="button"
               aria-label="Seguir buscando rival"
@@ -283,65 +435,6 @@ const LobbyPanel = ({
           </div>
         ) : (
           <div className="space-y-3">
-            {!isRanked && (
-              <>
-                <p className="text-sm font-bold text-text-100">Rival</p>
-                {rivalsStatus === 'loading' && allRivals.length === 0 && (
-                  <p className="text-sm text-text-200" role="status">Cargando jugadores...</p>
-                )}
-                {rivalsStatus === 'error' && (
-                  <div className="space-y-2" role="alert">
-                    <p className="text-sm text-red-500">{rivalsError}</p>
-                    <button
-                      type="button"
-                      aria-label="Reintentar cargar jugadores"
-                      tabIndex={0}
-                      onClick={handleRetryRivals}
-                      onKeyDown={(event) => handleActivateKey(event, handleRetryRivals)}
-                      className="text-sm font-bold underline"
-                    >
-                      Reintentar
-                    </button>
-                  </div>
-                )}
-                {allRivals.length === 0 && rivalsStatus === 'success' && (
-                  <p className="text-sm text-text-200">No hay otros jugadores registrados.</p>
-                )}
-                {allRivals.length > 0 && (
-                  <div className="max-h-48 overflow-y-auto space-y-2" role="listbox" aria-label="Jugadores para amistoso">
-                    {allRivals.map((user) => {
-                      const isSelected = user.id === selectedRivalId
-                      const weekUsed = rankedVsRivalThisWeek(currentUser.id, user.id)
-                      const noMoreRanked = weekUsed >= RANKED_PER_RIVAL_WEEK
-                      const rowClass = isSelected
-                        ? 'border-accent-100 bg-accent-100/10'
-                        : 'border-bg-300 bg-bg-200'
-                      const handleSelectRival = () => {
-                        setSelectedRivalId(user.id)
-                      }
-                      return (
-                        <button
-                          key={user.id}
-                          type="button"
-                          role="option"
-                          aria-selected={isSelected}
-                          aria-label={noMoreRanked ? `Elegir a ${user.username}, ya no suma esta semana` : `Elegir a ${user.username}`}
-                          tabIndex={0}
-                          onClick={handleSelectRival}
-                          onKeyDown={(event) => handleActivateKey(event, handleSelectRival)}
-                          className={`w-full flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left ${rowClass}`}
-                        >
-                          <span className="font-bold text-sm text-text-100 truncate">{user.username}</span>
-                          <span className="text-xs text-text-200 shrink-0">
-                            {noMoreRanked ? 'Ya no suma esta semana' : `${formatPoints(user.balance)} fichas`}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </>
-            )}
             {isRanked && rivalsStatus === 'loading' && rankedRivals.length === 0 && (
               <p className="text-sm text-text-200" role="status">Buscando inscritos...</p>
             )}
@@ -360,21 +453,27 @@ const LobbyPanel = ({
                 </button>
               </div>
             )}
-            <button
-              type="button"
-              aria-label={playLabel}
-              tabIndex={0}
-              onClick={handlePlay}
-              onKeyDown={(event) => handleActivateKey(event, handlePlay)}
-              disabled={playDisabled}
-              className="w-full py-4 rounded-xl font-bold text-lg bg-accent-100 hover:bg-accent-200 text-white shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isRanked ? 'Buscar a otra persona' : selectedRival ? `Amistoso vs ${selectedRival.username}` : 'Jugar amistoso'}
-            </button>
-            {!isRanked && (
-              <p className="text-xs text-text-200 text-center">
-                Si no hay persona, al acabar la espera puedes jugar contra el bot.
-              </p>
+            {!isRanked && friendlyOpen && (
+              <FriendlyPicker
+                query={playerQuery}
+                users={activeUsers}
+                error={friendlyError}
+                onQuery={handlePlayerQuery}
+                onChoose={handleChoosePlayer}
+              />
+            )}
+            {!(!isRanked && friendlyOpen) && (
+              <button
+                type="button"
+                aria-label={playLabel}
+                tabIndex={0}
+                onClick={handlePlay}
+                onKeyDown={(event) => handleActivateKey(event, handlePlay)}
+                disabled={playDisabled}
+                className="w-full py-4 rounded-xl font-bold text-lg bg-accent-100 hover:bg-accent-200 text-white shadow-md hover:shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {playLabel}
+              </button>
             )}
           </div>
         )}
