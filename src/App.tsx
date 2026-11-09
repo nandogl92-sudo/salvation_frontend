@@ -849,13 +849,9 @@ export default function App() {
                 stickSide={activeMatch?.world?.localSide === 'p2' ? 'right' : 'left'}
                 controlsHint={
                   selectedGame.id === 'pong'
-                    ? activeMatch?.isRanked
-                      ? 'Tu pala: W y S, o flecha arriba y abajo.'
-                      : 'Tu pala: W y S. El otro lado lo juega el bot.'
+                    ? 'Tu pala: W y S, o flecha arriba y abajo.'
                     : selectedGame.id === 'combat'
-                      ? activeMatch?.isRanked
-                        ? 'Tu paracaídas: A y D, o flecha izquierda y derecha.'
-                        : 'Tu paracaídas: A y D. El otro lado lo juega el bot.'
+                      ? 'Tu paracaídas: A y D, o flecha izquierda y derecha.'
                       : selectedGame.id === 'snake'
                         ? 'Impulso: Espacio, flecha arriba, el botón o un toque. El aro de tu color baja un punto. El del otro color, o el borde, lo sube.'
                         : 'Gira con flecha izquierda y flecha derecha. El coche va solo. El borde naranja te devuelve al centro.'}
