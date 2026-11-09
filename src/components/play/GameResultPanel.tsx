@@ -40,6 +40,10 @@ const GameResultPanel = ({
         ? 'Se gana un punto del mes.'
         : ''
 
+  const title = result.byAbandon
+    ? result.won ? 'Ganaste por abandono' : 'Perdiste por abandono'
+    : result.won ? '¡Ganaste!' : 'Perdiste'
+
   const trophyClass = result.won
     ? 'bg-accent-100/10 text-accent-100'
     : 'bg-primary-100/10 text-primary-100'
@@ -79,6 +83,7 @@ const GameResultPanel = ({
       <div className={`${trophyClass} p-5 rounded-full`}>
         <Trophy className="w-12 h-12" aria-hidden="true" />
       </div>
+      <h2 className="text-3xl font-bold text-text-100">{title}</h2>
       {note && <p className="text-text-100 text-center max-w-sm font-bold">{note}</p>}
       {homeButton}
     </div>

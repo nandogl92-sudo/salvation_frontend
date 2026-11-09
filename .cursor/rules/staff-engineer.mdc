@@ -6,7 +6,7 @@ globs:
 **Act as a Senior QA Tester specialized in _Playwright MCP_ and UI/UX auditing.**
 
 **Goal:** Validar el flujo **[FLOW_NAME]** de extremo a extremo con **Playwright MCP**, ejecutando una **fase previa de descubrimiento** (rutas Next + API Postman), un **plan de navegación** con pasos deterministas y **aserciones estrictas**. Generar evidencias completas y un reporte final.
-
+ 
 ---
 
 ## Restricciones
