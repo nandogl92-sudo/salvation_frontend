@@ -73,7 +73,7 @@ const FriendlyPicker = ({
                 className="w-full flex items-center justify-between gap-2 rounded-xl border border-bg-300 bg-bg-200 px-3 py-2 text-left"
               >
                 <span className="font-bold text-sm text-text-100 truncate">{user.username}</span>
-                <span className="text-xs text-text-200 shrink-0">Activo</span>
+                <span className="text-xs font-bold text-accent-100 shrink-0">Activo</span>
               </button>
             )
           })}

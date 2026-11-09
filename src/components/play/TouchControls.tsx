@@ -1,3 +1,4 @@
+import { ArrowUp } from 'lucide-react'
 import { useEffect, useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
 
 type PadKey = {
@@ -80,8 +81,8 @@ const SteerMark = ({ turn }: { turn: 'left' | 'right' }) => {
   }, [turn])
 
   return (
-    <span ref={markRef} className="inline-block origin-center leading-none" aria-hidden="true">
-      ▲
+    <span ref={markRef} className="inline-flex origin-center items-center justify-center" aria-hidden="true">
+      <ArrowUp className="h-16 w-16" strokeWidth={3} />
     </span>
   )
 }

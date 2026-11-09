@@ -36,102 +36,49 @@ const GameResultPanel = ({
     ? 'Se gana un punto del mes.'
     : null
 
-  const abandonMessage = !result.byAbandon
-    ? null
-    : result.won
-      ? 'El rival salió, recargó o se desconectó.'
-      : 'Saliste de la partida, recargaste o se cortó la conexión.'
-
-  const outcomeTitle = result.byAbandon
-    ? result.won
-      ? 'Ganaste por abandono'
-      : 'Perdiste por abandono'
-    : result.won
-      ? '¡Ganaste!'
-      : 'Perdiste'
-
   const trophyClass = result.won
     ? 'bg-accent-100/10 text-accent-100'
     : 'bg-primary-100/10 text-primary-100'
 
-  return (
-    <div className="flex flex-col items-center justify-center px-4 pb-28 pt-6 space-y-5">
-      {result.pending ? (
-        <>
-          <div className={`${trophyClass} p-5 rounded-full`}>
-            <Trophy className="w-12 h-12" aria-hidden="true" />
-          </div>
-          <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
-          <p className="text-text-200 text-center max-w-sm">Guardando las fichas...</p>
-        </>
-      ) : result.isRefund ? (
-        <>
-          <div className="bg-bg-300 text-text-200 p-5 rounded-full">
-            <RefreshCcw className="w-12 h-12" aria-hidden="true" />
-          </div>
-          <h2 className="text-2xl font-bold text-text-100">Partida cancelada</h2>
-          <p className="text-text-200 text-center max-w-sm">
-            Se produjo un error de plataforma. Tus{' '}
-            <span className="font-bold text-text-100">{formatPoints(betAmount)} fichas</span> han sido devueltas.
-          </p>
-        </>
-      ) : result.profit === 0 ? (
-        <>
-          <div className={`${trophyClass} p-5 rounded-full`}>
-            <Trophy className="w-12 h-12" aria-hidden="true" />
-          </div>
-          <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
-          <p className="text-text-200 text-center max-w-sm">
-            {abandonMessage ?? 'Tus fichas no cambian.'}
-          </p>
-          {monthChipMessage && (
-            <p className="text-text-200 text-sm text-center max-w-sm">{monthChipMessage}</p>
-          )}
-        </>
-      ) : result.won ? (
-        <>
-          <div className="bg-accent-100/10 text-accent-100 p-5 rounded-full">
-            <Trophy className="w-12 h-12" aria-hidden="true" />
-          </div>
-          <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
-          {abandonMessage && (
-            <p className="text-text-200 text-sm text-center max-w-sm">{abandonMessage}</p>
-          )}
-          <div className="text-center space-y-1">
-            <p className="text-text-200 text-sm">Fichas ganadas</p>
-            <p className="text-4xl font-bold text-accent-100">+{formatPoints(result.profit)}</p>
-          </div>
-          {monthChipMessage && (
-            <p className="text-text-200 text-sm text-center max-w-sm">{monthChipMessage}</p>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="bg-primary-100/10 text-primary-100 p-5 rounded-full">
-            <Trophy className="w-12 h-12" aria-hidden="true" />
-          </div>
-          <h2 className="text-3xl font-bold text-text-100">{outcomeTitle}</h2>
-          {abandonMessage && (
-            <p className="text-text-200 text-sm text-center max-w-sm">{abandonMessage}</p>
-          )}
-          <div className="text-center space-y-1">
-            <p className="text-text-200 text-sm">Fichas perdidas</p>
-            <p className="text-4xl font-bold text-primary-100">-{formatPoints(betAmount)}</p>
-          </div>
-        </>
-      )}
+  const homeButton = (
+    <button
+      type="button"
+      aria-label="Volver al inicio"
+      tabIndex={0}
+      onClick={handleGoHome}
+      onKeyDown={(event) => handleActivateKey(event, handleGoHome)}
+      className="flex items-center gap-2 bg-primary-100 hover:bg-primary-200 text-white px-8 py-3 rounded-xl font-bold transition-colors"
+    >
+      <Home className="w-5 h-5" aria-hidden="true" />
+      Volver al inicio
+    </button>
+  )
 
-      <button
-        type="button"
-        aria-label="Volver al inicio"
-        tabIndex={0}
-        onClick={handleGoHome}
-        onKeyDown={(event) => handleActivateKey(event, handleGoHome)}
-        className="fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 bg-primary-100 hover:bg-primary-200 text-white px-8 py-3 rounded-xl font-bold transition-colors"
-      >
-        <Home className="w-5 h-5" aria-hidden="true" />
-        Volver al inicio
-      </button>
+  if (result.isRefund) {
+    return (
+      <div className="flex flex-col items-center px-4 pt-8 space-y-5">
+        <div className="bg-bg-300 text-text-200 p-5 rounded-full">
+          <RefreshCcw className="w-12 h-12" aria-hidden="true" />
+        </div>
+        <h2 className="text-2xl font-bold text-text-100">Partida cancelada</h2>
+        <p className="text-text-200 text-center max-w-sm">
+          Se produjo un error de plataforma. Tus{' '}
+          <span className="font-bold text-text-100">{formatPoints(betAmount)} fichas</span> han sido devueltas.
+        </p>
+        {homeButton}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col items-center px-4 pt-8 space-y-5">
+      <div className={`${trophyClass} p-5 rounded-full`}>
+        <Trophy className="w-12 h-12" aria-hidden="true" />
+      </div>
+      {homeButton}
+      {monthChipMessage && (
+        <p className="text-text-100 text-center max-w-sm font-bold">{monthChipMessage}</p>
+      )}
     </div>
   )
 }

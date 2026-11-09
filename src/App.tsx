@@ -771,7 +771,7 @@ export default function App() {
         isAuthReady={isAuthReady}
         pendingGame={pendingGame}
         compact={view === 'playing' && !gameResult && !matchError}
-        menuLocked={Boolean(gameResult || matchError)}
+        menuLocked={Boolean(gameResult || matchError || (view === 'playing' && activeMatch))}
         menuNote={gameResult || matchError ? 'Pulsa Volver al inicio para jugar otra vez.' : null}
         onNavigate={(section) => {
           if (isChoosingPassword) leavePasswordReset();
