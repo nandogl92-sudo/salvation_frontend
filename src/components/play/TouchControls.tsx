@@ -204,7 +204,7 @@ const TouchControls = ({ gameId }: { gameId: string; stickSide?: 'left' | 'right
   if (!pad) return null
 
   const rowClass = gameId === 'combat'
-    ? 'flex h-24 w-full shrink-0 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
+    ? 'flex min-h-24 w-full flex-1 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
     : gameId === 'tetris'
     ? 'flex min-h-0 w-full flex-1 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
     : gameId === 'pong'
