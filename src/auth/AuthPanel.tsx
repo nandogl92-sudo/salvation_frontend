@@ -177,7 +177,7 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
             type="submit"
             aria-label="Enviar registro"
             disabled={isSubmitting}
-            className="w-full bg-primary-100 text-white font-bold py-3 rounded-xl hover:bg-primary-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full bg-[#f5c518] text-[#1a1403] font-bold py-3 rounded-xl hover:bg-[#e0b10f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Creando cuenta...' : 'Registrar usuario'}
           </button>
@@ -211,7 +211,7 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
             type="submit"
             aria-label="Enviar enlace para cambiar la contraseña"
             disabled={isSendingReset}
-            className="w-full bg-primary-100 text-white font-bold py-3 rounded-xl hover:bg-primary-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full bg-[#f5c518] text-[#1a1403] font-bold py-3 rounded-xl hover:bg-[#e0b10f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isSendingReset ? 'Enviando...' : 'Enviar enlace'}
           </button>
@@ -254,7 +254,7 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
             type="submit"
             aria-label="Enviar inicio de sesión"
             disabled={isSubmitting}
-            className="w-full bg-primary-100 text-white font-bold py-3 rounded-xl hover:bg-primary-200 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full bg-[#f5c518] text-[#1a1403] font-bold py-3 rounded-xl hover:bg-[#e0b10f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
           </button>
