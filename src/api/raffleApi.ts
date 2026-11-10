@@ -32,6 +32,7 @@ export type DailyRaffle = {
   code: string
   youPlay: boolean
   youRest: boolean
+  tiebreakNote: string | null
   seats: RaffleSeat[]
   hours: number[]
 }
@@ -114,6 +115,7 @@ const readRaffle = (value: unknown): DailyRaffle | null => {
     code?: unknown
     youPlay?: unknown
     youRest?: unknown
+    tiebreakNote?: unknown
     seats?: unknown
     hours?: unknown
   }
@@ -127,6 +129,7 @@ const readRaffle = (value: unknown): DailyRaffle | null => {
     code: body.code,
     youPlay,
     youRest: typeof body.youRest === 'boolean' ? body.youRest : !youPlay,
+    tiebreakNote: typeof body.tiebreakNote === 'string' && body.tiebreakNote.length > 0 ? body.tiebreakNote : null,
     seats,
     hours: parsedHours.length > 0 ? parsedHours : FALLBACK_HOURS,
   }

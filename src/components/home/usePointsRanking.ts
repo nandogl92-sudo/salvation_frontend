@@ -57,6 +57,13 @@ export const usePointsRanking = (currentUser: UserProfile | null, enabled = true
       return { ...user, monthPoints: monthPointsOf(user), weeks: weeksOf(user.weeks) }
     })
     .sort((left, right) => {
+      const weight = (role: UserProfile['tiebreakRole']): number => {
+        if (role === 'champion') return 0
+        if (role === 'alive') return 1
+        return 2
+      }
+      const byRole = weight(left.tiebreakRole) - weight(right.tiebreakRole)
+      if (byRole !== 0) return byRole
       const leftMonth = monthPointsOf(left)
       const rightMonth = monthPointsOf(right)
       if (rightMonth !== leftMonth) return rightMonth - leftMonth

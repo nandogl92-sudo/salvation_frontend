@@ -89,7 +89,10 @@ const DailyRaffle = () => {
       {!raffle && !message && <p className="text-sm text-text-200">Cargando el sorteo...</p>}
       {raffle && (
         <>
-          {raffle.youRest && (
+          {raffle.tiebreakNote && (
+            <p className="text-lg font-bold text-text-100">{raffle.tiebreakNote}</p>
+          )}
+          {raffle.youRest && !raffle.tiebreakNote && (
             <p className="text-lg font-bold text-text-100">Hoy es día libre.</p>
           )}
           {raffle.youPlay && rivals.length === 1 && (
@@ -175,7 +178,7 @@ const SeatHours = ({
       {canChoose && !waitingOnYou && !waitingOnRival && (
         <p className="text-xs text-text-200">Elige una hora, de 15:00 a 23:00. La otra persona la confirma o la rechaza.</p>
       )}
-      <div className="grid grid-cols-3 gap-2" role="group" aria-label={`Horas contra ${seat.rivalName}`}>
+      {canChoose && <div className="grid grid-cols-3 gap-2" role="group" aria-label={`Horas contra ${seat.rivalName}`}>
         {hours.map((hour) => {
           const blocked = seat.blocked.includes(hour);
           const selected = !blocked && (seat.agreedHour === hour || seat.yourHour === hour);
@@ -234,7 +237,7 @@ const SeatHours = ({
             </button>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 };

@@ -46,7 +46,9 @@ export const listUsers = async (): Promise<UsersResult> => {
       return { ok: false, message: 'La lista de jugadores no tiene la forma esperada.' }
     }
     const users = body.map((user) => {
-      return { ...user, monthPoints: monthPointsOf(user), weeks: weeksOf(user.weeks) }
+      const role = user.tiebreakRole
+      const tiebreakRole = role === 'champion' || role === 'alive' || role === 'out' ? role : null
+      return { ...user, monthPoints: monthPointsOf(user), weeks: weeksOf(user.weeks), tiebreakRole }
     })
     return { ok: true, users }
   } catch (error) {

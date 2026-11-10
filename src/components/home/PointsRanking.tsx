@@ -133,11 +133,15 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
             const leaderPoints = prizeRanking[0].id === currentUser.id
               ? ownMonthPoints
               : monthPointsOf(prizeRanking[0])
-            const isTied = prizeRanking.filter((row) => {
-              const rowPoints = row.id === currentUser.id ? ownMonthPoints : monthPointsOf(row)
-              return rowPoints === leaderPoints
-            }).length > 1 && points === leaderPoints
-            const isFirst = index === 0 && !isTied
+            const tiebreakOn = prizeRanking.some((row) => row.tiebreakRole === 'alive' || row.tiebreakRole === 'champion')
+            const hasChampion = prizeRanking.some((row) => row.tiebreakRole === 'champion')
+            const isTied = tiebreakOn
+              ? !hasChampion && user.tiebreakRole === 'alive'
+              : prizeRanking.filter((row) => {
+                const rowPoints = row.id === currentUser.id ? ownMonthPoints : monthPointsOf(row)
+                return rowPoints === leaderPoints
+              }).length > 1 && points === leaderPoints
+            const isFirst = tiebreakOn ? user.tiebreakRole === 'champion' : index === 0 && !isTied
             const rowClass = isYou
               ? 'bg-[#ff8c24]/15 border-[#ff8c24]'
               : isFirst
