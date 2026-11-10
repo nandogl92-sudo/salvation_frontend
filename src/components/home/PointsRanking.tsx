@@ -1,7 +1,7 @@
 import { Trophy } from 'lucide-react'
 import { currentMonthLabel, isCurrentSubscriptionMonth } from '../../api/subscriptionsApi'
 import { COUNTED_WEEK_COUNT, WEEK_COUNT, currentWeekIndex } from '../../matchmaking/rankedWeeks'
-import type { UserProfile } from '../../types'
+import type { MonthWeek, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
 import { monthPointsOf } from '../utils/monthPointsOf'
@@ -9,6 +9,15 @@ import { usePointsRanking } from './usePointsRanking'
 
 type PointsRankingProps = {
   currentUser: UserProfile | null
+}
+
+const weekCardsOf = (stored: MonthWeek[]): MonthWeek[] => {
+  return Array.from({ length: WEEK_COUNT }, (_, index) => {
+    const week = index + 1
+    const found = stored.find((row) => row.week === week)
+    if (found) return found
+    return { week, points: 0, counts: index < COUNTED_WEEK_COUNT }
+  })
 }
 
 const PointsRanking = ({ currentUser }: PointsRankingProps) => {
@@ -19,7 +28,7 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
   const me = ranking.find((user) => user.id === currentUser?.id)
   const ownMonthPoints = monthPointsOf(me ?? currentUser)
   const ownPlace = prizeRanking.findIndex((user) => user.id === currentUser?.id) + 1
-  const weekRows = me?.weeks ?? currentUser?.weeks ?? []
+  const weekRows = weekCardsOf(me?.weeks ?? currentUser?.weeks ?? [])
   const currentWeek = currentWeekIndex() + 1
 
   const handleRetry = () => {
@@ -39,27 +48,6 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
             Tus puntos del mes: {formatPoints(ownMonthPoints)}
             {ownPlace > 0 ? ` · puesto ${ownPlace}` : ''}
           </p>
-          {currentUser && competes && weekRows.length > 0 && (
-            <ul className="grid grid-cols-2 gap-2" aria-label="Puntos por semana del mes">
-            {weekRows.map((row) => {
-              const stateClass = row.counts
-                ? 'border-[#3ec8ff]/40 bg-[#3ec8ff]/5'
-                : 'border-bg-300 bg-bg-200 opacity-70'
-              return (
-                <li key={row.week} className={`rounded-xl border px-3 py-2 ${stateClass}`}>
-                  <p className="text-xs font-bold text-text-100">
-                    {`Semana ${row.week}`}
-                    {row.week === currentWeek ? ' · ahora' : ''}
-                  </p>
-                  <p className="text-sm font-bold text-text-100">{formatPoints(row.points)} pts</p>
-                  <p className="text-[10px] uppercase tracking-wide text-text-200">
-                    {row.counts ? 'Cuenta' : 'Se descarta'}
-                  </p>
-                </li>
-              )
-            })}
-          </ul>
-          )}
           <p className="text-xs text-text-200">
             Total = {COUNTED_WEEK_COUNT} mejores semanas, no las {WEEK_COUNT}.
           </p>
@@ -98,6 +86,43 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
 
       {currentUser && status !== 'error' && prizeRanking.length === 0 && ranking.length > 0 && (
         <p className="text-sm text-text-200">Aún no hay inscritos compitiendo este mes.</p>
+      )}
+
+      {currentUser && (
+        <ul className="mb-4 grid grid-cols-2 gap-2" aria-label="Puntos por semana del mes">
+          {weekRows.map((row) => {
+            const isCurrent = row.week === currentWeek
+            let stateClass = 'border-[#3ec8ff]/40 bg-[#3ec8ff]/5'
+            let status = 'Cuenta'
+            let statusClass = 'text-[#3ec8ff]'
+            let titleClass = 'text-text-100'
+            if (isCurrent) {
+              stateClass = 'border-[#ff8c24] bg-[#ff8c24]/15'
+              status = 'En curso'
+              statusClass = 'text-[#ff8c24]'
+              titleClass = 'text-[#ff8c24]'
+            } else if (!row.counts) {
+              stateClass = 'border-primary-100 bg-primary-100/15'
+              status = 'Descartada'
+              statusClass = 'text-primary-100'
+            } else if (row.week < currentWeek) {
+              stateClass = 'border-accent-100 bg-accent-100/15'
+              status = 'Completada'
+              statusClass = 'text-accent-100'
+            }
+            return (
+              <li key={row.week} className={`rounded-xl border px-3 py-2 ${stateClass}`}>
+                <p className={`text-xs font-bold ${titleClass}`}>
+                  {`Semana ${row.week}`}
+                </p>
+                <p className="text-sm font-bold text-text-100">{formatPoints(row.points)} pts</p>
+                <p className={`text-[10px] font-bold uppercase tracking-wide ${statusClass}`}>
+                  {status}
+                </p>
+              </li>
+            )
+          })}
+        </ul>
       )}
 
       {currentUser && prizeRanking.length > 0 && (
