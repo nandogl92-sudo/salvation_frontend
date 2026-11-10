@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { chooseRaffleHour, getTodayRaffle, rejectRaffleHour, type DailyRaffle as DailyRaffleView, type RaffleSeat } from '../api/raffleApi';
+import { rankedGameName } from './rankedGames';
 
 const FALLBACK_HOURS = [15, 16, 17, 18, 19, 20, 21, 22, 23];
 
@@ -252,26 +253,40 @@ const PairCode = ({ seat, showRival }: { seat: RaffleSeat; showRival: boolean })
   const hour = chosenHour(seat);
 
   useEffect(() => {
-    if (seat.codeState !== 'open') return;
+    if (seat.codeState !== 'open' && seat.waitingUntil === null) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [seat.codeState]);
+  }, [seat.codeState, seat.waitingUntil]);
 
   const left = seat.codeUntil === null ? 0 : seat.codeUntil - now;
-  const codeOpen = seat.codeState === 'open' && seat.code !== null && left > 0;
   const codeClosed = seat.codeState === 'closed' || (seat.codeState === 'open' && left <= 0);
+  const showCode = seat.code !== null && !codeClosed;
+  const playLeft = seat.waitingUntil === null ? 0 : seat.waitingUntil - now;
+  const gameLabel = seat.waitingGameId ? rankedGameName(seat.waitingGameId) : '';
+  const todayGames = seat.games.map((gameId) => rankedGameName(gameId)).join(' y ');
+  const todayLabel = seat.games.length === 1 ? 'Juego de hoy' : 'Juegos de hoy';
 
   return (
     <div className="space-y-1">
       {showRival && (
         <p className="text-xs font-bold text-text-100">Contra {seat.rivalName}</p>
       )}
-      {codeOpen && (
+      {showCode && todayGames.length > 0 && (
+        <p className="text-xs text-text-200">{todayLabel}: {todayGames}.</p>
+      )}
+      {showCode && (
+        <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código ${seat.code}`}>
+          {seat.code}
+        </p>
+      )}
+      {playLeft > 0 && gameLabel.length > 0 && (
         <>
-          <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código ${seat.code}`}>
-            {seat.code}
+          <p className="text-sm font-bold text-[#3ec8ff]" role="status">
+            {seat.waitingYours
+              ? `Estás esperando a ${seat.rivalName} en ${gameLabel}.`
+              : `${seat.waitingName} te está esperando en ${gameLabel}.`}
           </p>
-          <p className="text-sm font-bold text-[#3ec8ff]" role="timer">Quedan {leftLabel(left)}</p>
+          <p className="text-sm font-bold text-[#3ec8ff]" role="timer">Quedan {leftLabel(playLeft)} para jugar</p>
         </>
       )}
       {codeClosed && (

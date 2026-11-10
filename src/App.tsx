@@ -771,6 +771,7 @@ export default function App() {
         pendingGame={pendingGame}
         compact={view === 'playing' && !gameResult && !matchError}
         immersive={view === 'playing' && !gameResult && !matchError && selectedGame?.id === 'combat'}
+        profileOpen={view === 'profile'}
         menuLocked={Boolean(gameResult || matchError || (view === 'playing' && activeMatch))}
         menuNote={gameResult || matchError ? 'Pulsa Volver al inicio para jugar otra vez.' : null}
         onNavigate={(section) => {

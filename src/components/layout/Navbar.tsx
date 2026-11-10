@@ -6,6 +6,8 @@ import type { Game, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
 import { reloadHome } from '../utils/reloadHome'
+import { getTodayRaffle } from '../../api/raffleApi'
+import { hasFreshNotice, markNoticeSeen } from '../../profile/raffleNotice'
 
 type NavSection = 'inicio' | 'juegos' | 'ranking' | 'info'
 
@@ -23,6 +25,7 @@ type NavbarProps = {
   menuLocked?: boolean
   menuNote?: string | null
   immersive?: boolean
+  profileOpen?: boolean
 }
 
 const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
@@ -32,12 +35,40 @@ const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
   { id: 'info', label: 'Info', icon: Info },
 ]
 
-const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, onLogout, onNavigate, compact = false, menuLocked = false, menuNote = null, immersive = false }: NavbarProps) => {
+const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, onLogout, onNavigate, compact = false, menuLocked = false, menuNote = null, immersive = false, profileOpen = false }: NavbarProps) => {
   const headerRef = useRef<HTMLElement>(null)
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('register')
   const [panelBox, setPanelBox] = useState({ top: 72, maxHeight: 480 })
+  const [profileAlert, setProfileAlert] = useState(false)
   const showAuth = !user && isAuthReady
+
+  const userId = user?.id ?? null
+
+  useEffect(() => {
+    if (!userId) {
+      setProfileAlert(false)
+      return
+    }
+    let cancelled = false
+    const load = () => {
+      getTodayRaffle().then((result) => {
+        if (cancelled || !result.ok) return
+        if (profileOpen) {
+          markNoticeSeen(userId, result.raffle)
+          setProfileAlert(false)
+          return
+        }
+        setProfileAlert(hasFreshNotice(userId, result.raffle))
+      })
+    }
+    load()
+    const timer = window.setInterval(load, 8000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [userId, profileOpen])
 
   useEffect(() => {
     if (!pendingGame) return
@@ -205,7 +236,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
               </div>
               <button
                 type="button"
-                aria-label={`Cuenta de ${user.username}. Inicial ${initial}. ${lightLabel}`}
+                aria-label={`Cuenta de ${user.username}. Inicial ${initial}. ${lightLabel}${profileAlert ? '. Tienes un aviso en el perfil' : ''}`}
                 tabIndex={0}
                 disabled={menuLocked}
                 onClick={handleOpenProfile}
@@ -213,6 +244,12 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 className="relative inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#d5dcf0] text-white text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span aria-hidden="true">{initial}</span>
+                {profileAlert && (
+                  <span className="absolute -right-1 -top-1 flex h-3 w-3" aria-hidden="true">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3ec8ff] opacity-75" />
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-[#3ec8ff]" />
+                  </span>
+                )}
                 <span
                   aria-hidden="true"
                   className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full border border-[#0c1224] bg-green-500"
