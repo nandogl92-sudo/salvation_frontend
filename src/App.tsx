@@ -18,7 +18,6 @@ import AdminPanel from './admin/AdminPanel';
 import Navbar from './components/layout/Navbar';
 import HomeLanding from './components/home/HomeLanding';
 import SubscriptionPayDialog from './components/home/SubscriptionPayDialog';
-import { recordRankedPlay } from './matchmaking/rankedLimits';
 import LobbyPanel from './components/lobby/LobbyPanel';
 import GameResultPanel, { type GameResult } from './components/play/GameResultPanel';
 import PlayingArena from './components/play/PlayingArena';
@@ -527,8 +526,6 @@ export default function App() {
     settlingRef.current = true;
     const uiSeq = input.uiSeq ?? resultSeqRef.current;
     const won = input.winnerUserId === currentUser.id;
-    const rivalUserId = rankedPlayRef.current.rivalUserId;
-    if (!input.isRefund && rivalUserId) recordRankedPlay(currentUser.id, rivalUserId);
     const me = input.players.find((player) => player.id === currentUser.id);
     if (me) await setBalance(me.balance);
     const profit = input.isRefund || !me ? 0 : me.balance - currentUser.balance;

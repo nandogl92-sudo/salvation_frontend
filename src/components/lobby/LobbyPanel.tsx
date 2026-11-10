@@ -2,12 +2,6 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { AlertCircle, LoaderCircle, WifiOff } from 'lucide-react'
 import { type ActivePlayer, type FriendlyLookResult } from '../../api/matchmakingApi'
 import { isCurrentSubscriptionMonth } from '../../api/subscriptionsApi'
-import {
-  RANKED_PER_RIVAL_WEEK,
-  canRankedVsRival,
-  rankedLeftToday,
-  rankedVsRivalThisWeek,
-} from '../../matchmaking/rankedLimits'
 import type { Game, PlayMode, QueueStatus, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
@@ -144,12 +138,7 @@ const LobbyPanel = ({
   )
   const allRivals = ranking.filter((user) => user.id !== currentUser.id)
   const rankedRivals = allRivals.filter((user) => isCurrentSubscriptionMonth(user.subscriptionMonth))
-  const eligibleRanked = rankedRivals.filter((user) => canRankedVsRival(currentUser.id, user.id))
-  const leftToday = rankedLeftToday(currentUser.id)
   const isRanked = playMode === 'ranked'
-  const weekBlockedCount = rankedRivals.filter((user) => {
-    return rankedVsRivalThisWeek(currentUser.id, user.id) >= RANKED_PER_RIVAL_WEEK
-  }).length
 
   const handleSelectRanked = () => {
     if (!canRanked || isSearching) return
@@ -322,20 +311,8 @@ const LobbyPanel = ({
           </p>
         )}
 
-        {isRanked && canRanked && leftToday > 0 && eligibleRanked.length === 0 && rankedRivals.length > 0 && (
-          <p className="text-sm text-text-200" role="status">
-            Contra esos rivales ya no suma esta semana (máximo {RANKED_PER_RIVAL_WEEK}). Juega amistoso.
-          </p>
-        )}
-
-        {isRanked && canRanked && leftToday > 0 && rankedRivals.length === 0 && rivalsStatus === 'success' && (
+        {isRanked && canRanked && rankedRivals.length === 0 && rivalsStatus === 'success' && (
           <p className="text-sm text-text-200">No hay otros inscritos este mes para una ranqueada.</p>
-        )}
-
-        {isRanked && weekBlockedCount > 0 && leftToday > 0 && eligibleRanked.length > 0 && (
-          <p className="text-xs text-text-200">
-            Hay rivales con los que ya no suma esta semana. Esos duelos solo salen en amistoso.
-          </p>
         )}
 
         <div className="bg-bg-200 p-4 rounded-xl">

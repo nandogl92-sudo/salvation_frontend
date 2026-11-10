@@ -282,7 +282,7 @@ const PairCode = ({ seat, showRival }: { seat: RaffleSeat; showRival: boolean })
           {seat.code}
         </p>
       )}
-      {playLeft > 0 && gameLabel.length > 0 && (
+      {seat.waitingUntil !== null && gameLabel.length > 0 && playLeft > 0 && (
         <>
           <p className="text-sm font-bold text-[#3ec8ff]" role="status">
             {seat.waitingYours
@@ -291,6 +291,9 @@ const PairCode = ({ seat, showRival }: { seat: RaffleSeat; showRival: boolean })
           </p>
           <p className="text-sm font-bold text-[#3ec8ff]" role="timer">Quedan {leftLabel(playLeft)} para jugar</p>
         </>
+      )}
+      {seat.waitingUntil !== null && gameLabel.length > 0 && playLeft <= 0 && (
+        <p className="text-sm font-bold text-red-500" role="status">Se acabaron los 5 minutos para {gameLabel}.</p>
       )}
       {codeClosed && (
         <p className="text-sm font-bold text-red-500">El código ya no es válido.</p>
