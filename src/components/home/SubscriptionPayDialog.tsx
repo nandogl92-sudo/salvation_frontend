@@ -19,6 +19,26 @@ const PAY_METHODS: { id: PayMethod; label: string }[] = [
 
 const digitsOnly = (value: string): string => value.replace(/\D/g, '')
 
+const TOURNAMENT_CUTOFF_DAY = 7
+
+const tournamentLabel = (): string => new Intl.DateTimeFormat('es-ES', {
+  timeZone: 'Europe/Madrid',
+  month: 'long',
+  year: 'numeric',
+}).format(new Date())
+
+const madridDay = (): { day: number; month: string } => {
+  const parts = new Intl.DateTimeFormat('es-ES', {
+    timeZone: 'Europe/Madrid',
+    day: 'numeric',
+    month: 'long',
+  }).formatToParts(new Date())
+  const dayText = parts.find((part) => part.type === 'day')?.value ?? '1'
+  const month = parts.find((part) => part.type === 'month')?.value ?? ''
+  const day = Number(dayText)
+  return { day: Number.isFinite(day) ? day : 1, month }
+}
+
 const formatCardNumber = (value: string): string => {
   const digits = digitsOnly(value).slice(0, 16)
   return digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim()
@@ -71,6 +91,11 @@ const SubscriptionPayDialog = ({ onClose, onPaid }: SubscriptionPayDialogProps) 
   const [error, setError] = useState<string | null>(null)
 
   if (!user) return null
+
+  const calendar = madridDay()
+  const isLateForTournament = calendar.day > TOURNAMENT_CUTOFF_DAY
+  const title = isLateForTournament ? 'El torneo ya ha empezado' : 'Suscripción del torneo'
+  const submitLabel = isLateForTournament ? 'Inscribirme igual' : 'Confirmar suscripción'
 
   const handleDismiss = () => {
     if (isPaying) return
@@ -144,14 +169,26 @@ const SubscriptionPayDialog = ({ onClose, onPaid }: SubscriptionPayDialogProps) 
         className="w-full max-w-md bg-[#0e1528] border border-[#f5c518] rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto"
       >
         <h2 id="subscription-pay-title" className="text-lg font-bold text-white">
-          Paga la suscripción
+          {title}
         </h2>
-        <p className="mt-3 text-sm text-[#f4f6fb]">
-          Sin la suscripción no puedes competir por el premio. El primero del mes por puntos del mes elige el premio. Las fichas no dan puesto.
-        </p>
-        <p className="mt-2 text-sm text-[#b7c0d4]">
-          La suscripción mensual cuesta {SUBSCRIPTION_EUROS} € e incluye {SUBSCRIPTION_POINTS} fichas para jugar.
-        </p>
+        {isLateForTournament ? (
+          <p className="mt-3 text-sm text-[#f4f6fb]">
+            Hoy es día {calendar.day} de {calendar.month}. Cada día suma como máximo 1 punto y el mes se queda con las 3 mejores semanas. Quien se inscribió en la primera semana puede ir por delante. La suscripción incluye {SUBSCRIPTION_POINTS} fichas para jugar y practicar.
+          </p>
+        ) : (
+          <p className="mt-3 text-sm text-[#f4f6fb]">
+            Para participar en el torneo de {tournamentLabel()} hace falta la suscripción. El primero del mes por puntos del mes elige el premio.
+          </p>
+        )}
+        {isLateForTournament ? (
+          <p className="mt-2 text-sm text-[#b7c0d4]">
+            La suscripción mensual cuesta {SUBSCRIPTION_EUROS} €.
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-[#b7c0d4]">
+            La suscripción mensual cuesta {SUBSCRIPTION_EUROS} € e incluye {SUBSCRIPTION_POINTS} fichas para jugar.
+          </p>
+        )}
         <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-3">
           <fieldset className="flex flex-col gap-2">
             <legend className="text-sm font-bold text-[#f4f6fb]">Método de pago</legend>
@@ -298,16 +335,16 @@ const SubscriptionPayDialog = ({ onClose, onPaid }: SubscriptionPayDialogProps) 
 
           <button
             type="submit"
-            aria-label={`Pagar la suscripción de ${SUBSCRIPTION_EUROS} euros`}
+            aria-label={isLateForTournament ? `Inscribirme igual en la suscripción de ${SUBSCRIPTION_EUROS} euros` : `Confirmar la suscripción de ${SUBSCRIPTION_EUROS} euros`}
             disabled={isPaying}
             className="mt-2 w-full bg-[#f5c518] text-[#1a1403] font-bold py-3 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isPaying ? 'Pagando...' : 'Pagar suscripción'}
+            {isPaying ? 'Confirmando...' : submitLabel}
           </button>
         </form>
         <button
           type="button"
-          aria-label="Cerrar sin pagar la suscripción"
+          aria-label="Cerrar sin activar la suscripción"
           tabIndex={0}
           onClick={handleDismiss}
           onKeyDown={(event) => handleActivateKey(event, handleDismiss)}

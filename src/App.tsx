@@ -100,11 +100,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (isChoosingPassword || userId === null) {
+    if (isChoosingPassword || userId === null || currentUser?.gamesAccess === true) {
       setSubscriptionOpen(false);
       return;
     }
-    setSubscriptionOpen(currentUser?.gamesAccess !== true);
+    const timer = window.setTimeout(() => {
+      setSubscriptionOpen(true);
+    }, 5000);
+    return () => window.clearTimeout(timer);
   }, [userId, isChoosingPassword, currentUser?.gamesAccess]);
 
   useEffect(() => {
