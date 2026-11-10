@@ -90,7 +90,7 @@ const DailyRaffle = () => {
       {raffle && (
         <>
           {raffle.youRest && (
-            <p className="text-lg font-bold text-text-100">Hoy toca descansar.</p>
+            <p className="text-lg font-bold text-text-100">Hoy es día libre.</p>
           )}
           {raffle.youPlay && rivals.length === 1 && (
             <p className="text-sm font-bold text-accent-100">Hoy juegas contra {rivals[0]}.</p>
@@ -108,7 +108,7 @@ const DailyRaffle = () => {
               {rivals.join(' y ')} han elegido la misma hora: las {hourLabel(sharedHour)}.
             </p>
           )}
-          {mine.map((seat) => (
+          {raffle.youPlay && mine.map((seat) => (
             <SeatHours
               key={seat.id}
               seat={seat}

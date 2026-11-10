@@ -119,7 +119,7 @@ const readRaffle = (value: unknown): DailyRaffle | null => {
   }
   if (typeof body.code !== 'string' || body.code.length === 0 || !Array.isArray(body.seats)) return null
   const seats = body.seats.map(readSeat).filter((seat) => seat !== null)
-  if (seats.length === 0) return null
+  if (seats.length === 0 && body.youRest !== true) return null
   const parsedHours = Array.isArray(body.hours) ? body.hours.map(readHour).filter((hour) => hour !== null) : []
   const youPlay = typeof body.youPlay === 'boolean' ? body.youPlay : seats.some((seat) => seat.yours)
   return {
