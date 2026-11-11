@@ -41,6 +41,18 @@ function StatCard({
 function HistoryRow({ record }: { record: MatchHistoryRecord }) {
   const isWin = record.result === 'win';
   const isRefund = record.result === 'refund';
+  const chipLabel = isRefund
+    ? 'Reembolsado'
+    : record.profit > 0
+      ? '+ ficha'
+      : record.profit < 0
+        ? '- ficha'
+        : 'Igual';
+  const chipClass = record.profit > 0
+    ? 'text-accent-100'
+    : record.profit < 0
+      ? 'text-primary-100'
+      : 'text-text-200';
 
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-bg-300 last:border-0">
@@ -64,12 +76,8 @@ function HistoryRow({ record }: { record: MatchHistoryRecord }) {
         </div>
       </div>
       <div className="text-right shrink-0">
-        <p
-          className={`text-sm font-bold ${
-            isRefund ? 'text-text-200' : isWin ? 'text-accent-100' : 'text-primary-100'
-          }`}
-        >
-          {isRefund ? 'Reembolsado' : isWin ? '+ ficha' : '- ficha'}
+        <p className={`text-sm font-bold ${chipClass}`}>
+          {chipLabel}
         </p>
         <p className="text-xs text-text-200">
           {new Date(record.playedAt).toLocaleDateString('es-ES', {

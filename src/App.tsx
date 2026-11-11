@@ -628,9 +628,9 @@ export default function App() {
       : await submitMatchResult(matchId, winnerUserId ?? '', endReason);
 
     if (!settlement.ok) {
-      if (isRanked && settlement.alreadySettled) {
+      if (settlement.alreadySettled) {
         const status = await fetchMatchStatus(matchId);
-        if (status.ok) {
+        if (status.ok && isRanked) {
           settlingRef.current = false;
           await closeRankedMatch({
             matchId,
@@ -640,6 +640,29 @@ export default function App() {
             players: status.status.players,
             uiSeq,
           });
+          return;
+        }
+        if (status.ok) {
+          const me = status.status.players.find((player) => player.id === currentUser.id);
+          const wonNow = status.status.winnerUserId === currentUser.id;
+          const refunded = status.status.settlement === 'refunded';
+          const profit = refunded || !me ? 0 : me.balance - currentUser.balance;
+          if (me) await setBalance(me.balance);
+          const month = await rememberMonthScore(me);
+          searchLockRef.current = false;
+          if (stillShowing()) {
+            setGameResult({
+              won: refunded ? false : wonNow,
+              profit,
+              isRefund: refunded,
+              isRanked: false,
+              byAbandon: status.status.endReason === 'forfeit',
+              ...month,
+            });
+            setOpponent(null);
+            setActiveMatch(null);
+          }
+          settlingRef.current = false;
           return;
         }
       }
