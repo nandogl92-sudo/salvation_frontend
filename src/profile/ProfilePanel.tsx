@@ -42,40 +42,14 @@ const chipsLeftForMonth = (balance: number): { enough: boolean; note: string } =
   return { enough: false, note: 'Faltan fichas para las partidas que quedan este mes.' };
 };
 
-const chipPileOf = (balance: number): { count: number; size: string } | null => {
-  if (balance <= 0) return null;
-  if (balance <= 25) return { count: 1, size: 'w-4 h-4' };
-  if (balance <= 50) return { count: 2, size: 'w-5 h-5' };
-  if (balance <= 75) return { count: 3, size: 'w-6 h-6' };
-  return { count: 4, size: 'w-8 h-8' };
-};
-
-function ChipPile({ balance }: { balance: number }) {
-  const pile = chipPileOf(balance);
-  if (!pile) return null;
-  return (
-    <div className="flex flex-col items-center" aria-hidden="true">
-      {Array.from({ length: pile.count }, (_, index) => (
-        <span
-          key={index}
-          className={`${pile.size} rounded-full border-2 border-[#a68410] bg-[#f5c518] ${index === 0 ? '' : '-mt-2'}`}
-        />
-      ))}
-    </div>
-  );
-}
-
 function ChipBalanceCard({ balance }: { balance: number }) {
   const cover = chipsLeftForMonth(balance);
   const cardClass = cover.enough ? 'bg-accent-200 text-accent-100' : 'bg-primary-300 text-primary-100';
   return (
-    <div className={`${cardClass} rounded-2xl p-5 flex items-center justify-between`}>
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest">Fichas para jugar</p>
-        <p className="text-3xl font-bold">{formatPoints(balance)}</p>
-        <p className="text-xs mt-1">{cover.note}</p>
-      </div>
-      <ChipPile balance={balance} />
+    <div className={`${cardClass} rounded-2xl p-5`}>
+      <p className="text-xs font-bold uppercase tracking-widest">Fichas para jugar</p>
+      <p className="text-3xl font-bold">{formatPoints(balance)}</p>
+      <p className="text-xs mt-1">{cover.note}</p>
     </div>
   );
 }
