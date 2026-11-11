@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getReplay, listReplays, type ReplayHead, type ReplayTape } from '../api/replaysApi'
+import { listReplays, type ReplayHead } from '../api/replaysApi'
 
 const GAME_NAME: Record<string, string> = {
   pong: 'Paddle Duel',
@@ -8,45 +8,50 @@ const GAME_NAME: Record<string, string> = {
   combat: 'Sky Drop',
 }
 
-const namesOf = (replay: ReplayHead): { left: string; right: string } => {
-  const left = replay.players.find((player) => player.side === 'p1')?.username ?? 'Jugador 1'
-  const right = replay.players.find((player) => player.side === 'p2')?.username ?? 'Jugador 2'
-  return { left, right }
+const whenLabel = (iso: string): string => {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return 'Sin fecha'
+  return new Intl.DateTimeFormat('es-ES', {
+    timeZone: 'Europe/Madrid',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }
 
-const scoreOf = (tape: ReplayTape): string => {
-  const frames = tape.samples.filter((sample) => sample.rally || sample.scene)
-  const last = frames[frames.length - 1]
-  if (last?.rally) return `${last.rally.p1} – ${last.rally.p2}`
-  if (last?.scene) return `${last.scene.p1.n} – ${last.scene.p2.n}`
-  return 'Sin marcador'
+const namesOf = (replay: ReplayHead): string => {
+  const left = replay.players.find((player) => player.side === 'p1')?.username ?? 'Jugador 1'
+  const right = replay.players.find((player) => player.side === 'p2')?.username ?? 'Jugador 2'
+  return `${left} y ${right}`
+}
+
+const resultOf = (replay: ReplayHead): string => {
+  if (replay.outcome === 'refund') return 'Partida reembolsada.'
+  if (replay.outcome === 'decided' && replay.winnerName && replay.loserName) {
+    return `${replay.winnerName} ha ganado. ${replay.loserName} ha perdido.`
+  }
+  if (replay.outcome === 'decided' && replay.winnerName) return `${replay.winnerName} ha ganado.`
+  return 'Todavía no hay resultado.'
 }
 
 const ReplayBoard = () => {
-  const [rows, setRows] = useState<{ replay: ReplayHead; score: string }[]>([])
+  const [rows, setRows] = useState<ReplayHead[]>([])
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
-    const load = async () => {
-      const listed = await listReplays()
+    listReplays().then((listed) => {
       if (cancelled) return
+      setLoading(false)
       if (listed.ok !== true) {
-        setLoading(false)
         setMessage(listed.message)
         return
       }
-      const scored = await Promise.all(listed.replays.map(async (replay) => {
-        const tape = await getReplay(replay.matchId)
-        const score = tape.ok === true ? scoreOf(tape.tape) : 'Sin marcador'
-        return { replay, score }
-      }))
-      if (cancelled) return
-      setRows(scored)
-      setLoading(false)
-    }
-    void load()
+      setRows(listed.replays)
+    })
     return () => {
       cancelled = true
     }
@@ -54,21 +59,18 @@ const ReplayBoard = () => {
 
   if (loading) return <p className="text-sm text-[#b7c0d4]">Cargando partidas…</p>
   if (message) return <p className="text-sm text-red-300" role="alert">{message}</p>
-  if (rows.length === 0) return <p className="text-sm text-[#b7c0d4]">Todavía no hay ninguna ranqueada grabada.</p>
+  if (rows.length === 0) return <p className="text-sm text-[#b7c0d4]">Todavía no hay ninguna partida guardada.</p>
 
   return (
     <ul className="space-y-2">
-      {rows.map(({ replay, score }) => {
-        const names = namesOf(replay)
-        return (
-          <li key={replay.matchId} className="bg-[#0e1528] border border-[#243056] rounded-xl p-4">
-            <p className="text-sm font-bold text-white">
-              {names.left} {score} {names.right}
-            </p>
-            <p className="text-xs text-[#b7c0d4]">{GAME_NAME[replay.gameId] ?? replay.gameId}</p>
-          </li>
-        )
-      })}
+      {rows.map((replay) => (
+        <li key={replay.matchId} className="bg-[#0e1528] border border-[#243056] rounded-xl p-4 space-y-1">
+          <p className="text-sm font-bold text-white">{GAME_NAME[replay.gameId] ?? replay.gameId}</p>
+          <p className="text-xs text-[#d5dcf0]">{whenLabel(replay.playedAt)}</p>
+          <p className="text-sm text-white">{namesOf(replay)}</p>
+          <p className="text-sm text-[#b7c0d4]">{resultOf(replay)}</p>
+        </li>
+      ))}
     </ul>
   )
 }

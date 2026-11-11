@@ -10,6 +10,7 @@ export const noticeOf = (raffle: DailyRaffle): string => {
     .map((seat) => [
       seat.id,
       seat.rivalHour ?? '',
+      seat.yourTurn ? '1' : '0',
       seat.agreedHour ?? '',
       seat.cleared ? '1' : '0',
       seat.blocked.join(','),

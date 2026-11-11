@@ -12,6 +12,7 @@ export type RaffleSeat = {
   rivalName: string | null
   yourHour: number | null
   rivalHour: number | null
+  yourTurn: boolean
   agreedHour: number | null
   cleared: boolean
   counts: boolean
@@ -68,6 +69,7 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     rivalName?: unknown
     yourHour?: unknown
     rivalHour?: unknown
+    yourTurn?: unknown
     agreedHour?: unknown
     cleared?: unknown
     counts?: unknown
@@ -92,6 +94,7 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     rivalName: typeof seat.rivalName === 'string' ? seat.rivalName : null,
     yourHour: readHour(seat.yourHour),
     rivalHour: readHour(seat.rivalHour),
+    yourTurn: seat.yourTurn !== false,
     agreedHour: readHour(seat.agreedHour),
     cleared: seat.cleared === true,
     counts: seat.counts !== false,

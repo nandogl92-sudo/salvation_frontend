@@ -17,7 +17,7 @@ type AdminModule = 'users' | 'matches' | 'ranking'
 
 const MODULES: { id: AdminModule; title: string; text: string }[] = [
   { id: 'users', title: 'Usuarios', text: 'Cuentas, fichas y acceso a los juegos.' },
-  { id: 'matches', title: 'Partidas grabadas', text: 'Marcador y nombres de cada ranqueada.' },
+  { id: 'matches', title: 'Partidas guardadas', text: 'Fecha, jugadores y quién ganó cada ranqueada.' },
   { id: 'ranking', title: 'Clasificación', text: 'Puntos del mes, de mayor a menor.' },
 ]
 
@@ -152,7 +152,7 @@ const AdminPanel = ({ onBack }: AdminPanelProps) => {
 
       {module === 'matches' && (
         <div className="space-y-3">
-          <h2 className="text-sm font-bold text-white">Partidas grabadas</h2>
+          <h2 className="text-sm font-bold text-white">Partidas guardadas</h2>
           <ReplayBoard />
         </div>
       )}

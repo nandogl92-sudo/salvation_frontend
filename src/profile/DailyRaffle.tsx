@@ -151,6 +151,7 @@ const SeatHours = ({
   const canChoose = seat.agreedHour === null;
   const waitingOnYou = canChoose && seat.rivalHour !== null && seat.yourHour === null;
   const waitingOnRival = canChoose && seat.yourHour !== null && seat.rivalHour === null;
+  const canPick = canChoose && seat.yourTurn && !waitingOnYou && !waitingOnRival;
   const handleHour = (hour: number) => {
     onChoose(seat.id, hour);
   };
@@ -164,27 +165,35 @@ const SeatHours = ({
       {seat.agreedHour !== null && (
         <p className="text-sm font-bold text-text-100">Hora acordada: {hourLabel(seat.agreedHour)}.</p>
       )}
-      {canChoose && seat.cleared && (
-        <p className="text-sm font-bold text-red-500" role="status">Hora rechazada. Esa hora ya no se puede elegir.</p>
+      {seat.agreedHour !== null && hours.filter((hour) => !seat.blocked.includes(hour)).length === 1 && (
+        <p className="text-sm text-text-200">Era la única hora que quedaba.</p>
+      )}
+      {canChoose && seat.cleared && canPick && (
+        <p className="text-sm font-bold text-red-500" role="status">Hora rechazada. Esa hora ya no se puede elegir. Te toca elegir la siguiente.</p>
+      )}
+      {canChoose && !canPick && !waitingOnYou && !waitingOnRival && (
+        <p className="text-sm font-bold text-text-100" role="status">
+          Le toca a {seat.rivalName} elegir la siguiente hora. Tú tendrás que aceptarla o cancelarla.
+        </p>
       )}
       {waitingOnYou && seat.rivalHour !== null && (
         <p className="text-sm font-bold text-text-100" role="status">
-          {seat.rivalName} ha elegido las {hourLabel(seat.rivalHour)}. Confirma o rechaza.
+          {seat.rivalName} ha elegido las {hourLabel(seat.rivalHour)}. Acéptala o cancélala.
         </p>
       )}
       {waitingOnRival && seat.yourHour !== null && (
-        <p className="text-sm text-text-200">Has elegido las {hourLabel(seat.yourHour)}. {seat.rivalName} puede confirmarla o rechazarla.</p>
+        <p className="text-sm text-text-200">Has elegido las {hourLabel(seat.yourHour)}. {seat.rivalName} tiene que aceptarla o cancelarla.</p>
       )}
-      {canChoose && !waitingOnYou && !waitingOnRival && (
-        <p className="text-xs text-text-200">Elige una hora, de 15:00 a 23:00. La otra persona la confirma o la rechaza.</p>
+      {canChoose && canPick && !waitingOnRival && !seat.cleared && (
+        <p className="text-xs text-text-200">Elige una hora, de 15:00 a 23:00. La otra persona la acepta o la cancela.</p>
       )}
-      {canChoose && <div className="grid grid-cols-3 gap-2" role="group" aria-label={`Horas contra ${seat.rivalName}`}>
-        {hours.map((hour) => {
+      {(canPick || waitingOnYou) && <div className="grid grid-cols-3 gap-2" role="group" aria-label={`Horas contra ${seat.rivalName}`}>
+        {(waitingOnYou && seat.rivalHour !== null ? [seat.rivalHour] : hours).map((hour) => {
           const blocked = seat.blocked.includes(hour);
           const selected = !blocked && (seat.agreedHour === hour || seat.yourHour === hour);
           const proposed = waitingOnYou && !blocked && seat.rivalHour === hour;
           const chooseThisHour = () => {
-            if (blocked || waitingOnYou || waitingOnRival) return;
+            if (blocked || !canPick) return;
             handleHour(hour);
           };
           const confirmThisHour = () => {
@@ -200,7 +209,7 @@ const SeatHours = ({
                 <div className="mt-2 flex justify-center gap-2">
                   <button
                     type="button"
-                    aria-label={`Confirmar las ${hourLabel(hour)}`}
+                    aria-label={`Aceptar las ${hourLabel(hour)}`}
                     disabled={savingKey !== null}
                     onClick={confirmThisHour}
                     className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f5c518] text-[#1a1403] disabled:opacity-50"
@@ -209,7 +218,7 @@ const SeatHours = ({
                   </button>
                   <button
                     type="button"
-                    aria-label={`Rechazar las ${hourLabel(hour)}`}
+                    aria-label={`Cancelar las ${hourLabel(hour)}`}
                     disabled={savingKey !== null}
                     onClick={rejectThisHour}
                     className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100 text-white disabled:opacity-50"
@@ -229,7 +238,7 @@ const SeatHours = ({
               type="button"
               aria-label={label}
               aria-pressed={selected}
-              disabled={blocked || !canChoose || waitingOnYou || waitingOnRival || savingKey !== null}
+              disabled={blocked || !canPick || savingKey !== null}
               onClick={chooseThisHour}
               className={`rounded-lg px-3 py-3 text-sm font-bold disabled:opacity-50 ${hourClass(blocked, selected, false)}`}
             >

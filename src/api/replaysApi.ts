@@ -62,6 +62,10 @@ export type ReplayHead = {
   players: ReplayPlayer[]
   closed: boolean
   createdAt: string
+  playedAt: string
+  winnerName: string | null
+  loserName: string | null
+  outcome: 'decided' | 'refund' | 'open'
 }
 
 export type ReplayTape = ReplayHead & {
@@ -93,6 +97,35 @@ const authHeaders = (): HeadersInit | null => {
   return { Authorization: `Bearer ${token}` }
 }
 
+const readReplayHead = (value: unknown): ReplayHead | null => {
+  if (!value || typeof value !== 'object') return null
+  const row = value as {
+    matchId?: unknown
+    gameId?: unknown
+    players?: unknown
+    closed?: unknown
+    createdAt?: unknown
+    playedAt?: unknown
+    winnerName?: unknown
+    loserName?: unknown
+    outcome?: unknown
+  }
+  if (typeof row.matchId !== 'string' || typeof row.gameId !== 'string' || !Array.isArray(row.players)) return null
+  const createdAt = typeof row.createdAt === 'string' ? row.createdAt : ''
+  const outcome = row.outcome === 'decided' || row.outcome === 'refund' || row.outcome === 'open' ? row.outcome : 'open'
+  return {
+    matchId: row.matchId,
+    gameId: row.gameId,
+    players: row.players as ReplayPlayer[],
+    closed: row.closed === true,
+    createdAt,
+    playedAt: typeof row.playedAt === 'string' && row.playedAt.length > 0 ? row.playedAt : createdAt,
+    winnerName: typeof row.winnerName === 'string' && row.winnerName.length > 0 ? row.winnerName : null,
+    loserName: typeof row.loserName === 'string' && row.loserName.length > 0 ? row.loserName : null,
+    outcome,
+  }
+}
+
 export const listReplays = async (): Promise<ReplayListResult> => {
   const headers = authHeaders()
   if (!headers) return { ok: false, message: 'Sesión no válida o expirada.' }
@@ -101,7 +134,11 @@ export const listReplays = async (): Promise<ReplayListResult> => {
     if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
     const body = (await response.json()) as unknown
     if (!Array.isArray(body)) return { ok: false, message: 'La lista de repeticiones no tiene la forma esperada.' }
-    return { ok: true, replays: body as ReplayHead[] }
+    const replays = body.flatMap((item) => {
+      const replay = readReplayHead(item)
+      return replay ? [replay] : []
+    })
+    return { ok: true, replays }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No se pudo conectar con el servidor.'
     return { ok: false, message }

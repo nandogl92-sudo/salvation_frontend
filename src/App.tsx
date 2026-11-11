@@ -491,7 +491,7 @@ export default function App() {
 
       timer = window.setTimeout(() => {
         void poll();
-      }, QUEUE_POLL_INTERVAL_MS);
+    }, QUEUE_POLL_INTERVAL_MS);
     };
 
     const handleWake = () => {
@@ -689,7 +689,7 @@ export default function App() {
         isRanked: false,
         ...month,
       });
-      setOpponent(null);
+    setOpponent(null);
       setActiveMatch(null);
     }
     settlingRef.current = false;
@@ -849,7 +849,7 @@ export default function App() {
               <div className="bg-bg-100 rounded-2xl border border-bg-300 p-8 text-center space-y-4" role="alert">
                 <h2 className="text-xl font-bold text-text-100">No se pudo resolver la partida</h2>
                 <p className="text-sm text-text-200">{matchError}</p>
-                <button
+                <button 
                   type="button"
                   onClick={reloadHome}
                   className="bg-primary-100 hover:bg-primary-200 text-white px-6 py-3 rounded-xl font-bold"
