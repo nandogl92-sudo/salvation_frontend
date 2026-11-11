@@ -241,14 +241,11 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 disabled={menuLocked}
                 onClick={handleOpenProfile}
                 onKeyDown={(event) => handleActivateKey(event, handleOpenProfile)}
-                className="relative inline-flex items-center justify-center w-8 h-8 rounded-full border border-[#d5dcf0] text-white text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40"
+                className={`relative inline-flex items-center justify-center w-8 h-8 rounded-full border text-white text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 ${profileAlert ? 'border-[#3ec8ff]' : 'border-[#d5dcf0]'}`}
               >
                 <span aria-hidden="true">{initial}</span>
                 {profileAlert && (
-                  <span className="absolute -right-1 -top-1 flex h-3 w-3" aria-hidden="true">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3ec8ff] opacity-75" />
-                    <span className="relative inline-flex h-3 w-3 rounded-full bg-[#3ec8ff]" />
-                  </span>
+                  <span className="pointer-events-none absolute inset-0 rounded-full border-2 border-[#3ec8ff] animate-ping" aria-hidden="true" />
                 )}
                 <span
                   aria-hidden="true"
