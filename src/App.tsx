@@ -18,6 +18,7 @@ import AdminPanel from './admin/AdminPanel';
 import Navbar from './components/layout/Navbar';
 import HomeLanding from './components/home/HomeLanding';
 import SubscriptionPayDialog from './components/home/SubscriptionPayDialog';
+import RankedWaitDialog from './components/play/RankedWaitDialog';
 import LobbyPanel from './components/lobby/LobbyPanel';
 import GameResultPanel, { type GameResult } from './components/play/GameResultPanel';
 import PlayingArena from './components/play/PlayingArena';
@@ -767,6 +768,9 @@ export default function App() {
           onClose={() => setSubscriptionOpen(false)}
           onPaid={() => setSubscriptionOpen(false)}
         />
+      )}
+      {currentUser && (
+        <RankedWaitDialog userId={currentUser.id} hidden={view === 'playing'} />
       )}
 
       <Navbar

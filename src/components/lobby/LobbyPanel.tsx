@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertCircle, LoaderCircle, WifiOff } from 'lucide-react'
+import { AlertCircle, Check, LoaderCircle, WifiOff } from 'lucide-react'
 import { type ActivePlayer, type FriendlyLookResult } from '../../api/matchmakingApi'
+import { getTodayRaffle, type RaffleSeat } from '../../api/raffleApi'
 import { isCurrentSubscriptionMonth } from '../../api/subscriptionsApi'
 import type { Game, PlayMode, QueueStatus, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
@@ -125,6 +126,7 @@ const LobbyPanel = ({
   const [selectedRivalId, setSelectedRivalId] = useState<string | null>(null)
   const [accessCode, setAccessCode] = useState('')
   const [codeError, setCodeError] = useState<string | null>(null)
+  const [raffleSeats, setRaffleSeats] = useState<RaffleSeat[] | null>(null)
   const [friendlyOpen, setFriendlyOpen] = useState(!canRanked)
   const [friendlyConnected, setFriendlyConnected] = useState(false)
   const [playerQuery, setPlayerQuery] = useState('')
@@ -208,6 +210,34 @@ const LobbyPanel = ({
     setInvite(null)
     lookStampRef.current += 1
     void lookRef.current(current.id, lookStampRef.current, 0, true)
+  }
+
+  useEffect(() => {
+    if (!isRanked) return
+    let stopped = false
+    const load = () => {
+      void getTodayRaffle().then((result) => {
+        if (stopped || !result.ok) return
+        setRaffleSeats(result.raffle.seats)
+      })
+    }
+    load()
+    const timer = window.setInterval(load, 8000)
+    return () => {
+      stopped = true
+      window.clearInterval(timer)
+    }
+  }, [isRanked])
+
+  const rankedCode = accessCode.trim().toUpperCase()
+  const rankedSeat = rankedCode.length === 0 || !raffleSeats
+    ? null
+    : raffleSeats.find((seat) => seat.yours && seat.code === rankedCode) ?? null
+  const rankedCodeMiss = isRanked && raffleSeats !== null && rankedCode.length >= 6 && !rankedSeat
+
+  const handleTickRival = () => {
+    if (!rankedSeat || isInvalidBet || isSearching) return
+    onRetry(true, rankedCode)
   }
 
   const handleRetryRivals = () => {
@@ -391,6 +421,26 @@ const LobbyPanel = ({
             {codeError && (
               <p className="text-sm text-red-500" role="alert">{codeError}</p>
             )}
+            {rankedCodeMiss && (
+              <p className="text-sm text-red-500" role="alert">El código no es correcto.</p>
+            )}
+            {rankedSeat?.rivalName && (
+              <button
+                type="button"
+                aria-label={`Marcar a ${rankedSeat.rivalName}`}
+                tabIndex={0}
+                onClick={handleTickRival}
+                onKeyDown={(event) => handleActivateKey(event, handleTickRival)}
+                disabled={isInvalidBet}
+                className="w-full flex items-center justify-between gap-3 rounded-xl border border-[#3ec8ff] bg-[#0e1528] px-4 py-3 text-left disabled:opacity-60"
+              >
+                <span className="font-bold text-text-100">{rankedSeat.rivalName}</span>
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#f5c518]">
+                  <Check className="w-4 h-4" aria-hidden="true" />
+                  Marcar
+                </span>
+              </button>
+            )}
           </div>
         )}
 
@@ -484,7 +534,7 @@ const LobbyPanel = ({
                 />
               </>
             )}
-            {!(!isRanked && friendlyOpen) && (
+            {!(isRanked || friendlyOpen) && (
               <button
                 type="button"
                 aria-label={playLabel}
