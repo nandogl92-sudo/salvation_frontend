@@ -11,10 +11,9 @@ type PlayingArenaProps = {
   gameId?: string
   stickSide?: 'left' | 'right'
   children: ReactNode
-  controlsHint?: string
 }
 
-const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, stickSide, children, controlsHint }: PlayingArenaProps) => {
+const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, stickSide, children }: PlayingArenaProps) => {
   const opponentName = opponent?.username ?? 'Rival'
   const opponentLabel = opponent?.username === 'Bot de prueba (modo prueba)'
     ? 'Bot de prueba (modo prueba)'
@@ -98,13 +97,6 @@ const PlayingArena = ({ username, opponent, betAmount, isRanked, gameId, stickSi
         </div>
         {gameId ? <TouchControls gameId={gameId} stickSide={stickSide} /> : null}
       </div>
-      <p className="shrink-0 text-center text-xs text-text-200 [@media(orientation:landscape)_and_(max-height:520px)]:hidden">
-        {controlsHint ?? (
-          <>
-            Controles — <b>P1</b>: WASD / Espacio | <b>P2</b>: Flechas / Enter
-          </>
-        )}
-      </p>
     </div>
   )
 }

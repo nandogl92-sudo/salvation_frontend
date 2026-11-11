@@ -861,14 +861,6 @@ export default function App() {
                 isRanked={Boolean(activeMatch?.isRanked)}
                 gameId={selectedGame.id}
                 stickSide={activeMatch?.world?.localSide === 'p2' ? 'right' : 'left'}
-                controlsHint={
-                  selectedGame.id === 'pong'
-                    ? 'Tu pala: W y S, o flecha arriba y abajo.'
-                    : selectedGame.id === 'combat'
-                      ? 'Tu paracaídas: A y D, o flecha izquierda y derecha.'
-                      : selectedGame.id === 'snake'
-                        ? 'Impulso: Espacio, flecha arriba, el botón o un toque. El aro de tu color baja un punto. El del otro color, o el borde, lo sube.'
-                        : 'Gira con flecha izquierda y flecha derecha. El coche va solo. El borde naranja te devuelve al centro.'}
               >
                 {renderGame()}
               </PlayingArena>
