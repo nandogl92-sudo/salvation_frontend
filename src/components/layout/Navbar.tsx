@@ -37,6 +37,8 @@ const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
 
 const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, onLogout, onNavigate, compact = false, menuLocked = false, menuNote = null, immersive = false, profileOpen = false }: NavbarProps) => {
   const headerRef = useRef<HTMLElement>(null)
+  const authButtonsRef = useRef<HTMLDivElement>(null)
+  const authPanelRef = useRef<HTMLDivElement>(null)
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState<AuthMode>('register')
   const [panelBox, setPanelBox] = useState({ top: 72, maxHeight: 480 })
@@ -80,6 +82,19 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
     if (!user) return
     setAuthOpen(false)
   }, [user])
+
+  useEffect(() => {
+    if (!authOpen) return
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (authPanelRef.current?.contains(target)) return
+      if (authButtonsRef.current?.contains(target)) return
+      setAuthOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [authOpen])
 
   useLayoutEffect(() => {
     if (!authOpen) return
@@ -198,7 +213,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
 
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {showAuth && (
-            <>
+            <div ref={authButtonsRef} className="flex items-center gap-1 sm:gap-2">
               <button
                 type="button"
                 aria-label="Crear usuario"
@@ -206,10 +221,9 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 tabIndex={0}
                 onClick={handleOpenRegister}
                 onKeyDown={(event) => handleActivateKey(event, handleOpenRegister)}
-                className={`px-2 sm:px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide ${registerClass}`}
+                className={`px-2 sm:px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide whitespace-nowrap ${registerClass}`}
               >
-                <span className="sm:hidden">Crear</span>
-                <span className="hidden sm:inline">Crear usuario</span>
+                Crear usuario
               </button>
               <button
                 type="button"
@@ -223,7 +237,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 <span className="sm:hidden">Entrar</span>
                 <span className="hidden sm:inline">Iniciar sesión</span>
               </button>
-            </>
+            </div>
           )}
           {user && (
             <>
@@ -247,10 +261,6 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 {profileAlert && (
                   <span className="pointer-events-none absolute inset-0 rounded-full border-2 border-[#3ec8ff] animate-ping" aria-hidden="true" />
                 )}
-                <span
-                  aria-hidden="true"
-                  className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full border border-[#0c1224] bg-green-500"
-                />
               </button>
               {user.role === 'admin' && (
                 <button
@@ -287,6 +297,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
       )}
       {showAuth && authOpen && createPortal(
         <div
+          ref={authPanelRef}
           className="fixed z-50 left-3 right-3 overflow-y-auto overscroll-contain sm:left-auto sm:right-4 sm:w-[360px]"
           style={{ top: panelBox.top, maxHeight: panelBox.maxHeight }}
         >

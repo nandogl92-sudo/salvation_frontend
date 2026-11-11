@@ -276,7 +276,9 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
           ? 'Al registrarte, recibes 100 fichas para jugar.'
           : isRecovering
             ? 'El enlace llega al correo. La contraseña no cambia hasta que lo abras.'
-            : '¿No tienes cuenta? Cambia a la pestaña Registrarse.'}
+            : hideTabs
+              ? '¿No tienes cuenta? Pulsa Crear usuario.'
+              : '¿No tienes cuenta? Cambia a Crear usuario.'}
       </p>
     </div>
   );
