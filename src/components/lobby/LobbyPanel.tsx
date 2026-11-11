@@ -40,12 +40,12 @@ const FriendlyPicker = ({
         className="w-full rounded-xl border border-bg-300 bg-bg-200 px-4 py-3 text-sm text-text-100"
       />
       <p className="text-xs text-text-200">
-        Solo aparecen quienes tienen abierto el buscador de este juego.
+        Solo aparecen quienes tienen abierto Amistoso en este mismo juego.
       </p>
       {error && <p className="text-sm text-red-500" role="alert">{error}</p>}
       {shown.length === 0 && (
         <p className="text-sm text-text-200" role="status">
-          No hay otros jugadores activos ahora. El rival tiene que pulsar Jugar en Amistoso, en este mismo juego.
+          No hay otros jugadores activos ahora. El rival tiene que entrar en Amistoso, en este mismo juego.
         </p>
       )}
       {shown.length > 0 && (
@@ -122,7 +122,8 @@ const LobbyPanel = ({
   const [selectedRivalId, setSelectedRivalId] = useState<string | null>(null)
   const [accessCode, setAccessCode] = useState('')
   const [codeError, setCodeError] = useState<string | null>(null)
-  const [friendlyOpen, setFriendlyOpen] = useState(false)
+  const [friendlyOpen, setFriendlyOpen] = useState(!canRanked)
+  const [friendlyConnected, setFriendlyConnected] = useState(false)
   const [playerQuery, setPlayerQuery] = useState('')
   const [activeUsers, setActiveUsers] = useState<ActivePlayer[]>([])
   const [friendlyError, setFriendlyError] = useState<string | null>(null)
@@ -143,6 +144,7 @@ const LobbyPanel = ({
   const handleSelectRanked = () => {
     if (!canRanked || isSearching) return
     setFriendlyOpen(false)
+    setFriendlyConnected(false)
     onFriendlyStop()
     setPlayMode('ranked')
     setSelectedRivalId(null)
@@ -152,7 +154,7 @@ const LobbyPanel = ({
   const handleSelectFriendly = () => {
     if (isSearching) return
     setPlayMode('friendly')
-    setFriendlyOpen(false)
+    setFriendlyOpen(true)
     setSelectedRivalId(null)
     setWaitingName(null)
   }
@@ -215,10 +217,12 @@ const LobbyPanel = ({
       inFlight = false
       if (stopped || (result.ok && result.status === 'matched')) return
       if (!result.ok) {
+        setFriendlyConnected(false)
         setFriendlyError(result.message)
         return
       }
       setActiveUsers(result.users)
+      setFriendlyConnected(true)
       setFriendlyError(null)
     }
     void tick()
@@ -431,13 +435,20 @@ const LobbyPanel = ({
               </div>
             )}
             {!isRanked && friendlyOpen && (
-              <FriendlyPicker
-                query={playerQuery}
-                users={activeUsers}
-                error={friendlyError}
-                onQuery={handlePlayerQuery}
-                onChoose={handleChoosePlayer}
-              />
+              <>
+                {friendlyConnected && (
+                  <p className="text-sm font-bold text-accent-100" role="status">
+                    Estás conectado a {selectedGame.name}.
+                  </p>
+                )}
+                <FriendlyPicker
+                  query={playerQuery}
+                  users={activeUsers}
+                  error={friendlyError}
+                  onQuery={handlePlayerQuery}
+                  onChoose={handleChoosePlayer}
+                />
+              </>
             )}
             {!(!isRanked && friendlyOpen) && (
               <button
