@@ -10,49 +10,29 @@ import { handleActivateKey } from '../utils/handleActivateKey'
 import { usePointsRanking } from '../home/usePointsRanking'
 
 const FriendlyPicker = ({
-  query,
   users,
   error,
-  onQuery,
   onChoose,
 }: {
-  query: string
   users: ActivePlayer[]
   error: string | null
-  onQuery: (event: ChangeEvent<HTMLInputElement>) => void
   onChoose: (player: ActivePlayer) => void
 }) => {
-  const needle = query.trim().toLowerCase()
-  const shown = needle === ''
-    ? users
-    : users.filter((user) => user.username.toLowerCase().includes(needle))
-
   return (
     <div className="space-y-3">
-      <label htmlFor="friendly-player-search" className="block text-sm font-bold text-text-100">
-        Jugadores activos
-      </label>
-      <input
-        id="friendly-player-search"
-        type="search"
-        value={query}
-        aria-label="Buscar jugador activo"
-        placeholder="Buscar jugador"
-        onChange={onQuery}
-        className="w-full rounded-xl border border-bg-300 bg-bg-200 px-4 py-3 text-sm text-text-100"
-      />
+      <p className="text-sm font-bold text-text-100">Jugadores activos</p>
       <p className="text-xs text-text-200">
         Solo aparecen quienes tienen abierto Amistoso en este mismo juego.
       </p>
       {error && <p className="text-sm text-red-500" role="alert">{error}</p>}
-      {shown.length === 0 && (
+      {users.length === 0 && (
         <p className="text-sm text-text-200" role="status">
           No hay otros jugadores activos ahora. El rival tiene que entrar en Amistoso, en este mismo juego.
         </p>
       )}
-      {shown.length > 0 && (
+      {users.length > 0 && (
         <div className="max-h-48 overflow-y-auto space-y-2" role="listbox" aria-label="Jugadores activos">
-          {shown.map((user) => {
+          {users.map((user) => {
             const handleChoose = () => {
               onChoose(user)
             }
@@ -129,7 +109,6 @@ const LobbyPanel = ({
   const [raffleSeats, setRaffleSeats] = useState<RaffleSeat[] | null>(null)
   const [friendlyOpen, setFriendlyOpen] = useState(!canRanked)
   const [friendlyConnected, setFriendlyConnected] = useState(false)
-  const [playerQuery, setPlayerQuery] = useState('')
   const [activeUsers, setActiveUsers] = useState<ActivePlayer[]>([])
   const [friendlyError, setFriendlyError] = useState<string | null>(null)
   const [waitingName, setWaitingName] = useState<string | null>(null)
@@ -171,10 +150,6 @@ const LobbyPanel = ({
   const handleAccessCode = (event: ChangeEvent<HTMLInputElement>) => {
     setAccessCode(event.target.value.toUpperCase())
     setCodeError(null)
-  }
-
-  const handlePlayerQuery = (event: ChangeEvent<HTMLInputElement>) => {
-    setPlayerQuery(event.target.value)
   }
 
   const handlePlay = () => {
@@ -526,10 +501,8 @@ const LobbyPanel = ({
                   </p>
                 )}
                 <FriendlyPicker
-                  query={playerQuery}
                   users={activeUsers}
                   error={friendlyError}
-                  onQuery={handlePlayerQuery}
                   onChoose={handleChoosePlayer}
                 />
               </>
