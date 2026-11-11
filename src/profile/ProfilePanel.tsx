@@ -1,4 +1,4 @@
-import { Trophy, AlertCircle, TrendingUp, TrendingDown, Gamepad2, RefreshCcw } from 'lucide-react';
+import { Trophy, TrendingUp, TrendingDown, Gamepad2, RefreshCcw } from 'lucide-react';
 import type { MatchHistoryRecord, UserProfile } from '../types';
 import { formatPoints } from '../components/utils/formatPoints';
 import { monthPointsOf } from '../components/utils/monthPointsOf';
@@ -43,7 +43,7 @@ function HistoryRow({ record }: { record: MatchHistoryRecord }) {
   const isRefund = record.result === 'refund';
 
   return (
-    <div className="flex items-center justify-between py-3 border-b border-bg-300 last:border-0">
+    <div className="flex items-center justify-between px-4 py-3 border-b border-bg-300 last:border-0">
       <div className="flex items-center gap-3">
         <div
           className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
@@ -54,18 +54,12 @@ function HistoryRow({ record }: { record: MatchHistoryRecord }) {
               : 'bg-primary-100/10 text-primary-100'
           }`}
         >
-          {isRefund ? (
-            <RefreshCcw className="w-4 h-4" />
-          ) : isWin ? (
-            <Trophy className="w-4 h-4" />
-          ) : (
-            <AlertCircle className="w-4 h-4" />
-          )}
+          {isRefund ? <RefreshCcw className="w-4 h-4" /> : <Trophy className="w-4 h-4" />}
         </div>
         <div>
           <p className="text-sm font-bold text-text-100">{record.gameName}</p>
           <p className="text-xs text-text-200">
-            {RESULT_LABELS[record.result]} · {formatPoints(record.betAmount)} fichas
+            {RESULT_LABELS[record.result]} · {formatPoints(record.betAmount)} ficha
           </p>
         </div>
       </div>
@@ -75,9 +69,7 @@ function HistoryRow({ record }: { record: MatchHistoryRecord }) {
             isRefund ? 'text-text-200' : isWin ? 'text-accent-100' : 'text-primary-100'
           }`}
         >
-          {isRefund
-            ? 'Reembolsado'
-            : `${isWin ? '+' : ''}${formatPoints(record.profit)} fichas`}
+          {isRefund ? 'Reembolsado' : isWin ? '+ ficha' : '- ficha'}
         </p>
         <p className="text-xs text-text-200">
           {new Date(record.playedAt).toLocaleDateString('es-ES', {
