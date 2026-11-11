@@ -1,4 +1,4 @@
-import { Trophy, TrendingUp, TrendingDown, Gamepad2, RefreshCcw } from 'lucide-react';
+import { Trophy, Gamepad2, RefreshCcw } from 'lucide-react';
 import type { MatchHistoryRecord, UserProfile } from '../types';
 import { formatPoints } from '../components/utils/formatPoints';
 import { monthPointsOf } from '../components/utils/monthPointsOf';
@@ -10,6 +10,75 @@ const RESULT_LABELS: Record<MatchHistoryRecord['result'], string> = {
   loss: 'Derrota',
   refund: 'Reembolso',
 };
+
+const CHIPS_PER_PLAY_DAY = 2;
+
+const madridCalendar = (): { year: number; month: number; day: number } => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(new Date());
+  const read = (type: string): number => Number(parts.find((part) => part.type === type)?.value ?? '1');
+  return { year: read('year'), month: read('month'), day: read('day') };
+};
+
+const isMonthPlayDay = (day: number): boolean => {
+  const index = day <= 7 ? day - 1 : day <= 14 ? day - 8 : day <= 21 ? day - 15 : day - 22;
+  return index === 0 || index === 2 || index === 4;
+};
+
+const chipsLeftForMonth = (balance: number): { enough: boolean; note: string } => {
+  const { year, month, day } = madridCalendar();
+  const lastDay = new Date(year, month, 0).getDate();
+  let playDays = 0;
+  for (let cursor = day; cursor <= lastDay; cursor += 1) {
+    if (isMonthPlayDay(cursor)) playDays += 1;
+  }
+  const needed = playDays * CHIPS_PER_PLAY_DAY;
+  if (needed === 0) return { enough: true, note: 'Este mes ya no quedan partidas.' };
+  if (balance >= needed) return { enough: true, note: 'Hay fichas para las partidas que quedan este mes.' };
+  return { enough: false, note: 'Faltan fichas para las partidas que quedan este mes.' };
+};
+
+const chipPileOf = (balance: number): { count: number; size: string } | null => {
+  if (balance <= 0) return null;
+  if (balance <= 25) return { count: 1, size: 'w-4 h-4' };
+  if (balance <= 50) return { count: 2, size: 'w-5 h-5' };
+  if (balance <= 75) return { count: 3, size: 'w-6 h-6' };
+  return { count: 4, size: 'w-8 h-8' };
+};
+
+function ChipPile({ balance }: { balance: number }) {
+  const pile = chipPileOf(balance);
+  if (!pile) return null;
+  return (
+    <div className="flex flex-col items-center" aria-hidden="true">
+      {Array.from({ length: pile.count }, (_, index) => (
+        <span
+          key={index}
+          className={`${pile.size} rounded-full border-2 border-[#a68410] bg-[#f5c518] ${index === 0 ? '' : '-mt-2'}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ChipBalanceCard({ balance }: { balance: number }) {
+  const cover = chipsLeftForMonth(balance);
+  const cardClass = cover.enough ? 'bg-accent-200 text-accent-100' : 'bg-primary-300 text-primary-100';
+  return (
+    <div className={`${cardClass} rounded-2xl p-5 flex items-center justify-between`}>
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest">Fichas para jugar</p>
+        <p className="text-3xl font-bold">{formatPoints(balance)}</p>
+        <p className="text-xs mt-1">{cover.note}</p>
+      </div>
+      <ChipPile balance={balance} />
+    </div>
+  );
+}
 
 function StatCard({
   label,
@@ -158,18 +227,7 @@ export default function ProfilePanel({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-primary-300 rounded-2xl p-5 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-primary-100 uppercase tracking-widest">Fichas para jugar</p>
-            <p className="text-3xl font-bold text-primary-100">{formatPoints(user.balance)}</p>
-            <p className="text-xs text-primary-100 mt-1">No dan puesto en el premio</p>
-          </div>
-          {stats.totalProfit >= 0 ? (
-            <TrendingUp className="w-8 h-8 text-primary-100 opacity-50" />
-          ) : (
-            <TrendingDown className="w-8 h-8 text-primary-100 opacity-50" />
-          )}
-        </div>
+        <ChipBalanceCard balance={user.balance} />
         <div className="bg-bg-100 rounded-2xl border border-bg-300 p-5">
           <p className="text-xs font-bold text-text-200 uppercase tracking-widest">Puntos del mes</p>
           <p className="text-3xl font-bold text-text-100">{formatPoints(monthPointsOf(user))}</p>
