@@ -405,13 +405,25 @@ export default function App() {
     setQueueStatus('searching');
   };
 
-  const lookForFriendly = async (rivalUserId: string | null, stamp: number): Promise<FriendlyLookResult> => {
+  const endFriendlyWait = () => {
+    setQueueHold(null);
+    setQueueStatus('idle');
+  };
+
+  const lookForFriendly = async (
+    rivalUserId: string | null,
+    stamp: number,
+    requestStamp: number,
+    reject: boolean,
+  ): Promise<FriendlyLookResult> => {
     if (!currentUser || !selectedGame) return { ok: false, message: 'No hay una partida preparada.' };
     const result = await offerFriendly({
       gameId: selectedGame.id,
       betAmount,
       rivalUserId,
       stamp,
+      requestStamp,
+      reject,
     });
     if (!result.ok || result.status !== 'matched') return result;
     if (friendlyEnteredRef.current) return result;
@@ -813,6 +825,7 @@ export default function App() {
             queueHold={queueHold}
             currentUser={currentUser}
             onBeginFriendlyWait={beginFriendlyWait}
+            onEndFriendlyWait={endFriendlyWait}
             onFriendlyLook={lookForFriendly}
             onFriendlyStop={() => {
               void leaveFriendly();

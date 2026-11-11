@@ -269,9 +269,16 @@ export type ActivePlayer = {
 }
 
 export type FriendlyLookResult =
-  | { ok: true; status: 'waiting'; users: ActivePlayer[] }
+  | { ok: true; status: 'waiting'; users: ActivePlayer[]; invite: ActivePlayer | null; declined: ActivePlayer | null }
   | { ok: true; status: 'matched'; match: MatchRecord; opponent: MatchPlayer; world: RankedWorld | null }
   | { ok: false; message: string }
+
+const readActivePlayer = (value: unknown): ActivePlayer | null => {
+  if (!value || typeof value !== 'object') return null
+  const player = value as { id?: unknown; username?: unknown }
+  if (typeof player.id !== 'string' || typeof player.username !== 'string') return null
+  return { id: player.id, username: player.username }
+}
 
 const readActivePlayers = (value: unknown): ActivePlayer[] => {
   if (!Array.isArray(value)) return []
@@ -288,6 +295,8 @@ export const offerFriendly = async (input: {
   betAmount: number
   rivalUserId: string | null
   stamp: number
+  requestStamp: number
+  reject: boolean
 }): Promise<FriendlyLookResult> => {
   try {
     const response = await request('/matchmaking/friendly', {
@@ -297,13 +306,21 @@ export const offerFriendly = async (input: {
         betAmount: input.betAmount,
         rivalUserId: input.rivalUserId,
         stamp: input.stamp,
+        requestStamp: input.requestStamp,
+        reject: input.reject,
       }),
     })
     if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
 
-    const body = (await response.json()) as ApiPoll & { users?: unknown }
+    const body = (await response.json()) as ApiPoll & { users?: unknown; invite?: unknown; declined?: unknown }
     if (body.status === 'waiting') {
-      return { ok: true, status: 'waiting', users: readActivePlayers(body.users) }
+      return {
+        ok: true,
+        status: 'waiting',
+        users: readActivePlayers(body.users),
+        invite: readActivePlayer(body.invite),
+        declined: readActivePlayer(body.declined),
+      }
     }
     if (body.status !== 'matched' || !body.match || !body.rival) {
       return { ok: false, message: 'La respuesta de la partida no tiene la forma esperada.' }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { AlertCircle, LoaderCircle, WifiOff } from 'lucide-react'
 import { type ActivePlayer, type FriendlyLookResult } from '../../api/matchmakingApi'
 import { isCurrentSubscriptionMonth } from '../../api/subscriptionsApi'
@@ -95,7 +96,8 @@ type LobbyPanelProps = {
   queueHold: string | null
   currentUser: UserProfile
   onBeginFriendlyWait: () => void
-  onFriendlyLook: (rivalUserId: string | null, stamp: number) => Promise<FriendlyLookResult>
+  onEndFriendlyWait: () => void
+  onFriendlyLook: (rivalUserId: string | null, stamp: number, requestStamp: number, reject: boolean) => Promise<FriendlyLookResult>
   onFriendlyStop: () => void
 }
 
@@ -110,6 +112,7 @@ const LobbyPanel = ({
   queueHold,
   currentUser,
   onBeginFriendlyWait,
+  onEndFriendlyWait,
   onFriendlyLook,
   onFriendlyStop,
 }: LobbyPanelProps) => {
@@ -128,11 +131,15 @@ const LobbyPanel = ({
   const [activeUsers, setActiveUsers] = useState<ActivePlayer[]>([])
   const [friendlyError, setFriendlyError] = useState<string | null>(null)
   const [waitingName, setWaitingName] = useState<string | null>(null)
+  const [invite, setInvite] = useState<ActivePlayer | null>(null)
   const lookRef = useRef(onFriendlyLook)
   const lookStampRef = useRef(0)
+  const requestStampRef = useRef(0)
   const stopRef = useRef(onFriendlyStop)
+  const endWaitRef = useRef(onEndFriendlyWait)
   lookRef.current = onFriendlyLook
   stopRef.current = onFriendlyStop
+  endWaitRef.current = onEndFriendlyWait
   const { status: rivalsStatus, ranking, error: rivalsError, retry } = usePointsRanking(
     currentUser,
     !isSearching && playMode === 'ranked',
@@ -186,10 +193,21 @@ const LobbyPanel = ({
   }
 
   const handleChoosePlayer = (player: ActivePlayer) => {
+    lookStampRef.current += 1
+    requestStampRef.current = lookStampRef.current
+    setInvite(null)
     setSelectedRivalId(player.id)
     setWaitingName(player.username)
     setFriendlyError(null)
     onBeginFriendlyWait()
+  }
+
+  const handleCancelInvite = () => {
+    const current = invite
+    if (!current) return
+    setInvite(null)
+    lookStampRef.current += 1
+    void lookRef.current(current.id, lookStampRef.current, 0, true)
   }
 
   const handleRetryRivals = () => {
@@ -213,7 +231,13 @@ const LobbyPanel = ({
       if (stopped || inFlight) return
       inFlight = true
       lookStampRef.current += 1
-      const result = await lookRef.current(isSearching ? selectedRivalId : null, lookStampRef.current)
+      const rivalId = isSearching ? selectedRivalId : null
+      const result = await lookRef.current(
+        rivalId,
+        lookStampRef.current,
+        rivalId ? requestStampRef.current : 0,
+        false,
+      )
       inFlight = false
       if (stopped || (result.ok && result.status === 'matched')) return
       if (!result.ok) {
@@ -223,7 +247,16 @@ const LobbyPanel = ({
       }
       setActiveUsers(result.users)
       setFriendlyConnected(true)
-      setFriendlyError(null)
+      setInvite(result.invite && result.invite.id !== selectedRivalId ? result.invite : null)
+      if (result.declined) {
+        requestStampRef.current = 0
+        setSelectedRivalId(null)
+        setWaitingName(null)
+        endWaitRef.current()
+        setFriendlyError(`${result.declined.username} ha cancelado la solicitud.`)
+        return
+      }
+      setFriendlyError((current) => (current?.includes('ha cancelado la solicitud') ? current : null))
     }
     void tick()
     const timer = window.setInterval(() => {
@@ -255,6 +288,7 @@ const LobbyPanel = ({
   const playLabel = isRanked ? 'Buscar a otra persona' : 'Jugar amistoso'
 
   return (
+    <>
     <div className="max-w-md mx-auto bg-bg-100 rounded-3xl shadow-sm border border-bg-300 p-8 animate-fade-in">
       <div className="text-center mb-8">
         {GAME_POSTER[selectedGame.id] ? (
@@ -377,7 +411,7 @@ const LobbyPanel = ({
                   : isRanked
                     ? 'Buscando a otra persona…'
                     : waitingName
-                      ? `Buscando partida con ${waitingName}. Empieza cuando esa persona te seleccione.`
+                      ? `Esperando a que ${waitingName} acepte.`
                       : 'Buscando partida…'}
               </span>
             </div>
@@ -480,6 +514,42 @@ const LobbyPanel = ({
         )}
       </div>
     </div>
+    {invite && createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Solicitud de ${invite.username}`}
+          className="w-full max-w-sm rounded-2xl border border-[#3ec8ff] bg-[#0e1528] p-5 space-y-4"
+        >
+          <p className="text-base font-bold text-white">{invite.username} quiere jugar contigo.</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              aria-label={`Aceptar partida con ${invite.username}`}
+              tabIndex={0}
+              onClick={() => handleChoosePlayer(invite)}
+              onKeyDown={(event) => handleActivateKey(event, () => handleChoosePlayer(invite))}
+              className="flex-1 py-3 rounded-xl font-bold bg-[#f5c518] text-[#1a1403]"
+            >
+              Aceptar
+            </button>
+            <button
+              type="button"
+              aria-label="Cancelar solicitud"
+              tabIndex={0}
+              onClick={handleCancelInvite}
+              onKeyDown={(event) => handleActivateKey(event, handleCancelInvite)}
+              className="flex-1 py-3 rounded-xl font-bold bg-bg-200 text-text-100"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )}
+    </>
   )
 }
 
