@@ -209,9 +209,12 @@ const LobbyPanel = ({
     ? null
     : raffleSeats.find((seat) => seat.yours && seat.code === rankedCode) ?? null
   const rankedCodeMiss = isRanked && raffleSeats !== null && rankedCode.length >= 6 && !rankedSeat
+  const rankedWrongGame = Boolean(
+    rankedSeat && rankedSeat.games.length > 0 && !rankedSeat.games.includes(selectedGame.id),
+  )
 
   const handleTickRival = () => {
-    if (!rankedSeat || isInvalidBet || isSearching) return
+    if (!rankedSeat || rankedWrongGame || isInvalidBet || isSearching) return
     onRetry(true, rankedCode)
   }
 
@@ -399,7 +402,10 @@ const LobbyPanel = ({
             {rankedCodeMiss && (
               <p className="text-sm text-red-500" role="alert">El código no es correcto.</p>
             )}
-            {rankedSeat?.rivalName && (
+            {rankedWrongGame && (
+              <p className="text-sm text-red-500" role="alert">Hoy no te toca ese juego.</p>
+            )}
+            {rankedSeat?.rivalName && !rankedWrongGame && (
               <button
                 type="button"
                 aria-label={`Marcar a ${rankedSeat.rivalName}`}

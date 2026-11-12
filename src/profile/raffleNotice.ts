@@ -2,7 +2,11 @@ import type { DailyRaffle } from '../api/raffleApi'
 
 const noticeKey = (userId: string): string => `frizeplay.raffle.notice.${userId}`
 
-const hasProfileMessage = (raffle: DailyRaffle): boolean => raffle.youRest || Boolean(raffle.tiebreakNote)
+const hourToConfirm = (raffle: DailyRaffle): boolean =>
+  raffle.seats.some((seat) => seat.yours && seat.agreedHour === null && seat.rivalHour !== null && seat.yourHour === null)
+
+const hasProfileMessage = (raffle: DailyRaffle): boolean =>
+  raffle.youRest || Boolean(raffle.tiebreakNote) || hourToConfirm(raffle)
 
 export const noticeOf = (raffle: DailyRaffle): string => {
   const seats = raffle.seats
@@ -17,6 +21,7 @@ export const noticeOf = (raffle: DailyRaffle): string => {
       seat.waitingGameId ?? '',
       seat.waitingName ?? '',
       seat.waitingYours ? '1' : '0',
+      seat.agreedHour === null && seat.rivalHour !== null && seat.yourHour === null ? 'confirm' : '',
     ].join(':'))
     .join('|')
   return [raffle.day, raffle.youRest ? 'libre' : '', raffle.tiebreakNote ?? '', seats].join('#')
