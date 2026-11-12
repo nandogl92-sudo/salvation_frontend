@@ -555,16 +555,6 @@ const LobbyPanel = ({
           <div className="flex gap-2">
             <button
               type="button"
-              aria-label={`Aceptar partida con ${invite.username}`}
-              tabIndex={0}
-              onClick={() => handleChoosePlayer(invite)}
-              onKeyDown={(event) => handleActivateKey(event, () => handleChoosePlayer(invite))}
-              className="flex-1 py-3 rounded-xl font-bold bg-[#f5c518] text-[#1a1403]"
-            >
-              Aceptar
-            </button>
-            <button
-              type="button"
               aria-label="Cancelar solicitud"
               tabIndex={0}
               onClick={handleCancelInvite}
@@ -572,6 +562,16 @@ const LobbyPanel = ({
               className="flex-1 py-3 rounded-xl font-bold bg-bg-200 text-text-100"
             >
               Cancelar
+            </button>
+            <button
+              type="button"
+              aria-label={`Aceptar partida con ${invite.username}`}
+              tabIndex={0}
+              onClick={() => handleChoosePlayer(invite)}
+              onKeyDown={(event) => handleActivateKey(event, () => handleChoosePlayer(invite))}
+              className="flex-1 py-3 rounded-xl font-bold bg-[#f5c518] text-[#1a1403]"
+            >
+              Aceptar
             </button>
           </div>
         </div>

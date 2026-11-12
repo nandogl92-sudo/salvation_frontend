@@ -300,16 +300,29 @@ const sharpestTurn = (track: Track) => {
 };
 
 const startOnStraight = (track: Track): Track => {
-  let best = 0;
-  let bestCurve = 99;
-  for (let i = 0; i < track.pts.length; i += 1) {
-    const c = curveAt(track, track.cum[i]);
-    if (c < bestCurve) {
-      bestCurve = c;
-      best = i;
+  const n = track.pts.length;
+  const curve = track.cum.slice(0, n).map((distance) => Math.round(curveAt(track, distance) * 1000));
+  let best = curve[0] ?? 0;
+  for (let i = 1; i < n; i += 1) if (curve[i] < best) best = curve[i];
+  let run = 0;
+  let runAt = 0;
+  let bestRun = 0;
+  let bestAt = 0;
+  for (let i = 0; i < n * 2; i += 1) {
+    if (curve[i % n] !== best) {
+      run = 0;
+      continue;
+    }
+    if (run === 0) runAt = i;
+    run += 1;
+    if (run > n) continue;
+    if (run > bestRun) {
+      bestRun = run;
+      bestAt = runAt;
     }
   }
-  const earlier = (best - 6 + track.pts.length) % track.pts.length;
+  const mid = (bestAt + Math.floor(bestRun / 2)) % n;
+  const earlier = (mid - 6 + n) % n;
   return buildTrack(rotatePts(track.pts, earlier));
 };
 
@@ -399,7 +412,7 @@ const makeCar = (lane: number, color: string, dark: string, light: string, name:
   y: 0,
   angle: 0,
   speed: 0,
-  progress: 20,
+  progress: 0,
   lane,
   laps: 0,
   passedMid: false,
@@ -412,12 +425,12 @@ const makeCar = (lane: number, color: string, dark: string, light: string, name:
 });
 
 const placeCar = (car: Car, track: Track, recover: number) => {
-  const start = sample(track, 20);
+  const start = sample(track, 0);
   car.x = start.x + start.nx * car.lane;
   car.y = start.y + start.ny * car.lane;
   car.angle = Math.atan2(start.ty, start.tx);
   car.speed = 0;
-  car.progress = 20;
+  car.progress = 0;
   car.passedMid = false;
   car.recover = recover;
 };

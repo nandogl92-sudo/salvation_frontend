@@ -420,13 +420,16 @@ const drawHud = (ctx: Ctx, p1: PlaneUnit, p2: PlaneUnit) => {
   ctx.fillStyle = p1.color;
   ctx.font = `8px ${PIX}`;
   ctx.fillText(`${p1.name} ${p1.score}`, 16, 22);
-  ctx.fillStyle = '#94a3b8';
-  ctx.fillText(`CRECE ${p1.grows}/${MAX_GROWS}`, 16, 40);
+  ctx.fillStyle = '#f4f6fb';
+  ctx.font = 'bold 14px "DM Sans", sans-serif';
+  ctx.fillText(`DAÑO ${p1.grows}/${MAX_GROWS}`, 16, 42);
   ctx.textAlign = 'right';
   ctx.fillStyle = p2.color;
+  ctx.font = `8px ${PIX}`;
   ctx.fillText(`${p2.name} ${p2.score}`, 944, 22);
-  ctx.fillStyle = '#94a3b8';
-  ctx.fillText(`CRECE ${p2.grows}/${MAX_GROWS}`, 944, 40);
+  ctx.fillStyle = '#f4f6fb';
+  ctx.font = 'bold 14px "DM Sans", sans-serif';
+  ctx.fillText(`DAÑO ${p2.grows}/${MAX_GROWS}`, 944, 42);
   const meter = (x: number, grows: number, color: string) => {
     paint(ctx, x, 34, 120, 8, '#1e3a5f');
     const w = Math.round((grows / MAX_GROWS) * 116);

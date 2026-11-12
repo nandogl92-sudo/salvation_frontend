@@ -103,8 +103,6 @@ const drawHud = (
   rightScore: number,
   leftName = 'P1',
   rightName = 'P2',
-  leftHint = '',
-  rightHint = '',
 ) => {
   const y = 12;
   const h = 66;
@@ -114,10 +112,7 @@ const drawHud = (
   ctx.textAlign = 'left';
   ctx.font = '10px "Press Start 2P", monospace';
   ctx.fillStyle = CYAN;
-  ctx.fillText(leftName, 32, 34);
-  ctx.font = '8px "Press Start 2P", monospace';
-  ctx.fillStyle = '#9fb3c8';
-  ctx.fillText(leftHint, 32, 58);
+  ctx.fillText(leftName, 32, y + h / 2);
 
   const fade = ctx.createLinearGradient(324, 0, 636, 0);
   fade.addColorStop(0, CYAN);
@@ -139,10 +134,7 @@ const drawHud = (
   ctx.textAlign = 'right';
   ctx.font = '10px "Press Start 2P", monospace';
   ctx.fillStyle = ORANGE;
-  ctx.fillText(rightName, 928, 34);
-  ctx.font = '8px "Press Start 2P", monospace';
-  ctx.fillStyle = '#9fb3c8';
-  ctx.fillText(rightHint, 928, 58);
+  ctx.fillText(rightName, 928, y + h / 2);
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -452,13 +444,6 @@ export default function Pong({
     const them = otherSide(you);
     const names = { you: youName, rival: rivalName };
     const label = (side: 'p1' | 'p2', fallback: string) => sideLabel(world, side, fallback, names);
-    const hintFor = (side: 'p1' | 'p2') => {
-      if (!world && botEnabled && side === 'p2') return 'BOT';
-      const mine = world ? world.localSide === side : side === 'p1';
-      if (mine) return 'W / S';
-      if (!world && !botEnabled) return 'FLECHAS';
-      return '';
-    };
     const link = world ? startLiveInputs(world.matchId, world.localUserId) : null;
     const paddleStart = (PLAY_TOP + PLAY_BOTTOM - PADDLE_H) / 2;
     const minPaddle = PLAY_TOP;
@@ -771,8 +756,6 @@ export default function Pong({
         state.p2.score,
         label('p1', 'P1'),
         label('p2', 'P2'),
-        hintFor('p1'),
-        hintFor('p2'),
       );
       const yours = you === 'p1' ? { name: 'CIAN', hex: CYAN } : { name: 'NARANJA', hex: ORANGE };
       if (rankedWait) drawCountBanner(ctx, rankedWait, yours.name, yours.hex);
