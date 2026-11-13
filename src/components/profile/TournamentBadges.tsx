@@ -1,8 +1,8 @@
-import { Medal } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 
 type TournamentBadgesProps = {
   wins: number | undefined
-  /** En la barra cabe una medalla y el número. En la clasificación se ven hasta tres. */
+  /** En la barra cabe una copa y el número. En la clasificación se ven hasta tres. */
   compact?: boolean
 }
 
@@ -16,7 +16,7 @@ const TournamentBadges = ({ wins, compact = false }: TournamentBadgesProps) => {
   return (
     <span className="inline-flex items-center gap-0.5 shrink-0 text-[#f5c518]" aria-label={label} title={label}>
       {Array.from({ length: shown }, (_, index) => (
-        <Medal key={index} className="w-5 h-5 shrink-0" strokeWidth={2.25} aria-hidden="true" />
+        <Trophy key={index} className="w-5 h-5 shrink-0" strokeWidth={2.25} aria-hidden="true" />
       ))}
       {number > 0 && <span className="text-[10px] font-bold leading-none">{number}</span>}
     </span>
