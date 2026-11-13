@@ -264,7 +264,6 @@ export default function ProfilePanel({
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-text-200">
               <Gamepad2 className="w-8 h-8 opacity-40" />
               <p className="text-sm">{emptyHistory}</p>
-              <p className="text-xs">Las partidas vs bot no se guardan en el historial.</p>
             </div>
           ) : (
             visibleHistory.map((record) => <HistoryRow key={record.id} record={record} />)
