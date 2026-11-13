@@ -315,7 +315,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
               ? 'En el iPhone, añade Frizeplay a la pantalla de inicio para recibir avisos con la app cerrada.'
               : pushNote === 'blocked'
                 ? 'Los avisos están bloqueados en el navegador.'
-                : 'Activa los avisos para enterarte con el móvil cerrado.'}
+                : 'Activa los avisos para recibir notificaciones con la aplicación cerrada.'}
           </p>
           {pushNote === 'ask' && (
             <button
