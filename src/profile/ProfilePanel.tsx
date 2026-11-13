@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Trophy, Gamepad2, RefreshCcw } from 'lucide-react';
 import type { MatchHistoryRecord, UserProfile } from '../types';
 import { formatPoints } from '../components/utils/formatPoints';
+import { handleActivateKey } from '../components/utils/handleActivateKey';
 import { monthPointsOf } from '../components/utils/monthPointsOf';
 import DailyRaffle from './DailyRaffle';
 import { usePlayerStats } from './usePlayerStats';
@@ -84,18 +86,25 @@ function StatCard({
 function HistoryRow({ record }: { record: MatchHistoryRecord }) {
   const isWin = record.result === 'win';
   const isRefund = record.result === 'refund';
-  const chipLabel = isRefund
+  const pointLabel = isRefund
     ? 'Reembolsado'
-    : record.profit > 0
-      ? '+ ficha'
-      : record.profit < 0
-        ? '- ficha'
-        : 'Igual';
-  const chipClass = record.profit > 0
-    ? 'text-accent-100'
-    : record.profit < 0
-      ? 'text-primary-100'
-      : 'text-text-200';
+    : record.monthPoint > 0
+      ? '+ 1 punto mes'
+      : record.monthPoint < 0
+        ? '- 1 punto mes'
+        : 'Sin punto';
+  const chipLabel = record.ranked
+    ? pointLabel
+    : isRefund
+      ? 'Reembolsado'
+      : isWin
+        ? '+ ficha'
+        : '- ficha';
+  const chipClass = isRefund || (record.ranked && record.monthPoint === 0 && isWin)
+    ? 'text-text-200'
+    : isWin || record.monthPoint > 0
+      ? 'text-accent-100'
+      : 'text-primary-100';
 
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-bg-300 last:border-0">
@@ -143,6 +152,18 @@ export default function ProfilePanel({
   onBack: () => void;
 }) {
   const { status, stats, error, retry } = usePlayerStats(user.id);
+  const [historyTab, setHistoryTab] = useState<'ranked' | 'friendly'>('ranked');
+  const showRanked = () => setHistoryTab('ranked');
+  const showFriendly = () => setHistoryTab('friendly');
+  const visibleHistory = stats.history
+    .filter((record) => (historyTab === 'ranked' ? record.ranked : !record.ranked))
+    .slice(0, 10);
+  const emptyHistory = historyTab === 'ranked'
+    ? 'Aún no has jugado ninguna ranqueada.'
+    : 'Aún no has jugado ningún amistoso.';
+  const tabClass = (selected: boolean) => selected
+    ? 'bg-accent-100 text-white'
+    : 'bg-bg-200 text-text-100';
   const winRate =
     stats.totalGames > 0 ? Math.round((stats.wins / stats.totalGames) * 100) : 0;
   const handleRetry = () => {
@@ -212,15 +233,41 @@ export default function ProfilePanel({
       {/* Historial de partidas */}
       <div>
         <h2 className="text-lg font-bold text-text-100 mb-4">Últimas partidas</h2>
+        <div className="grid grid-cols-2 gap-2 mb-4" role="tablist" aria-label="Tipo de historial">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={historyTab === 'ranked'}
+            aria-label="Ver partidas ranqueadas"
+            tabIndex={0}
+            onClick={showRanked}
+            onKeyDown={(event) => handleActivateKey(event, showRanked)}
+            className={`py-3 rounded-xl text-sm font-bold ${tabClass(historyTab === 'ranked')}`}
+          >
+            Ranqueadas
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={historyTab === 'friendly'}
+            aria-label="Ver partidas amistosas"
+            tabIndex={0}
+            onClick={showFriendly}
+            onKeyDown={(event) => handleActivateKey(event, showFriendly)}
+            className={`py-3 rounded-xl text-sm font-bold ${tabClass(historyTab === 'friendly')}`}
+          >
+            Amistosas
+          </button>
+        </div>
         <div className="bg-bg-100 rounded-2xl border border-bg-300 divide-y divide-bg-300">
-          {stats.history.length === 0 ? (
+          {visibleHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-text-200">
               <Gamepad2 className="w-8 h-8 opacity-40" />
-              <p className="text-sm">Aún no has jugado ninguna partida oficial.</p>
+              <p className="text-sm">{emptyHistory}</p>
               <p className="text-xs">Las partidas vs bot no se guardan en el historial.</p>
             </div>
           ) : (
-            stats.history.map((record) => <HistoryRow key={record.id} record={record} />)
+            visibleHistory.map((record) => <HistoryRow key={record.id} record={record} />)
           )}
         </div>
       </div>

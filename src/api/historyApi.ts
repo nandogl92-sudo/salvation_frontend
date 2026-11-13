@@ -114,8 +114,8 @@ export const fetchPlayerHistory = async (userId: string): Promise<HistoryResult>
       return { ok: false, message: 'La respuesta del historial no tiene la forma esperada.' }
     }
 
-    const history = body.history.slice(0, 10).map((record) => {
-      const item = record as MatchHistoryRecord & { playedAt: string }
+    const history = body.history.map((record) => {
+      const item = record as MatchHistoryRecord & { playedAt: string; ranked?: unknown; monthPoint?: unknown }
       return {
         id: item.id,
         userId: item.userId,
@@ -124,6 +124,8 @@ export const fetchPlayerHistory = async (userId: string): Promise<HistoryResult>
         betAmount: item.betAmount,
         result: item.result,
         profit: item.profit,
+        ranked: item.ranked === true,
+        monthPoint: typeof item.monthPoint === 'number' ? item.monthPoint : 0,
         playedAt: Date.parse(item.playedAt),
       }
     })

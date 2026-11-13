@@ -7,6 +7,7 @@
 // ==========================================
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as authService from '../api/authApi';
+import { dropPush } from '../api/pushApi';
 import { ACCESS_STORAGE_KEY, applyAccountAccess } from './accessStore';
 import { setGamesAccess as patchGamesAccess } from '../api/usersApi';
 import type { PasswordChangeInput } from '../api/authApi';
@@ -111,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    await dropPush();
     await authService.logout();
     setUser(null);
     setError(null);

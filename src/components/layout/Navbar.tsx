@@ -7,6 +7,7 @@ import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
 import { reloadHome } from '../utils/reloadHome'
 import { getTodayRaffle } from '../../api/raffleApi'
+import { enablePush, pushSetup, refreshPush } from '../../api/pushApi'
 import { hasFreshNotice, markNoticeSeen } from '../../profile/raffleNotice'
 
 type NavSection = 'inicio' | 'juegos' | 'ranking' | 'info'
@@ -43,6 +44,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
   const [authMode, setAuthMode] = useState<AuthMode>('register')
   const [panelBox, setPanelBox] = useState({ top: 72, maxHeight: 480 })
   const [profileAlert, setProfileAlert] = useState(false)
+  const [pushNote, setPushNote] = useState<'ios' | 'ask' | 'blocked' | null>(null)
   const showAuth = !user && isAuthReady
 
   const userId = user?.id ?? null
@@ -71,6 +73,22 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
       window.clearInterval(timer)
     }
   }, [userId, profileOpen])
+
+  useEffect(() => {
+    if (!userId) {
+      setPushNote(null)
+      return
+    }
+    const note = pushSetup()
+    setPushNote(note)
+    if (note !== null) return
+    void refreshPush()
+  }, [userId])
+
+  const handleEnablePush = async () => {
+    const ok = await enablePush()
+    setPushNote(ok ? null : pushSetup())
+  }
 
   useEffect(() => {
     if (!pendingGame) return
@@ -290,6 +308,29 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
           )}
         </div>
       </div>
+      {user && pushNote && (
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 pb-2">
+          <p className="text-xs text-[#d5dcf0]">
+            {pushNote === 'ios'
+              ? 'En el iPhone, añade Frizeplay a la pantalla de inicio para recibir avisos con la app cerrada.'
+              : pushNote === 'blocked'
+                ? 'Los avisos están bloqueados en el navegador.'
+                : 'Activa los avisos para enterarte con el móvil cerrado.'}
+          </p>
+          {pushNote === 'ask' && (
+            <button
+              type="button"
+              aria-label="Activar avisos"
+              tabIndex={0}
+              onClick={handleEnablePush}
+              onKeyDown={(event) => handleActivateKey(event, () => { void handleEnablePush() })}
+              className="rounded-lg bg-[#f5c518] px-3 py-2 text-xs font-bold text-[#1a1403]"
+            >
+              Activar avisos
+            </button>
+          )}
+        </div>
+      )}
       {menuNote && (
         <p className="px-3 pb-2 text-center text-[11px] text-[#d5dcf0]" role="status">
           {menuNote}

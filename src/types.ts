@@ -127,5 +127,8 @@ export type MatchHistoryRecord = {
   result: 'win' | 'loss' | 'refund';
   /** Ganancia neta (positivo) o pérdida neta (negativo) en fichas. 0 si es reembolso. */
   profit: number;
+  ranked: boolean;
+  /** 1 si sumó punto del mes, -1 en una derrota ranqueada, 0 en el resto. */
+  monthPoint: number;
   playedAt: number;
 };
