@@ -92,9 +92,7 @@ function HistoryRow({ record }: { record: MatchHistoryRecord }) {
     ? 'Reembolsado'
     : record.monthPoint > 0
       ? '+ 1 punto mes'
-      : record.monthPoint < 0
-        ? '- 1 punto mes'
-        : 'Sin punto';
+      : 'Sin punto';
   const chipLabel = record.ranked
     ? pointLabel
     : isRefund
@@ -102,11 +100,15 @@ function HistoryRow({ record }: { record: MatchHistoryRecord }) {
       : isWin
         ? '+ ficha'
         : '- ficha';
-  const chipClass = isRefund || (record.ranked && record.monthPoint === 0 && isWin)
-    ? 'text-text-200'
-    : isWin || record.monthPoint > 0
+  const chipClass = record.ranked
+    ? record.monthPoint > 0
       ? 'text-accent-100'
-      : 'text-primary-100';
+      : 'text-text-200'
+    : isRefund
+      ? 'text-text-200'
+      : isWin
+        ? 'text-accent-100'
+        : 'text-primary-100';
 
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-bg-300 last:border-0">

@@ -124,7 +124,7 @@ export const fetchPlayerHistory = async (userId: string): Promise<HistoryResult>
         betAmount: item.betAmount,
         result: item.result,
         profit: item.profit,
-        ranked: item.ranked === true,
+        ranked: item.ranked === true || (item.result === 'win' && item.profit > 0),
         monthPoint: typeof item.monthPoint === 'number' ? item.monthPoint : 0,
         playedAt: Date.parse(item.playedAt),
       }

@@ -13,6 +13,7 @@ const AccountSettingsDialog = ({ user, onClose }: { user: UserProfile; onClose: 
   const [email, setEmail] = useState(user.email);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const nameLocked = user.usernameChanged === true;
@@ -46,15 +47,20 @@ const AccountSettingsDialog = ({ user, onClose }: { user: UserProfile; onClose: 
       setError('Las contraseñas no coinciden.');
       return;
     }
+    if ((emailChanged || passwordFilled) && currentPassword.length === 0) {
+      setError('Escribe tu contraseña actual para cambiar el correo o la contraseña.');
+      return;
+    }
     if (!nameChanged && !emailChanged && !passwordFilled) {
       setError('No hay cambios para guardar.');
       return;
     }
 
-    const changes: { username?: string; email?: string; password?: string } = {};
+    const changes: { username?: string; email?: string; password?: string; currentPassword?: string } = {};
     if (nameChanged) changes.username = nextName;
     if (emailChanged) changes.email = nextEmail;
     if (passwordFilled) changes.password = password;
+    if (emailChanged || passwordFilled) changes.currentPassword = currentPassword;
 
     setSaving(true);
     setError(null);
@@ -105,6 +111,20 @@ const AccountSettingsDialog = ({ user, onClose }: { user: UserProfile; onClose: 
             onChange={(event) => setEmail(event.target.value)}
             className="rounded-xl border border-bg-300 bg-bg-200 px-3 py-3 text-sm text-white"
           />
+          <label className="text-sm font-bold text-[#f4f6fb]" htmlFor="account-current-password">
+            Contraseña actual
+          </label>
+          <input
+            id="account-current-password"
+            name="currentPassword"
+            type="password"
+            value={currentPassword}
+            autoComplete="current-password"
+            disabled={saving}
+            onChange={(event) => setCurrentPassword(event.target.value)}
+            className="rounded-xl border border-bg-300 bg-bg-200 px-3 py-3 text-sm text-white"
+          />
+          <p className="text-xs text-[#b7c0d4]">Hace falta para cambiar el correo o la contraseña.</p>
           <label className="text-sm font-bold text-[#f4f6fb]" htmlFor="account-password">
             Contraseña nueva
           </label>

@@ -55,7 +55,16 @@ export const weekIndexOf = (ms: number): number => {
 }
 
 export const currentWeekIndex = (): number => {
-  return weekIndexOf(Date.now())
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    day: 'numeric',
+  }).formatToParts(new Date())
+  const day = Number(parts.find((part) => part.type === 'day')?.value ?? '1')
+  const safeDay = Number.isFinite(day) ? day : 1
+  if (safeDay <= 7) return 0
+  if (safeDay <= 14) return 1
+  if (safeDay <= 21) return 2
+  return 3
 }
 
 export const weekPointsOf = (userId: string): number[] => {

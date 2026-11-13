@@ -327,7 +327,7 @@ export const updateUserMonthPoints = async (
 
 export const updateAccount = async (
   userId: string,
-  changes: { username?: string; email?: string; password?: string },
+  changes: { username?: string; email?: string; password?: string; currentPassword?: string },
 ): Promise<{ ok: true; user: UserProfile } | { ok: false; message: string }> => {
   const token = getAccessToken()
   if (!token) return { ok: false, message: 'Sesión no válida o expirada.' }
