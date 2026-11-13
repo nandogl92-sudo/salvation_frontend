@@ -156,7 +156,6 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="text-xs font-bold text-text-200 w-5 shrink-0">{index + 1}</span>
-                  <TournamentBadges wins={user.tournamentWins} />
                   {isFirst && <Trophy className="w-4 h-4 text-accent-100 shrink-0" aria-hidden="true" />}
                   <span className={`font-bold text-sm truncate ${nameClass}`}>{user.username}</span>
                   {isTied && (
@@ -170,8 +169,11 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
                     </span>
                   )}
                 </div>
-                <span className={`text-sm font-bold shrink-0 ${nameClass}`}>
-                  {formatPoints(points)} pts mes
+                <span className="flex items-center gap-1.5 shrink-0">
+                  <TournamentBadges wins={user.tournamentWins} />
+                  <span className={`text-sm font-bold ${nameClass}`}>
+                    {formatPoints(points)} pts mes
+                  </span>
                 </span>
               </li>
             )

@@ -16,7 +16,7 @@ const TournamentBadges = ({ wins, compact = false }: TournamentBadgesProps) => {
   return (
     <span className="inline-flex items-center gap-0.5 shrink-0 text-[#f5c518]" aria-label={label} title={label}>
       {Array.from({ length: shown }, (_, index) => (
-        <Medal key={index} className="w-4 h-4 shrink-0" aria-hidden="true" />
+        <Medal key={index} className="w-5 h-5 shrink-0" strokeWidth={2.25} aria-hidden="true" />
       ))}
       {number > 0 && <span className="text-[10px] font-bold leading-none">{number}</span>}
     </span>
