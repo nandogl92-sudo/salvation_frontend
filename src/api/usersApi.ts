@@ -48,7 +48,10 @@ export const listUsers = async (): Promise<UsersResult> => {
     const users = body.map((user) => {
       const role = user.tiebreakRole
       const tiebreakRole = role === 'champion' || role === 'alive' || role === 'out' ? role : null
-      return { ...user, monthPoints: monthPointsOf(user), weeks: weeksOf(user.weeks), tiebreakRole }
+      const wins = typeof user.tournamentWins === 'number' && Number.isFinite(user.tournamentWins)
+        ? Math.max(0, Math.floor(user.tournamentWins))
+        : 0
+      return { ...user, monthPoints: monthPointsOf(user), weeks: weeksOf(user.weeks), tiebreakRole, tournamentWins: wins }
     })
     return { ok: true, users }
   } catch (error) {

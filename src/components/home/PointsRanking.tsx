@@ -155,10 +155,10 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
                 className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${rowClass}`}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-bold text-text-200 w-5">{index + 1}</span>
+                  <span className="text-xs font-bold text-text-200 w-5 shrink-0">{index + 1}</span>
+                  <TournamentBadges wins={user.tournamentWins} />
                   {isFirst && <Trophy className="w-4 h-4 text-accent-100 shrink-0" aria-hidden="true" />}
                   <span className={`font-bold text-sm truncate ${nameClass}`}>{user.username}</span>
-                  <TournamentBadges wins={user.tournamentWins} />
                   {isTied && (
                     <span className="text-[10px] font-bold uppercase tracking-wide text-[#3ec8ff] shrink-0">
                       Empate
