@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Trophy, Gamepad2, RefreshCcw } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Trophy, Gamepad2, Pencil, RefreshCcw } from 'lucide-react';
 import type { MatchHistoryRecord, UserProfile } from '../types';
 import { formatPoints } from '../components/utils/formatPoints';
 import { handleActivateKey } from '../components/utils/handleActivateKey';
 import { monthPointsOf } from '../components/utils/monthPointsOf';
 import DailyRaffle from './DailyRaffle';
+import { INITIAL_COLORS, initialColorOf, saveInitialColor } from './initialColor';
 import { usePlayerStats } from './usePlayerStats';
 
 const RESULT_LABELS: Record<MatchHistoryRecord['result'], string> = {
@@ -153,6 +154,10 @@ export default function ProfilePanel({
 }) {
   const { status, stats, error, retry } = usePlayerStats(user.id);
   const [historyTab, setHistoryTab] = useState<'ranked' | 'friendly'>('ranked');
+  const [colorId, setColorId] = useState(() => initialColorOf(user.id).id);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  const badgeColor = INITIAL_COLORS.find((color) => color.id === colorId) ?? INITIAL_COLORS[0];
   const showRanked = () => setHistoryTab('ranked');
   const showFriendly = () => setHistoryTab('friendly');
   const visibleHistory = stats.history
@@ -169,13 +174,67 @@ export default function ProfilePanel({
   const handleRetry = () => {
     retry();
   };
+  const handleOpenPalette = () => {
+    setPaletteOpen((open) => !open);
+  };
+  const handlePickColor = (id: string) => {
+    setColorId(id as typeof colorId);
+    saveInitialColor(user.id, id);
+    setPaletteOpen(false);
+  };
+
+  useEffect(() => {
+    if (!paletteOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (paletteRef.current?.contains(target)) return;
+      setPaletteOpen(false);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [paletteOpen]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 animate-fade-in">
       {/* Cabecera */}
       <div className="flex items-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-primary-300 text-primary-100 flex items-center justify-center text-2xl font-bold">
-          {user.username.charAt(0).toUpperCase()}
+        <div ref={paletteRef} className="relative shrink-0">
+          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold ${badgeColor.badge}`}>
+            {user.username.charAt(0).toUpperCase()}
+          </div>
+          <button
+            type="button"
+            aria-label="Cambiar el color de la inicial"
+            aria-expanded={paletteOpen}
+            tabIndex={0}
+            onClick={handleOpenPalette}
+            onKeyDown={(event) => handleActivateKey(event, handleOpenPalette)}
+            className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
+          >
+            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+          {paletteOpen && (
+            <div className="absolute left-0 top-full z-10 mt-3 flex w-56 flex-wrap gap-2 rounded-2xl border border-bg-300 bg-[#0e1528] p-3" role="group" aria-label="Colores de la inicial">
+              {INITIAL_COLORS.map((color) => {
+                const pickThis = () => handlePickColor(color.id);
+                const selected = color.id === badgeColor.id;
+                const ring = selected ? 'border-white' : 'border-transparent';
+                return (
+                  <button
+                    key={color.id}
+                    type="button"
+                    aria-label={color.label}
+                    aria-pressed={selected}
+                    tabIndex={0}
+                    onClick={pickThis}
+                    onKeyDown={(event) => handleActivateKey(event, pickThis)}
+                    className={`h-8 w-8 rounded-full border-2 ${color.swatch} ${ring}`}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
         <div>
           <h1 className="text-2xl font-bold text-text-100">{user.username}</h1>

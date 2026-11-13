@@ -8,6 +8,7 @@ import { handleActivateKey } from '../utils/handleActivateKey'
 import { reloadHome } from '../utils/reloadHome'
 import { getTodayRaffle } from '../../api/raffleApi'
 import { enablePush, pushSetup, refreshPush } from '../../api/pushApi'
+import { INITIAL_COLOR_EVENT, initialColorOf } from '../../profile/initialColor'
 import { hasFreshNotice, markNoticeSeen } from '../../profile/raffleNotice'
 
 type NavSection = 'inicio' | 'juegos' | 'ranking' | 'info'
@@ -45,6 +46,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
   const [panelBox, setPanelBox] = useState({ top: 72, maxHeight: 480 })
   const [profileAlert, setProfileAlert] = useState(false)
   const [pushNote, setPushNote] = useState<'ios' | 'ask' | 'blocked' | null>(null)
+  const [initialRing, setInitialRing] = useState('border-[#FF5A5F]')
   const showAuth = !user && isAuthReady
 
   const userId = user?.id ?? null
@@ -83,6 +85,15 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
     setPushNote(note)
     if (note !== null) return
     void refreshPush()
+  }, [userId])
+
+  useEffect(() => {
+    if (!userId) return
+    const paint = () => setInitialRing(initialColorOf(userId).ring)
+    paint()
+    const handleColor = () => paint()
+    window.addEventListener(INITIAL_COLOR_EVENT, handleColor)
+    return () => window.removeEventListener(INITIAL_COLOR_EVENT, handleColor)
   }, [userId])
 
   const handleEnablePush = async () => {
@@ -273,11 +284,11 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                 disabled={menuLocked}
                 onClick={handleOpenProfile}
                 onKeyDown={(event) => handleActivateKey(event, handleOpenProfile)}
-                className={`relative inline-flex items-center justify-center w-8 h-8 rounded-full border text-white text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 ${profileAlert ? 'border-[#3ec8ff]' : 'border-[#d5dcf0]'}`}
+                className={`relative inline-flex items-center justify-center w-8 h-8 rounded-full border text-white text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40 ${profileAlert ? initialRing : 'border-[#d5dcf0]'}`}
               >
                 <span aria-hidden="true">{initial}</span>
                 {profileAlert && (
-                  <span className="pointer-events-none absolute inset-0 rounded-full border-2 border-[#3ec8ff] animate-ping" aria-hidden="true" />
+                  <span className={`pointer-events-none absolute inset-0 rounded-full border-2 animate-ping ${initialRing}`} aria-hidden="true" />
                 )}
               </button>
               {user.role === 'admin' && (
