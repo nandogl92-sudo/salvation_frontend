@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Trophy, Gamepad2, Pencil, RefreshCcw, Settings } from 'lucide-react';
 import type { MatchHistoryRecord, UserProfile } from '../types';
+import { updateAccount } from '../api/authApi';
+import { useAuth } from '../auth/AuthContext';
 import { formatPoints } from '../components/utils/formatPoints';
 import { handleActivateKey } from '../components/utils/handleActivateKey';
 import { monthPointsOf } from '../components/utils/monthPointsOf';
@@ -155,9 +157,10 @@ export default function ProfilePanel({
   user: UserProfile;
   onBack: () => void;
 }) {
+  const { replaceUser } = useAuth();
   const { status, stats, error, retry } = usePlayerStats(user.id);
   const [historyTab, setHistoryTab] = useState<'ranked' | 'friendly'>('ranked');
-  const [colorId, setColorId] = useState(() => initialColorOf(user.id).id);
+  const [colorId, setColorId] = useState(() => initialColorOf(user.id, user.initialColor).id);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const paletteRef = useRef<HTMLDivElement>(null);
@@ -191,7 +194,14 @@ export default function ProfilePanel({
     setColorId(id as typeof colorId);
     saveInitialColor(user.id, id);
     setPaletteOpen(false);
+    void updateAccount(user.id, { initialColor: id }).then((result) => {
+      if (result.ok === true) replaceUser(result.user);
+    });
   };
+
+  useEffect(() => {
+    setColorId(initialColorOf(user.id, user.initialColor).id);
+  }, [user.id, user.initialColor]);
 
   useEffect(() => {
     if (!paletteOpen) return;

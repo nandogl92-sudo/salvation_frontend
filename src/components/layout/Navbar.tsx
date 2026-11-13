@@ -51,6 +51,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
   const showAuth = !user && isAuthReady
 
   const userId = user?.id ?? null
+  const accountColor = user?.initialColor ?? null
 
   useEffect(() => {
     if (!userId) {
@@ -90,12 +91,15 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
 
   useEffect(() => {
     if (!userId) return
-    const paint = () => setInitialRing(initialColorOf(userId).ring)
+    const paint = (colorId?: string) => setInitialRing(initialColorOf(userId, colorId ?? accountColor).ring)
     paint()
-    const handleColor = () => paint()
+    const handleColor = (event: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : null
+      paint(typeof detail === 'string' ? detail : undefined)
+    }
     window.addEventListener(INITIAL_COLOR_EVENT, handleColor)
     return () => window.removeEventListener(INITIAL_COLOR_EVENT, handleColor)
-  }, [userId])
+  }, [userId, accountColor])
 
   const handleEnablePush = async () => {
     const ok = await enablePush()

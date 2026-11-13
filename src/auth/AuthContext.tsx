@@ -5,9 +5,11 @@
 // No conoce localStorage ni el token: eso vive en src/api/authApi.ts.
 // Este archivo no cambia cuando el transporte pasa de mock a REST.
 // ==========================================
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as authService from '../api/authApi';
+import { updateAccount } from '../api/authApi';
 import { dropPush } from '../api/pushApi';
+import { savedInitialColor } from '../profile/initialColor';
 import { ACCESS_STORAGE_KEY, applyAccountAccess } from './accessStore';
 import { setGamesAccess as patchGamesAccess } from '../api/usersApi';
 import type { PasswordChangeInput } from '../api/authApi';
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sentColor = useRef<string | null>(null);
 
   // Hidratar la sesión persistida (mock) al montar la app.
   useEffect(() => {
@@ -65,13 +68,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       void authService.getCurrentSession().then((session) => {
         setUser((current) => {
           if (!current || !session || current.id !== session.user.id) return current;
-          if (current.gamesAccess === session.user.gamesAccess) return current;
-          return { ...current, gamesAccess: session.user.gamesAccess === true };
+          const nextColor = session.user.initialColor ?? null;
+          const accessSame = current.gamesAccess === session.user.gamesAccess;
+          const colorSame = (current.initialColor ?? null) === nextColor;
+          if (accessSame && colorSame) return current;
+          return {
+            ...current,
+            gamesAccess: session.user.gamesAccess === true,
+            initialColor: nextColor,
+          };
         });
       });
     }, 6000);
     return () => window.clearInterval(timer);
   }, [isReady]);
+
+  useEffect(() => {
+    if (!user || user.initialColor) return;
+    const local = savedInitialColor(user.id);
+    if (!local || local === 'red') return;
+    if (sentColor.current === user.id) return;
+    sentColor.current = user.id;
+    let cancelled = false;
+    void updateAccount(user.id, { initialColor: local }).then((result) => {
+      if (cancelled || result.ok !== true) return;
+      setUser(result.user);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {

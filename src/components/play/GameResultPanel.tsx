@@ -35,7 +35,7 @@ const GameResultPanel = ({
   const note = !result.won
     ? 'Pierdes una ficha.'
     : !result.isRanked
-      ? 'Tus fichas no cambian.'
+      ? 'Recuperas la ficha.'
       : result.monthPointsDelta > 0
         ? 'Se gana un punto del mes.'
         : ''

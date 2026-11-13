@@ -16,13 +16,23 @@ export const INITIAL_COLOR_EVENT = 'frize-initial-color'
 
 const keyOf = (userId: string): string => `frizeplay.initial.color.${userId}`
 
-export const initialColorOf = (userId: string) => {
-  const saved = window.localStorage.getItem(keyOf(userId))
-  return INITIAL_COLORS.find((color) => color.id === saved) ?? INITIAL_COLORS[0]
+const colorById = (id: string | null | undefined) => {
+  if (!id) return null
+  return INITIAL_COLORS.find((color) => color.id === id) ?? null
+}
+
+export const initialColorOf = (userId: string, accountColor?: string | null) => {
+  const account = colorById(accountColor)
+  if (account) return account
+  return colorById(window.localStorage.getItem(keyOf(userId))) ?? INITIAL_COLORS[0]
+}
+
+export const savedInitialColor = (userId: string): string | null => {
+  return colorById(window.localStorage.getItem(keyOf(userId)))?.id ?? null
 }
 
 export const saveInitialColor = (userId: string, id: string): void => {
-  const color = INITIAL_COLORS.find((item) => item.id === id) ?? INITIAL_COLORS[0]
+  const color = colorById(id) ?? INITIAL_COLORS[0]
   window.localStorage.setItem(keyOf(userId), color.id)
   window.dispatchEvent(new CustomEvent(INITIAL_COLOR_EVENT, { detail: color.id }))
 }

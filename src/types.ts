@@ -35,6 +35,8 @@ export type UserProfile = {
   usernameChanged?: boolean;
   /** Torneos de mes ganados. 0 si aún no ha ganado ninguno. */
   tournamentWins?: number;
+  /** Color de la inicial. Null si esta cuenta todavía no eligió uno. */
+  initialColor?: string | null;
   /** Desempate del primer puesto. champion elige el premio. */
   tiebreakRole?: 'champion' | 'alive' | 'out' | null;
 };
