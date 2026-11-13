@@ -9,6 +9,7 @@ import { reloadHome } from '../utils/reloadHome'
 import { getTodayRaffle } from '../../api/raffleApi'
 import { enablePush, pushSetup, refreshPush } from '../../api/pushApi'
 import { INITIAL_COLOR_EVENT, initialColorOf } from '../../profile/initialColor'
+import TournamentBadges from '../profile/TournamentBadges'
 import { hasFreshNotice, markNoticeSeen } from '../../profile/raffleNotice'
 
 type NavSection = 'inicio' | 'juegos' | 'ranking' | 'info'
@@ -291,6 +292,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
                   <span className={`pointer-events-none absolute inset-0 rounded-full border-2 animate-ping ${initialRing}`} aria-hidden="true" />
                 )}
               </button>
+              <TournamentBadges wins={user.tournamentWins} compact />
               {user.role === 'admin' && (
                 <button
                   type="button"

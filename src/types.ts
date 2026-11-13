@@ -33,6 +33,8 @@ export type UserProfile = {
   gamesAccess?: boolean;
   /** true si ya usó el único cambio de nombre. */
   usernameChanged?: boolean;
+  /** Torneos de mes ganados. 0 si aún no ha ganado ninguno. */
+  tournamentWins?: number;
   /** Desempate del primer puesto. champion elige el premio. */
   tiebreakRole?: 'champion' | 'alive' | 'out' | null;
 };

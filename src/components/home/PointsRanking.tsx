@@ -5,6 +5,7 @@ import type { MonthWeek, UserProfile } from '../../types'
 import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
 import { monthPointsOf } from '../utils/monthPointsOf'
+import TournamentBadges from '../profile/TournamentBadges'
 import { usePointsRanking } from './usePointsRanking'
 
 type PointsRankingProps = {
@@ -157,6 +158,7 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
                   <span className="text-xs font-bold text-text-200 w-5">{index + 1}</span>
                   {isFirst && <Trophy className="w-4 h-4 text-accent-100 shrink-0" aria-hidden="true" />}
                   <span className={`font-bold text-sm truncate ${nameClass}`}>{user.username}</span>
+                  <TournamentBadges wins={user.tournamentWins} />
                   {isTied && (
                     <span className="text-[10px] font-bold uppercase tracking-wide text-[#3ec8ff] shrink-0">
                       Empate
