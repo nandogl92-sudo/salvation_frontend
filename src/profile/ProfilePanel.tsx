@@ -217,7 +217,7 @@ export default function ProfilePanel({
             tabIndex={0}
             onClick={handleOpenSettings}
             onKeyDown={(event) => handleActivateKey(event, handleOpenSettings)}
-            className="absolute bottom-8 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
+            className="absolute -bottom-1 right-7 flex h-7 w-7 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
           >
             <Settings className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
