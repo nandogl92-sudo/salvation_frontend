@@ -217,7 +217,7 @@ export default function ProfilePanel({
             tabIndex={0}
             onClick={handleOpenSettings}
             onKeyDown={(event) => handleActivateKey(event, handleOpenSettings)}
-            className="absolute -bottom-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
+            className="absolute -bottom-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
           >
             <Settings className="h-2.5 w-2.5" aria-hidden="true" />
           </button>
@@ -228,7 +228,7 @@ export default function ProfilePanel({
             tabIndex={0}
             onClick={handleOpenPalette}
             onKeyDown={(event) => handleActivateKey(event, handleOpenPalette)}
-            className="absolute -bottom-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
+            className="absolute -bottom-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
           >
             <Pencil className="h-2.5 w-2.5" aria-hidden="true" />
           </button>

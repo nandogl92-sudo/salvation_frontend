@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { chooseRaffleHour, getTodayRaffle, rejectRaffleHour, type DailyRaffle as DailyRaffleView, type RaffleSeat } from '../api/raffleApi';
 import { rankedGameName } from './rankedGames';
+import { saveAgreedHour } from './calendarEvent';
 
 const FALLBACK_HOURS = [15, 16, 17, 18, 19, 20, 21, 22, 23];
 
@@ -114,6 +115,7 @@ const DailyRaffle = () => {
           {raffle.youPlay && mine.map((seat) => (
             <SeatHours
               key={seat.id}
+              day={raffle.day}
               seat={seat}
               hours={hours}
               savingKey={savingKey}
@@ -136,12 +138,14 @@ const DailyRaffle = () => {
 };
 
 const SeatHours = ({
+  day,
   seat,
   hours,
   savingKey,
   onChoose,
   onReject,
 }: {
+  day: string;
   seat: RaffleSeat;
   hours: number[];
   savingKey: string | null;
@@ -158,12 +162,33 @@ const SeatHours = ({
   const handleReject = (hour: number) => {
     onReject(seat.id, hour);
   };
+  const handleAddCalendar = () => {
+    if (seat.agreedHour === null) return;
+    const games = seat.games.map((gameId) => rankedGameName(gameId)).join(' y ');
+    saveAgreedHour(day, seat.agreedHour, seat.id, seat.rivalName ?? '', games);
+  };
 
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-bold text-text-100">Hora contra {seat.rivalName}</h3>
       {seat.agreedHour !== null && (
         <p className="text-sm font-bold text-text-100">Hora acordada: {hourLabel(seat.agreedHour)}.</p>
+      )}
+      {seat.agreedHour !== null && (
+        <button
+          type="button"
+          aria-label={`Añadir al calendario las ${hourLabel(seat.agreedHour)} contra ${seat.rivalName ?? 'tu pareja'}`}
+          tabIndex={0}
+          onClick={handleAddCalendar}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            handleAddCalendar();
+          }}
+          className="text-sm font-bold text-[#3ec8ff] underline"
+        >
+          Añadir al calendario
+        </button>
       )}
       {seat.agreedHour !== null && hours.filter((hour) => !seat.blocked.includes(hour)).length === 1 && (
         <p className="text-sm text-text-200">Era la única hora que quedaba.</p>
