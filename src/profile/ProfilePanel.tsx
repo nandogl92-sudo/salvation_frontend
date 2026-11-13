@@ -217,9 +217,9 @@ export default function ProfilePanel({
             tabIndex={0}
             onClick={handleOpenSettings}
             onKeyDown={(event) => handleActivateKey(event, handleOpenSettings)}
-            className="absolute -bottom-1 right-7 flex h-7 w-7 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
+            className="absolute -bottom-2 -left-2 flex h-5 w-5 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
           >
-            <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+            <Settings className="h-2.5 w-2.5" aria-hidden="true" />
           </button>
           <button
             type="button"
@@ -228,9 +228,9 @@ export default function ProfilePanel({
             tabIndex={0}
             onClick={handleOpenPalette}
             onKeyDown={(event) => handleActivateKey(event, handleOpenPalette)}
-            className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
+            className="absolute -bottom-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
           >
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+            <Pencil className="h-2.5 w-2.5" aria-hidden="true" />
           </button>
           {paletteOpen && (
             <div className="absolute left-0 top-full z-10 mt-3 flex w-56 flex-wrap gap-2 rounded-2xl border border-bg-300 bg-[#0e1528] p-3" role="group" aria-label="Colores de la inicial">
