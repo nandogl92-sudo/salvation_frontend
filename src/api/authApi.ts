@@ -324,3 +324,30 @@ export const updateUserMonthPoints = async (
   saveStoredSession({ token: stored.token, user })
   return user
 }
+
+export const updateAccount = async (
+  userId: string,
+  changes: { username?: string; email?: string; password?: string },
+): Promise<{ ok: true; user: UserProfile } | { ok: false; message: string }> => {
+  const token = getAccessToken()
+  if (!token) return { ok: false, message: 'Sesión no válida o expirada.' }
+
+  try {
+    const response = await request(`/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(changes),
+    }, token)
+    if (!response.ok) return { ok: false, message: await readErrorMessage(response) }
+    const body = (await response.json()) as unknown
+    if (!isUserProfile(body)) return { ok: false, message: 'La respuesta de la cuenta no tiene la forma esperada.' }
+    const user = withMonthPoints({
+      ...body,
+      usernameChanged: body.usernameChanged === true,
+    })
+    saveStoredSession({ token, user })
+    return { ok: true, user }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'No se pudo conectar con el servidor.'
+    return { ok: false, message }
+  }
+}

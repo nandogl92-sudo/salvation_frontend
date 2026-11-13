@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Trophy, Gamepad2, Pencil, RefreshCcw } from 'lucide-react';
+import { Trophy, Gamepad2, Pencil, RefreshCcw, Settings } from 'lucide-react';
 import type { MatchHistoryRecord, UserProfile } from '../types';
 import { formatPoints } from '../components/utils/formatPoints';
 import { handleActivateKey } from '../components/utils/handleActivateKey';
 import { monthPointsOf } from '../components/utils/monthPointsOf';
 import DailyRaffle from './DailyRaffle';
+import AccountSettingsDialog from './AccountSettingsDialog';
 import { INITIAL_COLORS, initialColorOf, saveInitialColor } from './initialColor';
 import { usePlayerStats } from './usePlayerStats';
 
@@ -156,6 +157,7 @@ export default function ProfilePanel({
   const [historyTab, setHistoryTab] = useState<'ranked' | 'friendly'>('ranked');
   const [colorId, setColorId] = useState(() => initialColorOf(user.id).id);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const paletteRef = useRef<HTMLDivElement>(null);
   const badgeColor = INITIAL_COLORS.find((color) => color.id === colorId) ?? INITIAL_COLORS[0];
   const showRanked = () => setHistoryTab('ranked');
@@ -176,6 +178,12 @@ export default function ProfilePanel({
   };
   const handleOpenPalette = () => {
     setPaletteOpen((open) => !open);
+  };
+  const handleOpenSettings = () => {
+    setSettingsOpen(true);
+  };
+  const handleCloseSettings = () => {
+    setSettingsOpen(false);
   };
   const handlePickColor = (id: string) => {
     setColorId(id as typeof colorId);
@@ -203,6 +211,16 @@ export default function ProfilePanel({
           <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold ${badgeColor.badge}`}>
             {user.username.charAt(0).toUpperCase()}
           </div>
+          <button
+            type="button"
+            aria-label="Abrir las preferencias de la cuenta"
+            tabIndex={0}
+            onClick={handleOpenSettings}
+            onKeyDown={(event) => handleActivateKey(event, handleOpenSettings)}
+            className="absolute bottom-8 -right-1 flex h-7 w-7 items-center justify-center rounded-full border border-[#d5dcf0] bg-[#0e1528] text-[#f4f6fb]"
+          >
+            <Settings className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
           <button
             type="button"
             aria-label="Cambiar el color de la inicial"
@@ -241,6 +259,8 @@ export default function ProfilePanel({
           <p className="text-sm text-text-200">{user.email}</p>
         </div>
       </div>
+
+      {settingsOpen && <AccountSettingsDialog user={user} onClose={handleCloseSettings} />}
 
       <DailyRaffle />
 

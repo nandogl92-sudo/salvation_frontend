@@ -31,6 +31,8 @@ export type UserProfile = {
   role?: AccountRole;
   /** true si un administrador marcó el pago. Entonces la luz es verde y se puede jugar. */
   gamesAccess?: boolean;
+  /** true si ya usó el único cambio de nombre. */
+  usernameChanged?: boolean;
   /** Desempate del primer puesto. champion elige el premio. */
   tiebreakRole?: 'champion' | 'alive' | 'out' | null;
 };

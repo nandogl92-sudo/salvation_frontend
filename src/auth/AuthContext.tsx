@@ -33,6 +33,8 @@ type AuthContextValue = {
   setMonthPoints: (monthPoints: number, weeks?: UserProfile['weeks']) => Promise<void>;
   /** Marca o quita el acceso a los juegos. No cambia fichas ni puntos del mes. */
   setGamesAccess: (userId: string, email: string, gamesAccess: boolean) => Promise<{ ok: true; user: UserProfile } | { ok: false; message: string }>;
+  /** Sustituye el perfil de la sesión tras guardar correo, nombre o contraseña. */
+  replaceUser: (user: UserProfile) => void;
   clearError: () => void;
 };
 
@@ -154,9 +156,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result
   }, []);
 
+  const replaceUser = useCallback((next: UserProfile) => {
+    setUser(next);
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, setMonthPoints, setGamesAccess, clearError }),
-    [user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, setMonthPoints, setGamesAccess, clearError],
+    () => ({ user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, setMonthPoints, setGamesAccess, replaceUser, clearError }),
+    [user, isReady, isSubmitting, error, register, login, logout, completePasswordReset, setBalance, setMonthPoints, setGamesAccess, replaceUser, clearError],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
