@@ -122,13 +122,15 @@ export async function register(input: RegisterInput): Promise<AuthResult> {
   return delay({ ok: true, session });
 }
 
-/** Inicia sesión con email + password. Mensaje de error genérico por seguridad. */
+/** Inicia sesión con el nombre de usuario o el correo, más la contraseña. */
 export async function login(input: LoginInput): Promise<AuthResult> {
-  const email = normalizeEmail(input.email);
+  const account = input.email.trim();
   const users = loadUsers();
-  const found = users.find((u) => u.email === email);
+  const found = account.includes('@')
+    ? users.find((u) => u.email === normalizeEmail(account))
+    : users.find((u) => u.username.localeCompare(account, 'es', { sensitivity: 'accent' }) === 0);
 
-  const genericError = { ok: false as const, message: 'Email o contraseña incorrectos.' };
+  const genericError = { ok: false as const, message: 'Usuario, correo o contraseña incorrectos.' };
 
   if (!found) {
     return delay(genericError);

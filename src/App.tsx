@@ -785,7 +785,7 @@ export default function App() {
   };
 
   return (
-    <div className={view === 'playing' && !gameResult && !matchError ? 'flex h-dvh flex-col overflow-hidden bg-bg-200 text-text-100 font-sans pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]' : 'min-h-screen bg-bg-200 text-text-100 font-sans'}>
+    <div className={view === 'playing' && !gameResult && !matchError ? 'safe-bottom flex h-dvh flex-col overflow-hidden bg-bg-200 text-text-100 font-sans pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]' : 'safe-bottom min-h-screen bg-bg-200 text-text-100 font-sans'}>
       {subscriptionOpen && currentUser && (
         <SubscriptionPayDialog
           onClose={() => setSubscriptionOpen(false)}

@@ -235,10 +235,11 @@ export default function AuthPanel({ initialMode = 'register', notice, className,
       ) : (
         <form onSubmit={handleLoginSubmit} className="flex flex-col gap-3">
           <input
-            type="email"
+            type="text"
             name="email"
-            placeholder="Tu email"
-            aria-label="Email"
+            placeholder="Tu usuario o tu correo"
+            aria-label="Usuario o correo"
+            autoComplete="username"
             required
             className="w-full px-4 py-3 rounded-xl border border-bg-300 focus:outline-none focus:border-primary-100 focus:ring-1 focus:ring-primary-100 transition-all bg-bg-200"
           />

@@ -30,3 +30,27 @@ body {
   color: var(--color-text-100);
   -webkit-font-smoothing: antialiased;
 }
+
+.safe-top {
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top);
+  padding-left: constant(safe-area-inset-left);
+  padding-left: env(safe-area-inset-left);
+  padding-right: constant(safe-area-inset-right);
+  padding-right: env(safe-area-inset-right);
+}
+
+.safe-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* La isla de estos iPhone es más alta de lo que declara el sistema. */
+@media (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3),
+  (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3),
+  (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) {
+  .safe-top {
+    padding-top: calc(constant(safe-area-inset-top) + 14px);
+    padding-top: calc(env(safe-area-inset-top) + 14px);
+  }
+}

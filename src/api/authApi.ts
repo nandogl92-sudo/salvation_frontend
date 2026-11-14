@@ -152,7 +152,7 @@ export const login = async (input: LoginInput): Promise<AuthResult> => {
     const response = await request('/auth/sessions', {
       method: 'POST',
       body: JSON.stringify({
-        email: normalizeEmail(input.email),
+        email: input.email.includes('@') ? normalizeEmail(input.email) : input.email.trim(),
         password: input.password,
       }),
     })
