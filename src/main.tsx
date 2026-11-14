@@ -15,3 +15,12 @@ createRoot(document.getElementById('root')!).render(
     </AuthProvider>
   </StrictMode>,
 );
+
+const boot = document.getElementById('boot');
+if (boot) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      boot.remove();
+    });
+  });
+}
