@@ -1,8 +1,11 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
+import { rememberHomeScreen } from './api/pushApi.ts';
 import {AuthProvider} from './auth/AuthContext.tsx';
 import './index.css';
+
+rememberHomeScreen();
 
 if ('serviceWorker' in navigator) {
   void navigator.serviceWorker.register('/sw.js');

@@ -27,9 +27,28 @@ const installedApp = (): boolean => {
   return window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true
 }
 
+const HOME_KEY = 'frizeplay.home'
+
+export const rememberHomeScreen = (): void => {
+  if (typeof window === 'undefined' || !installedApp()) return
+  window.localStorage.setItem(HOME_KEY, '1')
+}
+
+const homeScreenSaved = (): boolean => {
+  try {
+    return window.localStorage.getItem(HOME_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
 export const pushSetup = (): 'ios' | 'ask' | 'blocked' | null => {
   if (typeof window === 'undefined') return null
-  if (iosBrowser() && !installedApp()) return 'ios'
+  rememberHomeScreen()
+  if (iosBrowser() && !installedApp()) {
+    if (homeScreenSaved()) return null
+    return 'ios'
+  }
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return null
   if (Notification.permission === 'denied') return 'blocked'
   if (Notification.permission === 'granted') return null
