@@ -12,6 +12,27 @@ type PointsRankingProps = {
   currentUser: UserProfile | null
 }
 
+const WEEK_RANGE: Record<number, [number, number]> = {
+  1: [1, 7],
+  2: [8, 14],
+  3: [15, 21],
+}
+
+const madridMonthLength = (): number => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: 'numeric',
+  }).formatToParts(new Date())
+  const read = (type: string): number => Number(parts.find((part) => part.type === type)?.value ?? '1')
+  return new Date(read('year'), read('month'), 0).getDate()
+}
+
+const currentWeekLabel = (week: number): string => {
+  const range = WEEK_RANGE[week] ?? [22, madridMonthLength()]
+  return `Semana ${week} en curso, días ${range[0]} al ${range[1]}.`
+}
+
 const weekCardsOf = (stored: MonthWeek[]): MonthWeek[] => {
   return Array.from({ length: WEEK_COUNT }, (_, index) => {
     const week = index + 1
@@ -50,7 +71,7 @@ const PointsRanking = ({ currentUser }: PointsRankingProps) => {
             {ownPlace > 0 ? ` · puesto ${ownPlace}` : ''}
           </p>
           <p className="text-xs text-text-200">
-            Total = {COUNTED_WEEK_COUNT} mejores semanas, no las {WEEK_COUNT}.
+            {currentWeekLabel(currentWeek)}
           </p>
         </div>
       )}
