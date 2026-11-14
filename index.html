@@ -41,9 +41,15 @@
     <style>
       #boot {
         position: fixed;
-        inset: 0;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100lvh;
         z-index: 9999;
-        background: #fff;
+        background-color: #fff;
+        background-repeat: no-repeat;
+        background-position: top center;
+        background-size: 100% auto;
       }
       #boot img {
         position: absolute;
@@ -53,6 +59,110 @@
         height: 42vmin;
         object-fit: contain;
         transform: translate(-50%, -50%);
+      }
+      @media screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
+        #boot { background-image: url("/splash/1320x2868.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+        #boot { background-image: url("/splash/2868x1320.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
+        #boot { background-image: url("/splash/1260x2736.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+        #boot { background-image: url("/splash/2736x1260.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
+        #boot { background-image: url("/splash/1290x2796.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+        #boot { background-image: url("/splash/2796x1290.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
+        #boot { background-image: url("/splash/1284x2778.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+        #boot { background-image: url("/splash/2778x1284.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
+        #boot { background-image: url("/splash/1242x2688.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+        #boot { background-image: url("/splash/2688x1242.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
+        #boot { background-image: url("/splash/1206x2622.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+        #boot { background-image: url("/splash/2622x1206.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
+        #boot { background-image: url("/splash/1179x2556.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+        #boot { background-image: url("/splash/2556x1179.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
+        #boot { background-image: url("/splash/1170x2532.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+        #boot { background-image: url("/splash/2532x1170.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
+        #boot { background-image: url("/splash/1125x2436.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+        #boot { background-image: url("/splash/2436x1125.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) {
+        #boot { background-image: url("/splash/828x1792.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape) {
+        #boot { background-image: url("/splash/1792x828.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait) {
+        #boot { background-image: url("/splash/1242x2208.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape) {
+        #boot { background-image: url("/splash/2208x1242.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) {
+        #boot { background-image: url("/splash/750x1334.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape) {
+        #boot { background-image: url("/splash/1334x750.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) {
+        #boot { background-image: url("/splash/640x1136.png"); }
+        #boot img { display: none; }
+      }
+      @media screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape) {
+        #boot { background-image: url("/splash/1136x640.png"); }
+        #boot img { display: none; }
       }
     </style>
     <meta name="description" content="Frizeplay. Juegos 1v1 por fichas." />
