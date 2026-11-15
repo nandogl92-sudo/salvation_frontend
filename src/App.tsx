@@ -55,6 +55,7 @@ export default function App() {
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [rankedEntry, setRankedEntry] = useState('');
+  const [rankedAutoConnect, setRankedAutoConnect] = useState(false);
   
   // Estados para el Lobby
   const betAmount = 1;
@@ -226,6 +227,7 @@ export default function App() {
   };
 
   const requestJoinGame = (game: Game) => {
+    setRankedAutoConnect(false);
     setRankedEntry('');
     if (currentUser && currentUser.gamesAccess !== true) {
       setAccessNotice('Aún no tienes acceso a los juegos.');
@@ -252,6 +254,28 @@ export default function App() {
       return;
     }
     setAccessNotice(null);
+    setRankedAutoConnect(false);
+    setRankedEntry(code.trim().toUpperCase());
+    joinLobby(game);
+  };
+
+  const playFromWait = (gameId: string, code: string) => {
+    const game = GAMES.find((item) => item.id === gameId);
+    if (!game || code.trim() === '') return;
+    if (currentUser && currentUser.gamesAccess !== true) {
+      setAccessNotice('Aún no tienes acceso a los juegos.');
+      setView('home');
+      setScrollTarget('juegos');
+      return;
+    }
+    searchLockRef.current = false;
+    if (ticket) void cancelQueue(ticket.id);
+    setTicket(null);
+    setQueueStatus('idle');
+    setQueueError(null);
+    setQueueHold(null);
+    setAccessNotice(null);
+    setRankedAutoConnect(true);
     setRankedEntry(code.trim().toUpperCase());
     joinLobby(game);
   };
@@ -809,7 +833,7 @@ export default function App() {
         />
       )}
       {currentUser && (
-        <RankedWaitDialog userId={currentUser.id} hidden={view === 'playing'} />
+        <RankedWaitDialog userId={currentUser.id} hidden={view === 'playing'} onPlay={playFromWait} />
       )}
 
       <Navbar
@@ -858,7 +882,7 @@ export default function App() {
 
         {view === 'lobby' && selectedGame && currentUser && (
           <LobbyPanel
-            key={`${selectedGame.id}:${rankedEntry}`}
+            key={`${selectedGame.id}:${rankedEntry}:${rankedAutoConnect ? 'go' : 'stay'}`}
             selectedGame={selectedGame}
             balance={currentUser.balance}
             betAmount={betAmount}
@@ -875,6 +899,7 @@ export default function App() {
               void leaveFriendly();
             }}
             initialRankedCode={rankedEntry}
+            autoConnectRanked={rankedAutoConnect}
           />
         )}
 

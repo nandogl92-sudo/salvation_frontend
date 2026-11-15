@@ -44,7 +44,15 @@ const incomingWait = (seats: RaffleSeat[], now: number, userId: string): RaffleS
   return seat ?? null
 }
 
-const RankedWaitDialog = ({ userId, hidden }: { userId: string; hidden: boolean }) => {
+const RankedWaitDialog = ({
+  userId,
+  hidden,
+  onPlay,
+}: {
+  userId: string
+  hidden: boolean
+  onPlay: (gameId: string, code: string) => void
+}) => {
   const [seat, setSeat] = useState<RaffleSeat | null>(null)
   const [now, setNow] = useState(Date.now())
   const [closedKey, setClosedKey] = useState('')
@@ -84,6 +92,13 @@ const RankedWaitDialog = ({ userId, hidden }: { userId: string; hidden: boolean 
     setClosedKey(noticeKey)
   }
 
+  const handlePlay = () => {
+    if (!seat.code || !seat.waitingGameId) return
+    rememberNotice(userId, noticeKey)
+    setClosedKey(noticeKey)
+    onPlay(seat.waitingGameId, seat.code)
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <div
@@ -98,16 +113,29 @@ const RankedWaitDialog = ({ userId, hidden }: { userId: string; hidden: boolean 
         <p className="text-sm font-bold text-[#3ec8ff]" role="timer">
           Tienes {clockOf(left)} antes de que el código caduque.
         </p>
-        <button
-          type="button"
-          aria-label="Cerrar el aviso"
-          tabIndex={0}
-          onClick={handleClose}
-          onKeyDown={(event) => handleActivateKey(event, handleClose)}
-          className="w-full py-3 rounded-xl font-bold bg-[#f5c518] text-[#1a1403]"
-        >
-          Entendido
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            aria-label="Cerrar el aviso"
+            tabIndex={0}
+            onClick={handleClose}
+            onKeyDown={(event) => handleActivateKey(event, handleClose)}
+            className="flex-1 py-3 rounded-xl font-bold bg-[#f5c518] text-[#1a1403]"
+          >
+            Entendido
+          </button>
+          <button
+            type="button"
+            aria-label={`Jugar ${gameLabel}`}
+            tabIndex={0}
+            onClick={handlePlay}
+            onKeyDown={(event) => handleActivateKey(event, handlePlay)}
+            disabled={!seat.code || !seat.waitingGameId}
+            className="flex-1 py-3 rounded-xl font-bold bg-[#3ddc97] text-[#070b16] disabled:opacity-60"
+          >
+            Jugar
+          </button>
+        </div>
       </div>
     </div>,
     document.body,

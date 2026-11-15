@@ -81,6 +81,7 @@ type LobbyPanelProps = {
   onFriendlyLook: (rivalUserId: string | null, stamp: number, requestStamp: number, reject: boolean) => Promise<FriendlyLookResult>
   onFriendlyStop: () => void
   initialRankedCode?: string
+  autoConnectRanked?: boolean
 }
 
 const LobbyPanel = ({
@@ -98,6 +99,7 @@ const LobbyPanel = ({
   onFriendlyLook,
   onFriendlyStop,
   initialRankedCode = '',
+  autoConnectRanked = false,
 }: LobbyPanelProps) => {
   const hasInsufficientBalance = betAmount > balance
   const isInvalidBet = hasInsufficientBalance || betAmount <= 0
@@ -219,6 +221,15 @@ const LobbyPanel = ({
     if (!rankedSeat || rankedWrongGame || isInvalidBet || isSearching) return
     onRetry(true, rankedCode)
   }
+
+  const autoStartedRef = useRef(false)
+  useEffect(() => {
+    if (!autoConnectRanked || autoStartedRef.current) return
+    if (!isRanked || isInvalidBet || isSearching) return
+    if (rankedCode.length === 0 || !rankedSeat || rankedWrongGame) return
+    autoStartedRef.current = true
+    onRetry(true, rankedCode)
+  }, [autoConnectRanked, isInvalidBet, isRanked, isSearching, onRetry, rankedCode, rankedSeat, rankedWrongGame])
 
   const handleRetryRivals = () => {
     retry()
@@ -410,7 +421,7 @@ const LobbyPanel = ({
             {rankedSeat?.rivalName && !rankedWrongGame && (
               <button
                 type="button"
-                aria-label={`Marcar a ${rankedSeat.rivalName}`}
+                aria-label={`Jugar con ${rankedSeat.rivalName}`}
                 tabIndex={0}
                 onClick={handleTickRival}
                 onKeyDown={(event) => handleActivateKey(event, handleTickRival)}
@@ -420,7 +431,7 @@ const LobbyPanel = ({
                 <span className="font-bold text-text-100">{rankedSeat.rivalName}</span>
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-[#f5c518]">
                   <Check className="w-4 h-4" aria-hidden="true" />
-                  Marcar
+                  Jugar
                 </span>
               </button>
             )}
@@ -442,7 +453,7 @@ const LobbyPanel = ({
                 {queueHold
                   ? 'Encontrado. Entrando en la partida…'
                   : isRanked
-                    ? 'Buscando a otra persona…'
+                    ? 'Esperando a que la otra persona pulse Jugar.'
                     : waitingName
                       ? `Esperando a que ${waitingName} acepte.`
                       : 'Buscando partida…'}

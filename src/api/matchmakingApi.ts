@@ -48,6 +48,7 @@ type ApiMatch = {
   betAmount: number
   players: ApiRival[]
   isBotMatch?: boolean
+  ranked?: boolean
   createdAt?: string
 }
 
@@ -237,6 +238,7 @@ const readPoll = async (ticket: MatchTicket): Promise<QueuePoll> => {
   if (!match) return { status: 'error', message: 'La partida no incluye a los dos jugadores.' }
 
   const world = readWorld(body.world)
+  if (body.match.ranked === true && (body.arenaOpen !== true || world === null)) return { status: 'waiting' }
   return {
     status: 'matched',
     match,
