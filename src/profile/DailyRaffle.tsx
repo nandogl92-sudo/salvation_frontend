@@ -168,7 +168,7 @@ const SeatHours = ({
     const games = seat.games.map((gameId) => rankedGameName(gameId)).join(' y ');
     const saved = saveAgreedHour(day, seat.agreedHour, seat.id, seat.rivalName ?? '', games);
     if (saved === 'calendar') {
-      setCalendarNote('Confirma la cita en el calendario.');
+      setCalendarNote('Elige Calendario para guardar la cita.');
       return;
     }
     if (saved === 'file') {

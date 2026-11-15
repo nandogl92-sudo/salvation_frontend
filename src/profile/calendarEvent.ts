@@ -100,36 +100,8 @@ const onPhone = (): boolean => {
   return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
 }
 
-let calendarReady = false
-
-const askCalendarReady = (): void => {
-  const worker = navigator.serviceWorker?.controller
-  if (!worker) return
-  const channel = new MessageChannel()
-  channel.port1.onmessage = (event) => {
-    calendarReady = event.data === 'calendar-ready'
-  }
-  worker.postMessage({ type: 'calendar-ready' }, [channel.port2])
-}
-
-if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-  askCalendarReady()
-  navigator.serviceWorker.addEventListener('controllerchange', askCalendarReady)
-}
-
-const openInCalendar = (ics: string): boolean => {
-  const worker = navigator.serviceWorker?.controller
-  if (!worker || !calendarReady) return false
-  const token = `${Date.now()}`
-  worker.postMessage({ type: 'calendar', token, ics })
-  const popup = window.open(`/frizeplay-calendar.ics?t=${token}`, '_blank')
-  if (popup) return true
-  window.location.assign(`/frizeplay-calendar.ics?t=${token}`)
-  return true
-}
-
 const downloadCalendar = (ics: string, filename: string): void => {
-  const file = new Blob([ics], { type: 'text/calendar' })
+  const file = new Blob([ics], { type: 'application/octet-stream' })
   const url = URL.createObjectURL(file)
   const link = document.createElement('a')
   link.href = url
@@ -142,12 +114,26 @@ const downloadCalendar = (ics: string, filename: string): void => {
   }, 120000)
 }
 
+const shareCalendar = (ics: string, filename: string, title: string): boolean => {
+  if (!onPhone()) return false
+  if (typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') return false
+  const file = new File([ics], filename, { type: 'text/calendar' })
+  if (!navigator.canShare({ files: [file] })) return false
+  void navigator.share({ files: [file], title }).catch((error: unknown) => {
+    if (error instanceof DOMException && error.name === 'AbortError') return
+    downloadCalendar(ics, filename)
+  })
+  return true
+}
+
 export type CalendarSave = 'calendar' | 'file'
 
 export const saveAgreedHour = (day: string, hour: number, seatId: string, rivalName: string, games: string): CalendarSave | null => {
   const ics = calendarFile(day, hour, seatId, rivalName, games)
   if (!ics) return null
-  if (onPhone() && openInCalendar(ics)) return 'calendar'
-  downloadCalendar(ics, `frizeplay-${day}-${hour}.ics`)
+  const filename = `frizeplay-${day}-${hour}.ics`
+  const title = rivalName ? `Frizeplay contra ${rivalName}` : 'Frizeplay'
+  if (shareCalendar(ics, filename, title)) return 'calendar'
+  downloadCalendar(ics, filename)
   return 'file'
 }
