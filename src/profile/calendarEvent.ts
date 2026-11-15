@@ -94,14 +94,30 @@ const calendarFile = (day: string, hour: number, seatId: string, rivalName: stri
   return lines.map((line) => fold(line)).join('\r\n')
 }
 
-const onPhone = (): boolean => {
+const isApplePhone = (): boolean => {
   const agent = navigator.userAgent
-  if (/iPhone|iPad|iPod|Android/i.test(agent)) return true
+  if (/iPhone|iPad|iPod/i.test(agent)) return true
   return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
 }
 
+const isAndroidPhone = (): boolean => /Android/i.test(navigator.userAgent)
+
+const googleCalendarUrl = (day: string, hour: number, title: string, detail: string): string | null => {
+  const start = wallClock(day, hour, 0)
+  const end = wallClock(day, hour, 10)
+  if (!start || !end) return null
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: title,
+    dates: `${start}/${end}`,
+    details: detail,
+    ctz: 'Europe/Madrid',
+  })
+  return `https://calendar.google.com/calendar/render?${params.toString()}`
+}
+
 const downloadCalendar = (ics: string, filename: string): void => {
-  const file = new Blob([ics], { type: 'application/octet-stream' })
+  const file = new Blob([ics], { type: 'text/calendar' })
   const url = URL.createObjectURL(file)
   const link = document.createElement('a')
   link.href = url
@@ -115,25 +131,33 @@ const downloadCalendar = (ics: string, filename: string): void => {
 }
 
 const shareCalendar = (ics: string, filename: string, title: string): boolean => {
-  if (!onPhone()) return false
-  if (typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') return false
+  if (typeof navigator.share !== 'function') return false
   const file = new File([ics], filename, { type: 'text/calendar' })
-  if (!navigator.canShare({ files: [file] })) return false
   void navigator.share({ files: [file], title }).catch((error: unknown) => {
     if (error instanceof DOMException && error.name === 'AbortError') return
-    downloadCalendar(ics, filename)
+    void navigator.share({ files: [file] }).catch(() => undefined)
   })
   return true
 }
 
-export type CalendarSave = 'calendar' | 'file'
+export type CalendarSave = 'apple' | 'android' | 'file'
 
 export const saveAgreedHour = (day: string, hour: number, seatId: string, rivalName: string, games: string): CalendarSave | null => {
   const ics = calendarFile(day, hour, seatId, rivalName, games)
   if (!ics) return null
   const filename = `frizeplay-${day}-${hour}.ics`
   const title = rivalName ? `Frizeplay contra ${rivalName}` : 'Frizeplay'
-  if (shareCalendar(ics, filename, title)) return 'calendar'
+  const detail = games
+    ? `Hora acordada para jugar ${games}. El código vale 10 minutos.`
+    : 'Hora acordada para jugar el punto del mes. El código vale 10 minutos.'
+  if (isAndroidPhone()) {
+    const url = googleCalendarUrl(day, hour, title, detail)
+    if (!url) return null
+    window.open(url, '_blank', 'noopener,noreferrer')
+    return 'android'
+  }
+  if (isApplePhone() && shareCalendar(ics, filename, title)) return 'apple'
+  if (isApplePhone()) return null
   downloadCalendar(ics, filename)
   return 'file'
 }

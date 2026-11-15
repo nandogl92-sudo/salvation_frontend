@@ -167,17 +167,21 @@ const SeatHours = ({
     if (seat.agreedHour === null) return;
     const games = seat.games.map((gameId) => rankedGameName(gameId)).join(' y ');
     const saved = saveAgreedHour(day, seat.agreedHour, seat.id, seat.rivalName ?? '', games);
-    if (saved === 'calendar') {
-      setCalendarNote('Elige Calendario para guardar la cita.');
+    if (saved === 'apple') {
+      setCalendarNote('Pulsa Calendario para guardar la cita.');
+      return;
+    }
+    if (saved === 'android') {
+      setCalendarNote(null);
       return;
     }
     if (saved === 'file') {
       setCalendarNote('Se ha descargado la cita. Ábrela para guardarla en el calendario.');
       return;
     }
-    setCalendarNote('No se ha podido preparar la cita.');
+    setCalendarNote('No se ha podido abrir el calendario.');
   };
-  const calendarNoteClass = calendarNote === 'No se ha podido preparar la cita.'
+  const calendarNoteClass = calendarNote === 'No se ha podido abrir el calendario.'
     ? 'text-sm font-bold text-red-500'
     : 'text-sm text-text-200';
 
