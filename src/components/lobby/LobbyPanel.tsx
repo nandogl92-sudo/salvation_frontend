@@ -426,10 +426,10 @@ const LobbyPanel = ({
                 onClick={handleTickRival}
                 onKeyDown={(event) => handleActivateKey(event, handleTickRival)}
                 disabled={isInvalidBet}
-                className="w-full flex items-center justify-between gap-3 rounded-xl border border-[#3ec8ff] bg-[#0e1528] px-4 py-3 text-left disabled:opacity-60"
+                className="group w-full flex items-center justify-between gap-3 rounded-xl border border-[#3ec8ff] bg-[#0e1528] px-4 py-3 text-left transition-colors hover:border-[#9ae6ff] hover:bg-[#16324f] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-[#3ec8ff] disabled:hover:bg-[#0e1528]"
               >
                 <span className="font-bold text-text-100">{rankedSeat.rivalName}</span>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#f5c518]">
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-[#f5c518] transition-colors group-hover:text-white">
                   <Check className="w-4 h-4" aria-hidden="true" />
                   Jugar
                 </span>

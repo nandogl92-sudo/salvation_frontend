@@ -368,7 +368,7 @@ const PairCode = ({
   const hour = chosenHour(seat);
 
   useEffect(() => {
-    if (seat.codeState !== 'open' && seat.waitingUntil === null) return;
+    if (seat.codeState !== 'open' && seat.codeState !== 'waiting' && seat.waitingUntil === null) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [seat.codeState, seat.waitingUntil]);
@@ -388,14 +388,21 @@ const PairCode = ({
     });
   };
 
-  const left = seat.codeUntil === null ? 0 : seat.codeUntil - now;
-  const codeClosed = seat.codeState === 'closed' || (seat.codeState === 'open' && left <= 0);
+  const windowStart = seat.codeState === 'waiting' ? seat.codeUntil : null;
+  const windowEnd = seat.codeState === 'open'
+    ? seat.codeUntil
+    : windowStart === null
+      ? null
+      : windowStart + 10 * 60 * 1000;
+  const beforeHour = windowStart !== null && now < windowStart;
+  const inWindow = windowEnd !== null && !beforeHour && now < windowEnd;
+  const codeClosed = seat.codeState === 'closed' || (windowEnd !== null && now >= windowEnd);
   const showCode = seat.code !== null && !codeClosed;
   const playLeft = seat.waitingUntil === null ? 0 : seat.waitingUntil - now;
   const gameLabel = seat.waitingGameId ? rankedGameName(seat.waitingGameId) : '';
   const copyNoteClass = copyNote === 'Copiado' ? 'text-xs font-bold text-accent-100' : 'text-xs font-bold text-red-500';
   const handlePlayGame = (gameId: string) => {
-    if (!seat.code || !showCode || playedGameIds.includes(gameId)) return;
+    if (!seat.code || !inWindow || playedGameIds.includes(gameId)) return;
     onPlayGame(gameId, seat.code);
   };
 
@@ -433,16 +440,14 @@ const PairCode = ({
           {seat.games.map((gameId) => {
             const name = rankedGameName(gameId);
             const played = playedGameIds.includes(gameId);
-            const open = showCode && !played;
+            const open = inWindow && !played && seat.code !== null;
             const playLabel = played
               ? `${name} ya jugado`
-              : open
-                ? `Jugar ${name}`
-                : codeClosed
-                  ? `${name}. El código ya no vale`
-                  : hour !== null
-                    ? `${name}. Se abre a las ${hourLabel(hour)}`
-                    : `${name}. Elige la hora`;
+              : codeClosed
+                ? `${name}. El código ya no vale`
+                : hour === null
+                  ? `${name}. Elige la hora`
+                  : `Jugar ${name}`;
             const playClass = open
               ? 'w-full rounded-lg bg-[#f5c518] px-3 py-3 text-sm font-bold text-[#1a1403] hover:bg-[#e0b10f]'
               : 'w-full rounded-lg bg-bg-300 px-3 py-3 text-sm font-bold text-text-200';
