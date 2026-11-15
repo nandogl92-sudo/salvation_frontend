@@ -8,6 +8,8 @@ const FALLBACK_HOURS = [15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 const hourLabel = (hour: number): string => `${hour}:00`;
 
+const hourEndLabel = (hour: number): string => `${hour}:10`;
+
 const hourClass = (blocked: boolean, selected: boolean, rivalPick: boolean): string => {
   if (blocked) return 'bg-bg-200 text-text-200 line-through';
   if (selected) return 'bg-[#f5c518] text-[#1a1403]';
@@ -412,27 +414,30 @@ const PairCode = ({
         <p className="text-xs font-bold text-text-100">Contra {seat.rivalName}</p>
       )}
       {showCode && (
-        <div className="flex items-center gap-2">
-          <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código ${seat.code}`}>
-            {seat.code}
-          </p>
-          <button
-            type="button"
-            aria-label={copyNote === 'Copiado' ? 'Código copiado' : 'Copiar código'}
-            onClick={handleCopyCode}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#f5c518] hover:bg-bg-300"
-          >
-            {copyNote === 'Copiado' ? (
-              <Check className="h-5 w-5" aria-hidden="true" />
-            ) : (
-              <Copy className="h-5 w-5" aria-hidden="true" />
+        <div className="space-y-1">
+          <p className="text-xs text-text-200">Código para jugar</p>
+          <div className="flex items-center gap-2">
+            <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código para jugar ${seat.code}`}>
+              {seat.code}
+            </p>
+            <button
+              type="button"
+              aria-label={copyNote === 'Copiado' ? 'Código copiado' : 'Copiar código'}
+              onClick={handleCopyCode}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#f5c518] hover:bg-bg-300"
+            >
+              {copyNote === 'Copiado' ? (
+                <Check className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <Copy className="h-5 w-5" aria-hidden="true" />
+              )}
+            </button>
+            {copyNote && (
+              <span className={copyNoteClass} role="status">
+                {copyNote}
+              </span>
             )}
-          </button>
-          {copyNote && (
-            <span className={copyNoteClass} role="status">
-              {copyNote}
-            </span>
-          )}
+          </div>
         </div>
       )}
       {seat.games.length > 0 && (
@@ -447,7 +452,9 @@ const PairCode = ({
                 ? `${name}. El código ya no vale`
                 : hour === null
                   ? `${name}. Elige la hora`
-                  : `Jugar ${name}`;
+                  : open
+                    ? `Jugar ${name}`
+                    : `${name} a las ${hourLabel(hour)}`;
             const playClass = open
               ? 'w-full rounded-lg bg-[#f5c518] px-3 py-3 text-sm font-bold text-[#1a1403] hover:bg-[#e0b10f]'
               : 'w-full rounded-lg bg-bg-300 px-3 py-3 text-sm font-bold text-text-200';
@@ -485,9 +492,14 @@ const PairCode = ({
       {seat.noShowNote && (
         <p className="text-sm font-bold text-accent-100" role="status">{seat.noShowNote}</p>
       )}
-      {!codeClosed && hour !== null && (
+      {!codeClosed && hour !== null && !inWindow && (
         <p className="text-xs text-text-200">
-          El código tendrá validez hasta 10 minutos después de las {hourLabel(hour)}.
+          El código y los juegos se desbloquean a las {hourLabel(hour)}. Luego vale 10 minutos.
+        </p>
+      )}
+      {!codeClosed && hour !== null && inWindow && (
+        <p className="text-xs text-text-200">
+          El código vale hasta las {hourEndLabel(hour)}.
         </p>
       )}
       {!codeClosed && hour === null && (
