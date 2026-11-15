@@ -253,21 +253,6 @@ export default function App() {
       setScrollTarget('juegos');
       return;
     }
-    setAccessNotice(null);
-    setRankedAutoConnect(false);
-    setRankedEntry(code.trim().toUpperCase());
-    joinLobby(game);
-  };
-
-  const playFromWait = (gameId: string, code: string) => {
-    const game = GAMES.find((item) => item.id === gameId);
-    if (!game || code.trim() === '') return;
-    if (currentUser && currentUser.gamesAccess !== true) {
-      setAccessNotice('Aún no tienes acceso a los juegos.');
-      setView('home');
-      setScrollTarget('juegos');
-      return;
-    }
     searchLockRef.current = false;
     if (ticket) void cancelQueue(ticket.id);
     setTicket(null);
@@ -278,6 +263,10 @@ export default function App() {
     setRankedAutoConnect(true);
     setRankedEntry(code.trim().toUpperCase());
     joinLobby(game);
+  };
+
+  const playFromWait = (gameId: string, code: string) => {
+    openTodayGame(gameId, code);
   };
 
   const openAdmin = () => {
