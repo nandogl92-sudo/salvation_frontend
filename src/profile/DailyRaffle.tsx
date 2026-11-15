@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, X } from 'lucide-react';
+import { Check, Copy, X } from 'lucide-react';
 import { chooseRaffleHour, getTodayRaffle, rejectRaffleHour, type DailyRaffle as DailyRaffleView, type RaffleSeat } from '../api/raffleApi';
 import { rankedGameName } from './rankedGames';
 import { saveAgreedHour } from './calendarEvent';
@@ -276,6 +276,31 @@ const SeatHours = ({
   );
 };
 
+const copyText = async (text: string): Promise<boolean> => {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // En el móvil el portapapeles a veces falla. Se intenta el método antiguo.
+    }
+  }
+  try {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+};
+
 const leftLabel = (ms: number): string => {
   const total = Math.max(0, Math.ceil(ms / 1000));
   const minutes = Math.floor(total / 60);
@@ -287,6 +312,8 @@ const chosenHour = (seat: RaffleSeat): number | null => seat.agreedHour ?? seat.
 
 const PairCode = ({ seat, showRival }: { seat: RaffleSeat; showRival: boolean }) => {
   const [now, setNow] = useState(Date.now());
+  const [copyNote, setCopyNote] = useState<string | null>(null);
+  const copiedTimer = useRef<number | null>(null);
   const hour = chosenHour(seat);
 
   useEffect(() => {
@@ -295,6 +322,21 @@ const PairCode = ({ seat, showRival }: { seat: RaffleSeat; showRival: boolean })
     return () => window.clearInterval(timer);
   }, [seat.codeState, seat.waitingUntil]);
 
+  useEffect(() => {
+    return () => {
+      if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current);
+    };
+  }, []);
+
+  const handleCopyCode = () => {
+    if (!seat.code) return;
+    void copyText(seat.code).then((ok) => {
+      setCopyNote(ok ? 'Copiado' : 'No se ha podido copiar.');
+      if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current);
+      copiedTimer.current = window.setTimeout(() => setCopyNote(null), 2000);
+    });
+  };
+
   const left = seat.codeUntil === null ? 0 : seat.codeUntil - now;
   const codeClosed = seat.codeState === 'closed' || (seat.codeState === 'open' && left <= 0);
   const showCode = seat.code !== null && !codeClosed;
@@ -302,6 +344,7 @@ const PairCode = ({ seat, showRival }: { seat: RaffleSeat; showRival: boolean })
   const gameLabel = seat.waitingGameId ? rankedGameName(seat.waitingGameId) : '';
   const todayGames = seat.games.map((gameId) => rankedGameName(gameId)).join(' y ');
   const todayLabel = seat.games.length === 1 ? 'Juego de hoy' : 'Juegos de hoy';
+  const copyNoteClass = copyNote === 'Copiado' ? 'text-xs font-bold text-accent-100' : 'text-xs font-bold text-red-500';
 
   return (
     <div className="space-y-1">
@@ -312,9 +355,28 @@ const PairCode = ({ seat, showRival }: { seat: RaffleSeat; showRival: boolean })
         <p className="text-xs text-text-200">{todayLabel}: {todayGames}.</p>
       )}
       {showCode && (
-        <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código ${seat.code}`}>
-          {seat.code}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código ${seat.code}`}>
+            {seat.code}
+          </p>
+          <button
+            type="button"
+            aria-label={copyNote === 'Copiado' ? 'Código copiado' : 'Copiar código'}
+            onClick={handleCopyCode}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#f5c518] hover:bg-bg-300"
+          >
+            {copyNote === 'Copiado' ? (
+              <Check className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <Copy className="h-5 w-5" aria-hidden="true" />
+            )}
+          </button>
+          {copyNote && (
+            <span className={copyNoteClass} role="status">
+              {copyNote}
+            </span>
+          )}
+        </div>
       )}
       {seat.waitingUntil !== null && gameLabel.length > 0 && playLeft > 0 && (
         <>
