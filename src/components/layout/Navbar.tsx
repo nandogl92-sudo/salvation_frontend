@@ -104,14 +104,16 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
     }
     preparePush()
     setPushError(null)
-    setPushNote('ask')
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
-    void refreshPush().then((ok) => {
-      if (!stopped && ok) setPushNote(null)
-    })
-    return () => {
-      stopped = true
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      setPushNote(null)
+      void refreshPush().then((ok) => {
+        if (!stopped && !ok) setPushNote('ask')
+      })
+      return () => {
+        stopped = true
+      }
     }
+    setPushNote('ask')
   }, [userId])
 
   useEffect(() => {

@@ -11,8 +11,36 @@ const clockOf = (ms: number): string => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
-const incomingWait = (seats: RaffleSeat[], now: number): RaffleSeat | null => {
-  const seat = seats.find((item) => item.yours && !item.waitingYours && item.waitingName && item.waitingUntil !== null && item.waitingUntil > now)
+const seenKey = (userId: string): string => `frizeplay.wait.seen.${userId}`
+
+const noticeKeyOf = (seat: RaffleSeat): string => `${seat.id}:${seat.waitingGameId ?? ''}`
+
+const seenNotices = (userId: string): string[] => {
+  try {
+    const raw = window.localStorage.getItem(seenKey(userId))
+    const parsed = raw ? JSON.parse(raw) as unknown : []
+    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+const rememberNotice = (userId: string, noticeKey: string): void => {
+  const seen = new Set(seenNotices(userId))
+  seen.add(noticeKey)
+  window.localStorage.setItem(seenKey(userId), JSON.stringify([...seen]))
+}
+
+const incomingWait = (seats: RaffleSeat[], now: number, userId: string): RaffleSeat | null => {
+  const seen = new Set(seenNotices(userId))
+  const seat = seats.find((item) => (
+    item.yours
+    && !item.waitingYours
+    && item.waitingName
+    && item.waitingUntil !== null
+    && item.waitingUntil > now
+    && !seen.has(noticeKeyOf(item))
+  ))
   return seat ?? null
 }
 
@@ -27,7 +55,7 @@ const RankedWaitDialog = ({ userId, hidden }: { userId: string; hidden: boolean 
     const load = () => {
       void getTodayRaffle().then((result) => {
         if (stopped || !result.ok) return
-        setSeat(incomingWait(result.raffle.seats, Date.now()))
+        setSeat(incomingWait(result.raffle.seats, Date.now(), userId))
       })
     }
     load()
@@ -47,11 +75,12 @@ const RankedWaitDialog = ({ userId, hidden }: { userId: string; hidden: boolean 
   if (hidden || !seat || !seat.waitingName || seat.waitingUntil === null) return null
   const left = seat.waitingUntil - now
   if (left <= 0) return null
-  const noticeKey = `${seat.waitingGameId ?? ''}:${seat.waitingUntil}`
-  if (closedKey === noticeKey) return null
+  const noticeKey = noticeKeyOf(seat)
+  if (closedKey === noticeKey || seenNotices(userId).includes(noticeKey)) return null
 
   const gameLabel = rankedGameName(seat.waitingGameId ?? '')
   const handleClose = () => {
+    rememberNotice(userId, noticeKey)
     setClosedKey(noticeKey)
   }
 
