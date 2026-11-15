@@ -152,6 +152,7 @@ const SeatHours = ({
   onChoose: (seatId: string, hour: number) => void;
   onReject: (seatId: string, hour: number) => void;
 }) => {
+  const [calendarNote, setCalendarNote] = useState<string | null>(null);
   const canChoose = seat.agreedHour === null;
   const waitingOnYou = canChoose && seat.rivalHour !== null && seat.yourHour === null;
   const waitingOnRival = canChoose && seat.yourHour !== null && seat.rivalHour === null;
@@ -165,8 +166,20 @@ const SeatHours = ({
   const handleAddCalendar = () => {
     if (seat.agreedHour === null) return;
     const games = seat.games.map((gameId) => rankedGameName(gameId)).join(' y ');
-    saveAgreedHour(day, seat.agreedHour, seat.id, seat.rivalName ?? '', games);
+    const saved = saveAgreedHour(day, seat.agreedHour, seat.id, seat.rivalName ?? '', games);
+    if (saved === 'calendar') {
+      setCalendarNote('Confirma la cita en el calendario.');
+      return;
+    }
+    if (saved === 'file') {
+      setCalendarNote('Se ha descargado la cita. Ábrela para guardarla en el calendario.');
+      return;
+    }
+    setCalendarNote('No se ha podido preparar la cita.');
   };
+  const calendarNoteClass = calendarNote === 'No se ha podido preparar la cita.'
+    ? 'text-sm font-bold text-red-500'
+    : 'text-sm text-text-200';
 
   return (
     <div className="space-y-2">
@@ -189,6 +202,11 @@ const SeatHours = ({
         >
           Añadir al calendario
         </button>
+      )}
+      {calendarNote && (
+        <p className={calendarNoteClass} role="status">
+          {calendarNote}
+        </p>
       )}
       {seat.agreedHour !== null && hours.filter((hour) => !seat.blocked.includes(hour)).length === 1 && (
         <p className="text-sm text-text-200">Era la única hora que quedaba.</p>
