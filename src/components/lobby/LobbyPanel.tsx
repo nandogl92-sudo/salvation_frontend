@@ -80,6 +80,7 @@ type LobbyPanelProps = {
   onEndFriendlyWait: () => void
   onFriendlyLook: (rivalUserId: string | null, stamp: number, requestStamp: number, reject: boolean) => Promise<FriendlyLookResult>
   onFriendlyStop: () => void
+  initialRankedCode?: string
 }
 
 const LobbyPanel = ({
@@ -96,18 +97,19 @@ const LobbyPanel = ({
   onEndFriendlyWait,
   onFriendlyLook,
   onFriendlyStop,
+  initialRankedCode = '',
 }: LobbyPanelProps) => {
   const hasInsufficientBalance = betAmount > balance
   const isInvalidBet = hasInsufficientBalance || betAmount <= 0
   const isSearching = queueStatus === 'searching'
   const isTimeout = queueStatus === 'timeout'
   const canRanked = isCurrentSubscriptionMonth(currentUser.subscriptionMonth)
-  const [playMode, setPlayMode] = useState<PlayMode>(canRanked ? 'ranked' : 'friendly')
+  const [playMode, setPlayMode] = useState<PlayMode>(initialRankedCode || canRanked ? 'ranked' : 'friendly')
   const [selectedRivalId, setSelectedRivalId] = useState<string | null>(null)
-  const [accessCode, setAccessCode] = useState('')
+  const [accessCode, setAccessCode] = useState(initialRankedCode)
   const [codeError, setCodeError] = useState<string | null>(null)
   const [raffleSeats, setRaffleSeats] = useState<RaffleSeat[] | null>(null)
-  const [friendlyOpen, setFriendlyOpen] = useState(!canRanked)
+  const [friendlyOpen, setFriendlyOpen] = useState(!canRanked && initialRankedCode === '')
   const [friendlyConnected, setFriendlyConnected] = useState(false)
   const [activeUsers, setActiveUsers] = useState<ActivePlayer[]>([])
   const [friendlyError, setFriendlyError] = useState<string | null>(null)

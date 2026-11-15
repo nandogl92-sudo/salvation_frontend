@@ -54,6 +54,7 @@ export default function App() {
   const [view, setView] = useState<'home' | 'lobby' | 'playing' | 'profile' | 'admin'>('home');
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const [rankedEntry, setRankedEntry] = useState('');
   
   // Estados para el Lobby
   const betAmount = 1;
@@ -225,6 +226,7 @@ export default function App() {
   };
 
   const requestJoinGame = (game: Game) => {
+    setRankedEntry('');
     if (currentUser && currentUser.gamesAccess !== true) {
       setAccessNotice('Aún no tienes acceso a los juegos.');
       setView('home');
@@ -238,6 +240,20 @@ export default function App() {
     }
     setPendingGame(game);
     setView('home');
+  };
+
+  const openTodayGame = (gameId: string, code: string) => {
+    const game = GAMES.find((item) => item.id === gameId);
+    if (!game || code.trim() === '') return;
+    if (currentUser && currentUser.gamesAccess !== true) {
+      setAccessNotice('Aún no tienes acceso a los juegos.');
+      setView('home');
+      setScrollTarget('juegos');
+      return;
+    }
+    setAccessNotice(null);
+    setRankedEntry(code.trim().toUpperCase());
+    joinLobby(game);
   };
 
   const openAdmin = () => {
@@ -842,6 +858,7 @@ export default function App() {
 
         {view === 'lobby' && selectedGame && currentUser && (
           <LobbyPanel
+            key={`${selectedGame.id}:${rankedEntry}`}
             selectedGame={selectedGame}
             balance={currentUser.balance}
             betAmount={betAmount}
@@ -857,6 +874,7 @@ export default function App() {
             onFriendlyStop={() => {
               void leaveFriendly();
             }}
+            initialRankedCode={rankedEntry}
           />
         )}
 
@@ -896,7 +914,7 @@ export default function App() {
         )}
 
         {view === 'profile' && currentUser && (
-          <ProfilePanel user={currentUser} onBack={() => setView('home')} />
+          <ProfilePanel user={currentUser} onBack={() => setView('home')} onPlayGame={openTodayGame} />
         )}
 
         {view === 'admin' && currentUser?.role === 'admin' && (

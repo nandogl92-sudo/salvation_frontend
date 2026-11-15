@@ -15,7 +15,13 @@ const hourClass = (blocked: boolean, selected: boolean, rivalPick: boolean): str
   return 'bg-bg-300 text-text-100';
 };
 
-const DailyRaffle = () => {
+const DailyRaffle = ({
+  playedGameIds,
+  onPlayGame,
+}: {
+  playedGameIds: string[];
+  onPlayGame: (gameId: string, code: string) => void;
+}) => {
   const [raffle, setRaffle] = useState<DailyRaffleView | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -127,7 +133,13 @@ const DailyRaffle = () => {
             <div className="space-y-3">
               <p className="text-xs text-text-200">Código para acceder</p>
               {mine.map((seat) => (
-                <PairCode key={seat.id} seat={seat} showRival={mine.length > 1} />
+                <PairCode
+                  key={seat.id}
+                  seat={seat}
+                  showRival={mine.length > 1}
+                  playedGameIds={playedGameIds}
+                  onPlayGame={onPlayGame}
+                />
               ))}
             </div>
           )}
@@ -339,7 +351,17 @@ const leftLabel = (ms: number): string => {
 
 const chosenHour = (seat: RaffleSeat): number | null => seat.agreedHour ?? seat.yourHour;
 
-const PairCode = ({ seat, showRival }: { seat: RaffleSeat; showRival: boolean }) => {
+const PairCode = ({
+  seat,
+  showRival,
+  playedGameIds,
+  onPlayGame,
+}: {
+  seat: RaffleSeat;
+  showRival: boolean;
+  playedGameIds: string[];
+  onPlayGame: (gameId: string, code: string) => void;
+}) => {
   const [now, setNow] = useState(Date.now());
   const [copyNote, setCopyNote] = useState<string | null>(null);
   const copiedTimer = useRef<number | null>(null);
@@ -371,17 +393,16 @@ const PairCode = ({ seat, showRival }: { seat: RaffleSeat; showRival: boolean })
   const showCode = seat.code !== null && !codeClosed;
   const playLeft = seat.waitingUntil === null ? 0 : seat.waitingUntil - now;
   const gameLabel = seat.waitingGameId ? rankedGameName(seat.waitingGameId) : '';
-  const todayGames = seat.games.map((gameId) => rankedGameName(gameId)).join(' y ');
-  const todayLabel = seat.games.length === 1 ? 'Juego de hoy' : 'Juegos de hoy';
   const copyNoteClass = copyNote === 'Copiado' ? 'text-xs font-bold text-accent-100' : 'text-xs font-bold text-red-500';
+  const handlePlayGame = (gameId: string) => {
+    if (!seat.code || !showCode || playedGameIds.includes(gameId)) return;
+    onPlayGame(gameId, seat.code);
+  };
 
   return (
     <div className="space-y-1">
       {showRival && (
         <p className="text-xs font-bold text-text-100">Contra {seat.rivalName}</p>
-      )}
-      {showCode && todayGames.length > 0 && (
-        <p className="text-xs text-text-200">{todayLabel}: {todayGames}.</p>
       )}
       {showCode && (
         <div className="flex items-center gap-2">
@@ -405,6 +426,39 @@ const PairCode = ({ seat, showRival }: { seat: RaffleSeat; showRival: boolean })
               {copyNote}
             </span>
           )}
+        </div>
+      )}
+      {seat.games.length > 0 && (
+        <div className="flex flex-col gap-2 pt-2">
+          {seat.games.map((gameId) => {
+            const name = rankedGameName(gameId);
+            const played = playedGameIds.includes(gameId);
+            const open = showCode && !played;
+            const playLabel = played
+              ? `${name} ya jugado`
+              : open
+                ? `Jugar ${name}`
+                : codeClosed
+                  ? `${name}. El código ya no vale`
+                  : hour !== null
+                    ? `${name}. Se abre a las ${hourLabel(hour)}`
+                    : `${name}. Elige la hora`;
+            const playClass = open
+              ? 'w-full rounded-lg bg-[#f5c518] px-3 py-3 text-sm font-bold text-[#1a1403] hover:bg-[#e0b10f]'
+              : 'w-full rounded-lg bg-bg-300 px-3 py-3 text-sm font-bold text-text-200';
+            return (
+              <button
+                key={gameId}
+                type="button"
+                disabled={!open}
+                aria-label={playLabel}
+                onClick={() => handlePlayGame(gameId)}
+                className={playClass}
+              >
+                {playLabel}
+              </button>
+            );
+          })}
         </div>
       )}
       {seat.waitingUntil !== null && gameLabel.length > 0 && playLeft > 0 && (
