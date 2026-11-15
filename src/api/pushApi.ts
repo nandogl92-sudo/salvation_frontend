@@ -51,13 +51,26 @@ export const pushSetup = (): 'ios' | 'ask' | 'blocked' | null => {
   }
   if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return null
   if (Notification.permission === 'denied') return 'blocked'
-  if (Notification.permission === 'granted') return null
   return 'ask'
 }
 
-const registrationOf = async (): Promise<ServiceWorkerRegistration> => {
-  await navigator.serviceWorker.register('/sw.js')
-  return navigator.serviceWorker.ready
+let registrationPromise: Promise<ServiceWorkerRegistration> | null = null
+let preparedKey: string | null = null
+
+const registrationOf = (): Promise<ServiceWorkerRegistration> => {
+  if (!registrationPromise) {
+    registrationPromise = navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready)
+  }
+  return registrationPromise
+}
+
+export const preparePush = (): void => {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
+  void registrationOf()
+  if (preparedKey) return
+  void publicKeyOf().then((key) => {
+    preparedKey = key
+  })
 }
 
 const publicKeyOf = async (): Promise<string | null> => {
@@ -81,35 +94,42 @@ const storeSubscription = async (subscription: PushSubscription): Promise<boolea
   return response?.ok === true
 }
 
-export const refreshPush = async (): Promise<boolean> => {
-  if (pushSetup() !== null || Notification.permission !== 'granted') return false
-  const registration = await registrationOf()
-  let subscription = await registration.pushManager.getSubscription()
-  if (!subscription) {
-    const publicKey = await publicKeyOf()
-    if (!publicKey) return false
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: keyBytes(publicKey) as BufferSource,
-    })
-  }
-  return storeSubscription(subscription)
-}
-
-export const enablePush = async (): Promise<boolean> => {
-  if (pushSetup() === 'ios' || !('Notification' in window)) return false
-  const permission = await Notification.requestPermission()
-  if (permission !== 'granted') return false
+const subscribeAndStore = async (): Promise<boolean> => {
   const registration = await registrationOf()
   const current = await registration.pushManager.getSubscription()
-  if (current) await current.unsubscribe()
-  const publicKey = await publicKeyOf()
+  if (current && await storeSubscription(current)) return true
+  const publicKey = preparedKey ?? await publicKeyOf()
+  preparedKey = publicKey
   if (!publicKey) return false
+  if (current) await current.unsubscribe()
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: keyBytes(publicKey) as BufferSource,
   })
   return storeSubscription(subscription)
+}
+
+export const refreshPush = async (): Promise<boolean> => {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false
+  if (pushSetup() !== 'ask') return false
+  try {
+    return await subscribeAndStore()
+  } catch {
+    return false
+  }
+}
+
+export const enablePush = async (): Promise<boolean> => {
+  if (pushSetup() !== 'ask' || !('Notification' in window)) return false
+  if (Notification.permission !== 'granted') {
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') return false
+  }
+  try {
+    return await subscribeAndStore()
+  } catch {
+    return false
+  }
 }
 
 export const dropPush = async (): Promise<void> => {

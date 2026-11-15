@@ -7,7 +7,7 @@ import { formatPoints } from '../utils/formatPoints'
 import { handleActivateKey } from '../utils/handleActivateKey'
 import { reloadHome } from '../utils/reloadHome'
 import { getTodayRaffle } from '../../api/raffleApi'
-import { enablePush, pushSetup, refreshPush } from '../../api/pushApi'
+import { enablePush, preparePush, pushSetup, refreshPush } from '../../api/pushApi'
 import { INITIAL_COLOR_EVENT, initialColorOf } from '../../profile/initialColor'
 import TournamentBadges from '../profile/TournamentBadges'
 import { hasFreshNotice, markNoticeSeen } from '../../profile/raffleNotice'
@@ -37,6 +37,15 @@ const LINKS: { id: NavSection; label: string; icon: typeof Home }[] = [
   { id: 'ranking', label: 'Ranking', icon: Trophy },
   { id: 'info', label: 'Info', icon: Info },
 ]
+
+const pushCopy = (note: 'ios' | 'ask' | 'blocked'): string => {
+  if (note === 'ios') return 'En el iPhone, añade Frizeplay a la pantalla de inicio para recibir avisos con la app cerrada.'
+  if (note === 'blocked') return 'Los avisos están bloqueados en el navegador.'
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    return 'Pulsa otra vez para terminar de activar los avisos en este dispositivo.'
+  }
+  return 'Activa los avisos para recibir notificaciones con la aplicación cerrada.'
+}
 
 const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, onLogout, onNavigate, compact = false, menuLocked = false, menuNote = null, immersive = false, profileOpen = false }: NavbarProps) => {
   const headerRef = useRef<HTMLElement>(null)
@@ -83,10 +92,23 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
       setPushNote(null)
       return
     }
+    let stopped = false
     const note = pushSetup()
-    setPushNote(note)
-    if (note !== null) return
-    void refreshPush()
+    if (note !== 'ask') {
+      setPushNote(note)
+      return
+    }
+    preparePush()
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+      setPushNote('ask')
+      return
+    }
+    void refreshPush().then((ok) => {
+      if (!stopped) setPushNote(ok ? null : 'ask')
+    })
+    return () => {
+      stopped = true
+    }
   }, [userId])
 
   useEffect(() => {
@@ -328,11 +350,7 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
       {user && pushNote && (
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 pb-2">
           <p className="text-xs text-[#d5dcf0]">
-            {pushNote === 'ios'
-              ? 'En el iPhone, añade Frizeplay a la pantalla de inicio para recibir avisos con la app cerrada.'
-              : pushNote === 'blocked'
-                ? 'Los avisos están bloqueados en el navegador.'
-                : 'Activa los avisos para recibir notificaciones con la aplicación cerrada.'}
+            {pushCopy(pushNote)}
           </p>
           {pushNote === 'ask' && (
             <button
