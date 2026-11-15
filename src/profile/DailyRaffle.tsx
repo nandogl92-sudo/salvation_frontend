@@ -133,7 +133,7 @@ const DailyRaffle = ({
           ))}
           {raffle.youPlay && mine.length > 0 && (
             <div className="space-y-3">
-              <p className="text-xs text-text-200">Código para acceder</p>
+              <p className="text-xs text-text-200">Código para acceder a los juegos de hoy.</p>
               {mine.map((seat) => (
                 <PairCode
                   key={seat.id}
@@ -415,9 +415,8 @@ const PairCode = ({
       )}
       {showCode && (
         <div className="space-y-1">
-          <p className="text-xs text-text-200">Código para jugar</p>
           <div className="flex items-center gap-2">
-            <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código para jugar ${seat.code}`}>
+            <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código para acceder a los juegos de hoy ${seat.code}`}>
               {seat.code}
             </p>
             <button
