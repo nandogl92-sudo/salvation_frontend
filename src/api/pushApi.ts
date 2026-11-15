@@ -54,22 +54,50 @@ export const pushSetup = (): 'ios' | 'ask' | 'blocked' | null => {
   return 'ask'
 }
 
-let registrationPromise: Promise<ServiceWorkerRegistration> | null = null
+let activeRegistration: ServiceWorkerRegistration | null = null
 let preparedKey: string | null = null
 
-const registrationOf = (): Promise<ServiceWorkerRegistration> => {
-  if (!registrationPromise) {
-    registrationPromise = navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready)
-  }
-  return registrationPromise
+const waitUntilActive = (registration: ServiceWorkerRegistration): Promise<void> => {
+  if (registration.active) return Promise.resolve()
+  const worker = registration.installing ?? registration.waiting
+  if (!worker) return Promise.resolve()
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error('timeout')), 8000)
+    let settled = false
+    const finish = (failed: boolean) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      if (failed) reject(new Error('redundant'))
+      else resolve()
+    }
+    if (registration.active || worker.state === 'activated') {
+      finish(false)
+      return
+    }
+    worker.addEventListener('statechange', () => {
+      if (worker.state === 'activated' || registration.active) finish(false)
+      if (worker.state === 'redundant') finish(true)
+    })
+  })
+}
+
+const registrationOf = async (): Promise<ServiceWorkerRegistration> => {
+  if (activeRegistration?.active) return activeRegistration
+  const registration = await navigator.serviceWorker.register('/sw.js')
+  activeRegistration = registration
+  await waitUntilActive(registration)
+  return registration
 }
 
 export const preparePush = (): void => {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
-  void registrationOf()
+  void registrationOf().catch(() => {
+    activeRegistration = null
+  })
   if (preparedKey) return
   void publicKeyOf().then((key) => {
-    preparedKey = key
+    if (key) preparedKey = key
   })
 }
 
@@ -94,41 +122,64 @@ const storeSubscription = async (subscription: PushSubscription): Promise<boolea
   return response?.ok === true
 }
 
-const subscribeAndStore = async (): Promise<boolean> => {
-  const registration = await registrationOf()
-  const current = await registration.pushManager.getSubscription()
-  if (current && await storeSubscription(current)) return true
+export type PushResult = { ok: true } | { ok: false; message: string }
+
+const keyBuffer = (value: string): ArrayBuffer => {
+  const bytes = keyBytes(value)
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+}
+
+const messageOf = (error: unknown): string => {
+  if (error instanceof Error && error.message === 'timeout') {
+    return 'Está tardando. Cierra Frizeplay, ábrelo desde el icono y pulsa otra vez.'
+  }
+  const name = error instanceof Error ? error.name : ''
+  if (name === 'NotAllowedError') return 'Pulsa otra vez para guardar este móvil.'
+  if (name === 'InvalidStateError') return 'Cierra Frizeplay, ábrelo otra vez y pulsa el botón.'
+  return 'No se ha podido activar. Pulsa otra vez.'
+}
+
+const subscribeAndStore = async (): Promise<PushResult> => {
+  const registration = activeRegistration?.active ? activeRegistration : await registrationOf()
   const publicKey = preparedKey ?? await publicKeyOf()
-  preparedKey = publicKey
-  if (!publicKey) return false
+  if (publicKey) preparedKey = publicKey
+  if (!publicKey) return { ok: false, message: 'El servidor no ha podido preparar los avisos.' }
+  const current = await registration.pushManager.getSubscription()
+  if (current && await storeSubscription(current)) return { ok: true }
   if (current) await current.unsubscribe()
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: keyBytes(publicKey) as BufferSource,
+    applicationServerKey: keyBuffer(publicKey),
   })
-  return storeSubscription(subscription)
+  if (!await storeSubscription(subscription)) return { ok: false, message: 'El móvil no se ha guardado. Pulsa otra vez.' }
+  return { ok: true }
 }
 
 export const refreshPush = async (): Promise<boolean> => {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false
   if (pushSetup() !== 'ask') return false
   try {
-    return await subscribeAndStore()
+    const result = await subscribeAndStore()
+    return result.ok
   } catch {
     return false
   }
 }
 
-export const enablePush = async (): Promise<boolean> => {
-  if (pushSetup() !== 'ask' || !('Notification' in window)) return false
+export const enablePush = async (): Promise<PushResult> => {
+  if (!('Notification' in window)) return { ok: false, message: 'Este navegador no puede recibir avisos.' }
+  if (pushSetup() === 'ios') return { ok: false, message: 'En el iPhone, abre Frizeplay desde el icono de la pantalla de inicio.' }
+  if (pushSetup() === 'blocked' || Notification.permission === 'denied') {
+    return { ok: false, message: 'Los avisos están bloqueados en el navegador.' }
+  }
   if (Notification.permission !== 'granted') {
     const permission = await Notification.requestPermission()
-    if (permission !== 'granted') return false
+    if (permission !== 'granted') return { ok: false, message: 'Hay que permitir los avisos para recibirlos.' }
   }
   try {
     return await subscribeAndStore()
-  } catch {
-    return false
+  } catch (error) {
+    return { ok: false, message: messageOf(error) }
   }
 }
 

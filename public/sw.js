@@ -1,3 +1,11 @@
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting())
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim())
+})
+
 self.addEventListener('push', (event) => {
   let note = { title: 'Frizeplay', body: 'Tienes un aviso nuevo.', url: '/' }
   try {

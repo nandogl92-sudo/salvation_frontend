@@ -56,6 +56,8 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
   const [panelBox, setPanelBox] = useState({ top: 72, maxHeight: 480 })
   const [profileAlert, setProfileAlert] = useState(false)
   const [pushNote, setPushNote] = useState<'ios' | 'ask' | 'blocked' | null>(null)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushError, setPushError] = useState<string | null>(null)
   const [initialRing, setInitialRing] = useState('border-[#FF5A5F]')
   const showAuth = !user && isAuthReady
 
@@ -90,6 +92,8 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
   useEffect(() => {
     if (!userId) {
       setPushNote(null)
+      setPushError(null)
+      setPushBusy(false)
       return
     }
     let stopped = false
@@ -99,12 +103,11 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
       return
     }
     preparePush()
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
-      setPushNote('ask')
-      return
-    }
+    setPushError(null)
+    setPushNote('ask')
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
     void refreshPush().then((ok) => {
-      if (!stopped) setPushNote(ok ? null : 'ask')
+      if (!stopped && ok) setPushNote(null)
     })
     return () => {
       stopped = true
@@ -124,8 +127,19 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
   }, [userId, accountColor])
 
   const handleEnablePush = async () => {
-    const ok = await enablePush()
-    setPushNote(ok ? null : pushSetup())
+    if (pushBusy) return
+    setPushBusy(true)
+    setPushError(null)
+    const result = await enablePush()
+    setPushBusy(false)
+    if (result.ok) {
+      setPushNote(null)
+      setPushError(null)
+      return
+    }
+    setPushError(result.message)
+    const note = pushSetup()
+    setPushNote(note === 'blocked' ? 'blocked' : 'ask')
   }
 
   useEffect(() => {
@@ -350,18 +364,19 @@ const Navbar = ({ user, isAuthReady, pendingGame, onOpenProfile, onOpenAdmin, on
       {user && pushNote && (
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-3 pb-2">
           <p className="text-xs text-[#d5dcf0]">
-            {pushCopy(pushNote)}
+            {pushError ?? pushCopy(pushNote)}
           </p>
           {pushNote === 'ask' && (
             <button
               type="button"
               aria-label="Activar avisos"
               tabIndex={0}
-              onClick={handleEnablePush}
+              disabled={pushBusy}
+              onClick={() => { void handleEnablePush() }}
               onKeyDown={(event) => handleActivateKey(event, () => { void handleEnablePush() })}
-              className="rounded-lg bg-[#f5c518] px-3 py-2 text-xs font-bold text-[#1a1403]"
+              className="rounded-lg bg-[#f5c518] px-3 py-2 text-xs font-bold text-[#1a1403] disabled:opacity-60"
             >
-              Activar avisos
+              {pushBusy ? 'Activando...' : 'Activar avisos'}
             </button>
           )}
         </div>
