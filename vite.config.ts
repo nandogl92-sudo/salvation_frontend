@@ -1,13 +1,49 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, type Plugin} from 'vite';
+import {agreedHourIcs} from './src/profile/calendarEvent';
+
+const calendarPlugin = (): Plugin => ({
+  name: 'frizeplay-calendar',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      const raw = req.url ?? '';
+      const pathOnly = raw.split('?')[0];
+      if (pathOnly !== '/frizeplay-calendar.ics') return next();
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+      const query = new URL(raw, 'http://localhost').searchParams;
+      const hour = Number(query.get('hour'));
+      const ics = agreedHourIcs(
+        query.get('day') ?? '',
+        hour,
+        query.get('seat') ?? 'frizeplay',
+        query.get('rival') ?? '',
+        query.get('games') ?? '',
+      );
+      if (!ics) {
+        res.statusCode = 400;
+        res.end();
+        return;
+      }
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+      res.setHeader('Content-Disposition', 'inline; filename="frizeplay.ics"');
+      res.setHeader('Cache-Control', 'no-store');
+      if (req.method === 'HEAD') {
+        res.end();
+        return;
+      }
+      res.end(ics);
+    });
+  },
+});
 
 const apiProxy = process.env.API_PROXY ?? 'http://localhost:4444'
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [calendarPlugin(), react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

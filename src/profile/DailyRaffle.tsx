@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, X } from 'lucide-react';
 import { chooseRaffleHour, getTodayRaffle, rejectRaffleHour, type DailyRaffle as DailyRaffleView, type RaffleSeat } from '../api/raffleApi';
 import { rankedGameName } from './rankedGames';
-import { saveAgreedHour } from './calendarEvent';
+import { phoneCalendarLink, saveAgreedHour } from './calendarEvent';
 
 const FALLBACK_HOURS = [15, 16, 17, 18, 19, 20, 21, 22, 23];
 
@@ -163,19 +163,14 @@ const SeatHours = ({
   const handleReject = (hour: number) => {
     onReject(seat.id, hour);
   };
+  const gamesLabel = seat.games.map((gameId) => rankedGameName(gameId)).join(' y ');
+  const phoneLink = seat.agreedHour === null
+    ? null
+    : phoneCalendarLink(day, seat.agreedHour, seat.id, seat.rivalName ?? '', gamesLabel);
   const handleAddCalendar = () => {
     if (seat.agreedHour === null) return;
-    const games = seat.games.map((gameId) => rankedGameName(gameId)).join(' y ');
-    const saved = saveAgreedHour(day, seat.agreedHour, seat.id, seat.rivalName ?? '', games);
-    if (saved === 'apple') {
-      setCalendarNote('Pulsa Calendario para guardar la cita.');
-      return;
-    }
-    if (saved === 'android') {
-      setCalendarNote(null);
-      return;
-    }
-    if (saved === 'file') {
+    const saved = saveAgreedHour(day, seat.agreedHour, seat.id, seat.rivalName ?? '', gamesLabel);
+    if (saved) {
       setCalendarNote('Se ha descargado la cita. Ábrela para guardarla en el calendario.');
       return;
     }
@@ -184,6 +179,7 @@ const SeatHours = ({
   const calendarNoteClass = calendarNote === 'No se ha podido abrir el calendario.'
     ? 'text-sm font-bold text-red-500'
     : 'text-sm text-text-200';
+  const calendarLabel = `Añadir al calendario las ${hourLabel(seat.agreedHour ?? 0)} contra ${seat.rivalName ?? 'tu pareja'}`;
 
   return (
     <div className="space-y-2">
@@ -191,10 +187,21 @@ const SeatHours = ({
       {seat.agreedHour !== null && (
         <p className="text-sm font-bold text-text-100">Hora acordada: {hourLabel(seat.agreedHour)}.</p>
       )}
-      {seat.agreedHour !== null && (
+      {phoneLink && (
+        <a
+          href={phoneLink.href}
+          target={phoneLink.kind === 'android' ? '_blank' : undefined}
+          rel={phoneLink.kind === 'android' ? 'noopener noreferrer' : undefined}
+          aria-label={calendarLabel}
+          className="text-sm font-bold text-[#3ec8ff] underline"
+        >
+          Añadir al calendario
+        </a>
+      )}
+      {!phoneLink && seat.agreedHour !== null && (
         <button
           type="button"
-          aria-label={`Añadir al calendario las ${hourLabel(seat.agreedHour)} contra ${seat.rivalName ?? 'tu pareja'}`}
+          aria-label={calendarLabel}
           tabIndex={0}
           onClick={handleAddCalendar}
           onKeyDown={(event) => {

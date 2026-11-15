@@ -44,7 +44,7 @@ const fold = (line: string): string => {
   return parts.join('\r\n')
 }
 
-const calendarFile = (day: string, hour: number, seatId: string, rivalName: string, games: string): string | null => {
+export const agreedHourIcs = (day: string, hour: number, seatId: string, rivalName: string, games: string): string | null => {
   const start = wallClock(day, hour, 0)
   const end = wallClock(day, hour, 10)
   if (!start || !end) return null
@@ -130,34 +130,38 @@ const downloadCalendar = (ics: string, filename: string): void => {
   }, 120000)
 }
 
-const shareCalendar = (ics: string, filename: string, title: string): boolean => {
-  if (typeof navigator.share !== 'function') return false
-  const file = new File([ics], filename, { type: 'text/calendar' })
-  void navigator.share({ files: [file], title }).catch((error: unknown) => {
-    if (error instanceof DOMException && error.name === 'AbortError') return
-    void navigator.share({ files: [file] }).catch(() => undefined)
-  })
-  return true
+const isMobile = (): boolean => {
+  if (isApplePhone() || isAndroidPhone()) return true
+  if (/Mobile/i.test(navigator.userAgent)) return true
+  return window.matchMedia('(pointer: coarse)').matches
 }
 
-export type CalendarSave = 'apple' | 'android' | 'file'
+export type PhoneCalendarLink = { kind: 'apple' | 'android'; href: string }
 
-export const saveAgreedHour = (day: string, hour: number, seatId: string, rivalName: string, games: string): CalendarSave | null => {
-  const ics = calendarFile(day, hour, seatId, rivalName, games)
-  if (!ics) return null
-  const filename = `frizeplay-${day}-${hour}.ics`
+export const phoneCalendarLink = (day: string, hour: number, seatId: string, rivalName: string, games: string): PhoneCalendarLink | null => {
+  if (!isMobile()) return null
   const title = rivalName ? `Frizeplay contra ${rivalName}` : 'Frizeplay'
   const detail = games
     ? `Hora acordada para jugar ${games}. El código vale 10 minutos.`
     : 'Hora acordada para jugar el punto del mes. El código vale 10 minutos.'
   if (isAndroidPhone()) {
-    const url = googleCalendarUrl(day, hour, title, detail)
-    if (!url) return null
-    window.open(url, '_blank', 'noopener,noreferrer')
-    return 'android'
+    const href = googleCalendarUrl(day, hour, title, detail)
+    if (!href) return null
+    return { kind: 'android', href }
   }
-  if (isApplePhone() && shareCalendar(ics, filename, title)) return 'apple'
-  if (isApplePhone()) return null
-  downloadCalendar(ics, filename)
-  return 'file'
+  const params = new URLSearchParams({
+    day,
+    hour: String(hour),
+    seat: seatId,
+    rival: rivalName,
+    games,
+  })
+  return { kind: 'apple', href: `webcal://${window.location.host}/frizeplay-calendar.ics?${params.toString()}` }
+}
+
+export const saveAgreedHour = (day: string, hour: number, seatId: string, rivalName: string, games: string): boolean => {
+  const ics = agreedHourIcs(day, hour, seatId, rivalName, games)
+  if (!ics) return false
+  downloadCalendar(ics, `frizeplay-${day}-${hour}.ics`)
+  return true
 }
