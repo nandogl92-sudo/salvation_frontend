@@ -403,7 +403,7 @@ const LobbyPanel = ({
               <p className="text-sm text-red-500" role="alert">El código no es correcto.</p>
             )}
             {rankedWrongGame && (
-              <p className="text-sm text-red-500" role="alert">Hoy no te toca ese juego.</p>
+              <p className="text-sm text-red-500" role="alert">Hoy no te toca este juego.</p>
             )}
             {rankedSeat?.rivalName && !rankedWrongGame && (
               <button
