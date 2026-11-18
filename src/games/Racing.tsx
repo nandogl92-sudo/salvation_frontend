@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { keyHeld, otherSide, PAD_KEY_EVENT, readPadDetail, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -900,6 +900,7 @@ export default function Racing({
       link?.setLocalKeys(state.keys);
     };
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') event.preventDefault();
       state.keys[event.key] = true;
       publishKeys();
     };
@@ -907,8 +908,15 @@ export default function Racing({
       state.keys[event.key] = false;
       publishKeys();
     };
+    const handlePad = (event: Event) => {
+      const detail = readPadDetail(event);
+      if (!detail) return;
+      state.keys[detail.key] = detail.type === 'keydown';
+      publishKeys();
+    };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener(PAD_KEY_EVENT, handlePad);
 
     const rescueCar = (car: Car) => {
       burst(state.sparks, car.x, car.y, car.light);
@@ -1122,6 +1130,7 @@ export default function Racing({
       ended = true;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener(PAD_KEY_EVENT, handlePad);
       link?.stop();
       cancelAnimationFrame(raf);
     };

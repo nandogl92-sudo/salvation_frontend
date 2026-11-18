@@ -211,6 +211,21 @@ const remember = (list: MoveSample[], frame: number, move: PaddleMove): boolean 
 export const keyHeld = (keys: Record<string, boolean>, ...names: string[]): boolean =>
   names.some((name) => Boolean(keys[name]))
 
+export const PAD_KEY_EVENT = 'frize-key'
+
+export type PadKeyDetail = {
+  type: 'keydown' | 'keyup'
+  key: string
+}
+
+export const readPadDetail = (event: Event): PadKeyDetail | null => {
+  if (event.type !== PAD_KEY_EVENT) return null
+  const detail = (event as CustomEvent<PadKeyDetail>).detail
+  if (!detail?.key) return null
+  if (detail.type !== 'keydown' && detail.type !== 'keyup') return null
+  return detail
+}
+
 export const otherSide = (side: 'p1' | 'p2'): 'p1' | 'p2' => (side === 'p1' ? 'p2' : 'p1')
 
 const socketUrl = (matchId: string, token: string): string => {

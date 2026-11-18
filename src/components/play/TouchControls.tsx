@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight, ArrowUp } from 'lucide-react'
-import { useEffect, useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent, type ReactNode } from 'react'
+import { PAD_KEY_EVENT, type PadKeyDetail } from '../../games/liveInputs'
 
 type PadKey = {
   key: string
@@ -61,7 +62,9 @@ const keyCode = (key: string): string => {
 }
 
 const sendKey = (type: 'keydown' | 'keyup', key: string) => {
-  window.dispatchEvent(new KeyboardEvent(type, { key, code: keyCode(key), bubbles: true }))
+  const detail: PadKeyDetail = { type, key }
+  window.dispatchEvent(new CustomEvent<PadKeyDetail>(PAD_KEY_EVENT, { detail }))
+  window.dispatchEvent(new KeyboardEvent(type, { key, code: keyCode(key), bubbles: true, cancelable: true }))
 }
 
 const SteerMark = ({ turn }: { turn: 'left' | 'right' }) => {
@@ -88,37 +91,77 @@ const SteerMark = ({ turn }: { turn: 'left' | 'right' }) => {
 }
 
 const PadButton = ({ padKey, className, children }: { padKey: PadKey; className?: string; children?: ReactNode }) => {
-  const handlePointerDown = (event: PointerEvent<HTMLButtonElement>) => {
-    event.preventDefault()
-    event.currentTarget.setPointerCapture(event.pointerId)
+  const downRef = useRef(false)
+
+  const press = () => {
+    if (downRef.current) return
+    downRef.current = true
     sendKey('keydown', padKey.key)
   }
 
-  const handlePointerUp = (event: PointerEvent<HTMLButtonElement>) => {
-    event.preventDefault()
+  const release = () => {
+    if (!downRef.current) return
+    downRef.current = false
     sendKey('keyup', padKey.key)
   }
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== 'Enter' && event.key !== ' ') return
-    event.preventDefault()
-    sendKey('keydown', padKey.key)
+  const fromTouchRef = useRef(false)
+
+  useEffect(() => () => {
+    if (!downRef.current) return
+    downRef.current = false
+    sendKey('keyup', padKey.key)
+  }, [padKey.key])
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'touch') return
+    if (event.button !== 0) return
+    press()
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // En el iPhone la captura del dedo puede fallar. El toque ya quedó pulsado.
+    }
   }
 
-  const handleKeyUp = (event: KeyboardEvent<HTMLButtonElement>) => {
+  const handlePointerDone = () => {
+    if (fromTouchRef.current) return
+    release()
+  }
+
+  const handleTouchStart = () => {
+    fromTouchRef.current = true
+    press()
+  }
+
+  const handleTouchEnd = () => {
+    fromTouchRef.current = false
+    release()
+  }
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
-    sendKey('keyup', padKey.key)
+    press()
+  }
+
+  const handleKeyUp = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    release()
   }
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
       aria-label={padKey.ariaLabel}
       tabIndex={0}
       onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      onPointerUp={handlePointerDone}
+      onPointerCancel={handlePointerDone}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
       className={className ?? 'min-w-12 min-h-12 px-3 rounded-xl bg-[#1a2340] border border-[#f5c518]/60 text-[#f5c518] text-[10px] font-bold select-none touch-none active:bg-[#f5c518] active:text-[#1a1403]'}
@@ -129,7 +172,7 @@ const PadButton = ({ padKey, className, children }: { padKey: PadKey; className?
           <span className="max-w-full text-center text-[10px] leading-tight tracking-normal">{padKey.label}</span>
         </span>
       ) : padKey.label)}
-    </button>
+    </div>
   )
 }
 
@@ -204,9 +247,9 @@ const TouchControls = ({ gameId }: { gameId: string; stickSide?: 'left' | 'right
   if (!pad) return null
 
   const rowClass = gameId === 'combat'
-    ? 'flex min-h-24 w-full flex-1 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
+    ? 'flex min-h-24 w-full shrink-0 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
     : gameId === 'tetris'
-    ? 'flex min-h-0 w-full flex-1 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
+    ? 'flex h-36 w-full shrink-0 items-stretch gap-2 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:h-auto'
     : gameId === 'pong'
       ? 'flex w-full flex-col items-center gap-3 px-2 py-2 lg:hidden [@media(orientation:landscape)_and_(max-height:520px)_and_(max-width:1023px)]:contents'
       : gameId === 'snake'

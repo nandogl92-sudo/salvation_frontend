@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { keyHeld, otherSide, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
+import { keyHeld, otherSide, PAD_KEY_EVENT, readPadDetail, startLiveInputs, stepPlayHead, type SceneSnap } from './liveInputs';
 import { makeRng, rankedCountdown, sideLabel, type SharedWorld } from './sharedWorld';
 
 const WIDTH = 960;
@@ -603,8 +603,15 @@ export default function Skydive({
       state.keys[event.key] = false;
       publishKeys();
     };
+    const handlePad = (event: Event) => {
+      const detail = readPadDetail(event);
+      if (!detail) return;
+      state.keys[detail.key] = detail.type === 'keydown';
+      publishKeys();
+    };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener(PAD_KEY_EVENT, handlePad);
 
     const burst = (x: number, y: number, canopy: string, body: string) => {
       const palette = [canopy, body, '#ffffff', '#fde047'];
@@ -908,6 +915,7 @@ export default function Skydive({
       ended = true;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener(PAD_KEY_EVENT, handlePad);
       link?.stop();
       cancelAnimationFrame(raf);
     };
