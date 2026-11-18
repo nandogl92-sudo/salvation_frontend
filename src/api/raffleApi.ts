@@ -10,8 +10,8 @@ export type RaffleSeat = {
   names: string[]
   yours: boolean
   rivalName: string | null
-  yourHour: number | null
-  rivalHour: number | null
+  yourHours: number[]
+  rivalHours: number[]
   yourTurn: boolean
   agreedHour: number | null
   cleared: boolean
@@ -26,6 +26,7 @@ export type RaffleSeat = {
   waitingName: string | null
   waitingUntil: number | null
   waitingYours: boolean
+  offerLocked: boolean
 }
 
 export type DailyRaffle = {
@@ -60,6 +61,17 @@ const readHour = (value: unknown): number | null => {
   return null
 }
 
+const readHours = (value: unknown, single: unknown): number[] => {
+  const source = Array.isArray(value) ? value : single === undefined ? [] : [single]
+  const hours: number[] = []
+  source.forEach((item) => {
+    const hour = readHour(item)
+    if (hour === null || hours.includes(hour)) return
+    hours.push(hour)
+  })
+  return hours.sort((left, right) => left - right)
+}
+
 const readSeat = (value: unknown): RaffleSeat | null => {
   if (!value || typeof value !== 'object') return null
   const seat = value as {
@@ -68,7 +80,9 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     yours?: unknown
     rivalName?: unknown
     yourHour?: unknown
+    yourHours?: unknown
     rivalHour?: unknown
+    rivalHours?: unknown
     yourTurn?: unknown
     agreedHour?: unknown
     cleared?: unknown
@@ -83,6 +97,7 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     waitingName?: unknown
     waitingUntil?: unknown
     waitingYours?: unknown
+    offerLocked?: unknown
   }
   if (typeof seat.id !== 'string' || !Array.isArray(seat.names)) return null
   const names = seat.names.filter((name) => typeof name === 'string')
@@ -92,8 +107,8 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     names,
     yours: seat.yours === true,
     rivalName: typeof seat.rivalName === 'string' ? seat.rivalName : null,
-    yourHour: readHour(seat.yourHour),
-    rivalHour: readHour(seat.rivalHour),
+    yourHours: readHours(seat.yourHours, seat.yourHour),
+    rivalHours: readHours(seat.rivalHours, seat.rivalHour),
     yourTurn: seat.yourTurn !== false,
     agreedHour: readHour(seat.agreedHour),
     cleared: seat.cleared === true,
@@ -108,6 +123,7 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     waitingName: typeof seat.waitingName === 'string' && seat.waitingName.length > 0 ? seat.waitingName : null,
     waitingUntil: typeof seat.waitingUntil === 'number' && Number.isFinite(seat.waitingUntil) ? seat.waitingUntil : null,
     waitingYours: seat.waitingYours === true,
+    offerLocked: seat.offerLocked === true,
   }
 }
 
@@ -167,13 +183,16 @@ export const getTodayRaffle = async (): Promise<RaffleResult> => {
   }
 }
 
-export const rejectRaffleHour = async (hour: number, seatId: string): Promise<RaffleResult> =>
-  sendRaffleHour({ hour, seatId, reject: true })
+export const rejectRaffleHours = async (seatId: string): Promise<RaffleResult> =>
+  sendRaffleHour({ seatId, reject: true })
 
-export const chooseRaffleHour = async (hour: number, seatId: string): Promise<RaffleResult> =>
+export const chooseRaffleHours = async (hours: number[], seatId: string): Promise<RaffleResult> =>
+  sendRaffleHour({ hours, seatId })
+
+export const acceptRaffleHour = async (hour: number, seatId: string): Promise<RaffleResult> =>
   sendRaffleHour({ hour, seatId })
 
-const sendRaffleHour = async (body: { hour: number; seatId: string; reject?: boolean }): Promise<RaffleResult> => {
+const sendRaffleHour = async (body: { hour?: number; hours?: number[]; seatId: string; reject?: boolean }): Promise<RaffleResult> => {
   const headers = authHeaders()
   if (!headers) return { ok: false, message: 'Sesión no válida o expirada.' }
 

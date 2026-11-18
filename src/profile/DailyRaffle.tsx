@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, X } from 'lucide-react';
-import { chooseRaffleHour, getTodayRaffle, rejectRaffleHour, type DailyRaffle as DailyRaffleView, type RaffleSeat } from '../api/raffleApi';
+import { acceptRaffleHour, chooseRaffleHours, getTodayRaffle, rejectRaffleHours, type DailyRaffle as DailyRaffleView, type RaffleSeat } from '../api/raffleApi';
 import { rankedGameName } from './rankedGames';
 import { phoneCalendarLink, saveAgreedHour } from './calendarEvent';
 
 const FALLBACK_HOURS = [15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 const hourLabel = (hour: number): string => `${hour}:00`;
+
+const hoursPhrase = (list: number[]): string => {
+  const labels = [...list].sort((left, right) => left - right).map((hour) => hourLabel(hour));
+  if (labels.length <= 1) return `las ${labels[0] ?? ''}`;
+  const last = labels[labels.length - 1];
+  return `las ${labels.slice(0, -1).join(', las ')} y ${last}`;
+};
 
 const hourEndLabel = (hour: number): string => `${hour}:10`;
 
@@ -57,13 +64,11 @@ const DailyRaffle = ({
     };
   }, []);
 
-  const applyHour = (seatId: string, hour: number, reject: boolean) => {
+  const saveHours = (seatId: string, key: string, request: ReturnType<typeof chooseRaffleHours>) => {
     if (!raffle || savingKey !== null) return;
     const seat = raffle.seats.find((item) => item.id === seatId);
     if (!seat?.yours || seat.agreedHour !== null) return;
-    if (!reject && seat.blocked.includes(hour)) return;
-    setSavingKey(`${seatId}:${reject ? 'reject' : 'choose'}:${hour}`);
-    const request = reject ? rejectRaffleHour(hour, seatId) : chooseRaffleHour(hour, seatId);
+    setSavingKey(key);
     request.then((result) => {
       setSavingKey(null);
       if (result.ok === true) {
@@ -75,21 +80,28 @@ const DailyRaffle = ({
     });
   };
 
-  const handleChoose = (seatId: string, hour: number) => {
-    applyHour(seatId, hour, false);
+  const handlePropose = (seatId: string, hours: number[]) => {
+    if (hours.some((hour) => raffle?.seats.find((item) => item.id === seatId)?.blocked.includes(hour))) return;
+    saveHours(seatId, `${seatId}:choose`, chooseRaffleHours(hours, seatId));
   };
 
-  const handleReject = (seatId: string, hour: number) => {
-    applyHour(seatId, hour, true);
+  const handleAccept = (seatId: string, hour: number) => {
+    saveHours(seatId, `${seatId}:accept:${hour}`, acceptRaffleHour(hour, seatId));
+  };
+
+  const handleReject = (seatId: string) => {
+    saveHours(seatId, `${seatId}:reject`, rejectRaffleHours(seatId));
   };
 
   const mine = raffle?.seats.filter((seat) => seat.yours) ?? [];
   const rivals = mine.map((seat) => seat.rivalName).filter((name) => name !== null);
   const hours = raffle && raffle.hours.length > 0 ? raffle.hours : FALLBACK_HOURS;
-  const sharedHour = mine.length > 1
-    && mine.every((seat) => seat.rivalHour !== null && seat.rivalHour === mine[0].rivalHour)
-    ? mine[0].rivalHour
-    : null;
+  const sharedHours = mine.length > 1 && mine.every((seat) => seat.agreedHour === null)
+    ? mine.slice(1).reduce(
+      (common, seat) => common.filter((hour) => seat.rivalHours.includes(hour)),
+      mine[0].rivalHours,
+    )
+    : [];
 
   return (
     <section className="bg-bg-100 rounded-2xl border border-bg-300 p-5 space-y-3" aria-label="Sorteo de hoy">
@@ -115,9 +127,9 @@ const DailyRaffle = ({
           {raffle.youPlay && (
             <p className="text-xs text-text-200">Quien gana su partido del día suma 1 punto a la semana del ranking.</p>
           )}
-          {sharedHour !== null && (
+          {sharedHours.length > 0 && (
             <p className="text-sm font-bold text-text-100" role="status">
-              {rivals.join(' y ')} han elegido la misma hora: las {hourLabel(sharedHour)}.
+              {rivals.join(' y ')} coinciden en {hoursPhrase(sharedHours)}.
             </p>
           )}
           {raffle.youPlay && mine.map((seat) => (
@@ -127,7 +139,8 @@ const DailyRaffle = ({
               seat={seat}
               hours={hours}
               savingKey={savingKey}
-              onChoose={handleChoose}
+              onPropose={handlePropose}
+              onAccept={handleAccept}
               onReject={handleReject}
             />
           ))}
@@ -156,26 +169,48 @@ const SeatHours = ({
   seat,
   hours,
   savingKey,
-  onChoose,
+  onPropose,
+  onAccept,
   onReject,
 }: {
   day: string;
   seat: RaffleSeat;
   hours: number[];
   savingKey: string | null;
-  onChoose: (seatId: string, hour: number) => void;
-  onReject: (seatId: string, hour: number) => void;
+  onPropose: (seatId: string, hours: number[]) => void;
+  onAccept: (seatId: string, hour: number) => void;
+  onReject: (seatId: string) => void;
 }) => {
   const [calendarNote, setCalendarNote] = useState<string | null>(null);
+  const [picked, setPicked] = useState<number[]>([]);
+  useEffect(() => {
+    setPicked((current) => {
+      const next = current.filter((hour) => !seat.blocked.includes(hour));
+      if (next.length === current.length && next.every((hour, index) => hour === current[index])) return current;
+      return next;
+    });
+  }, [seat.blocked]);
   const canChoose = seat.agreedHour === null;
-  const waitingOnYou = canChoose && seat.rivalHour !== null && seat.yourHour === null;
-  const waitingOnRival = canChoose && seat.yourHour !== null && seat.rivalHour === null;
+  const waitingOnYou = canChoose && seat.rivalHours.length > 0 && seat.yourHours.length === 0;
+  const waitingOnRival = canChoose && seat.yourHours.length > 0 && seat.rivalHours.length === 0;
   const canPick = canChoose && seat.yourTurn && !waitingOnYou && !waitingOnRival;
-  const handleHour = (hour: number) => {
-    onChoose(seat.id, hour);
+  const openHours = hours.filter((hour) => !seat.blocked.includes(hour));
+  const offerSize = Math.min(3, openHours.length);
+  const earliestHour = seat.rivalHours.length > 0 ? Math.min(...seat.rivalHours) : null;
+  const handleToggle = (hour: number) => {
+    if (!canPick || seat.blocked.includes(hour)) return;
+    setPicked((current) => {
+      if (current.includes(hour)) return current.filter((item) => item !== hour);
+      if (current.length >= offerSize) return current;
+      return [...current, hour];
+    });
   };
-  const handleReject = (hour: number) => {
-    onReject(seat.id, hour);
+  const handlePropose = () => {
+    if (!canPick || picked.length !== offerSize || offerSize < 2) return;
+    onPropose(seat.id, picked);
+  };
+  const handleRejectOffer = () => {
+    onReject(seat.id);
   };
   const gamesLabel = seat.games.map((gameId) => rankedGameName(gameId)).join(' y ');
   const phoneLink = seat.agreedHour === null
@@ -237,40 +272,51 @@ const SeatHours = ({
         <p className="text-sm text-text-200">Era la única hora que quedaba.</p>
       )}
       {canChoose && seat.cleared && canPick && (
-        <p className="text-sm font-bold text-red-500" role="status">Hora rechazada. Esa hora ya no se puede elegir. Te toca elegir la siguiente.</p>
+        <p className="text-sm font-bold text-red-500" role="status">Horas rechazadas. Esas horas ya no se pueden elegir. Te toca elegir otras.</p>
       )}
       {canChoose && !canPick && !waitingOnYou && !waitingOnRival && (
         <p className="text-sm font-bold text-text-100" role="status">
-          Le toca a {seat.rivalName} elegir la siguiente hora. Tú tendrás que aceptarla o cancelarla.
+          Le toca a {seat.rivalName} elegir tres horas. Tú aceptas una.
         </p>
       )}
-      {waitingOnYou && seat.rivalHour !== null && (
+      {waitingOnYou && !seat.offerLocked && (
         <p className="text-sm font-bold text-text-100" role="status">
-          {seat.rivalName} ha elegido las {hourLabel(seat.rivalHour)}. Acéptala o cancélala.
+          {seat.rivalName} ha elegido {hoursPhrase(seat.rivalHours)}. Acepta una. Si rechazas la primera, o si llega a media hora sin respuesta, solo podrás aceptar una de las otras.
         </p>
       )}
-      {waitingOnRival && seat.yourHour !== null && (
-        <p className="text-sm text-text-200">Has elegido las {hourLabel(seat.yourHour)}. {seat.rivalName} tiene que aceptarla o cancelarla.</p>
+      {waitingOnYou && seat.offerLocked && (
+        <p className="text-sm font-bold text-text-100" role="status">
+          La primera hora ya no vale. Acepta una de {hoursPhrase(seat.rivalHours)}. Ya no puedes rechazar.
+        </p>
       )}
-      {canChoose && canPick && !waitingOnRival && !seat.cleared && (
-        <p className="text-xs text-text-200">Elige una hora, de 15:00 a 23:00. La otra persona la acepta o la cancela.</p>
+      {waitingOnRival && !seat.offerLocked && (
+        <p className="text-sm text-text-200">
+          Has elegido {hoursPhrase(seat.yourHours)}. {seat.rivalName} puede aceptar una, o rechazar solo la primera.
+        </p>
+      )}
+      {waitingOnRival && seat.offerLocked && (
+        <p className="text-sm text-text-200">
+          La primera hora ya no vale. {seat.rivalName} solo puede aceptar una de {hoursPhrase(seat.yourHours)}.
+        </p>
+      )}
+      {canPick && offerSize > 1 && (
+        <p className="text-xs text-text-200">
+          {offerSize === 3
+            ? 'Elige tres horas, de 15:00 a 23:00. La otra persona acepta una.'
+            : `Quedan ${offerSize} horas. Elígelas. La otra persona acepta una.`}
+          {' '}Llevas {picked.length} de {offerSize}.
+        </p>
       )}
       {(canPick || waitingOnYou) && <div className="grid grid-cols-3 gap-2" role="group" aria-label={`Horas contra ${seat.rivalName}`}>
-        {(waitingOnYou && seat.rivalHour !== null ? [seat.rivalHour] : hours).map((hour) => {
+        {(waitingOnYou ? seat.rivalHours : hours).map((hour) => {
           const blocked = seat.blocked.includes(hour);
-          const selected = !blocked && (seat.agreedHour === hour || seat.yourHour === hour);
-          const proposed = waitingOnYou && !blocked && seat.rivalHour === hour;
-          const chooseThisHour = () => {
-            if (blocked || !canPick) return;
-            handleHour(hour);
+          const selected = canPick && picked.includes(hour);
+          const offered = waitingOnYou && seat.rivalHours.includes(hour);
+          const acceptThisHour = () => {
+            onAccept(seat.id, hour);
           };
-          const confirmThisHour = () => {
-            handleHour(hour);
-          };
-          const rejectThisHour = () => {
-            handleReject(hour);
-          };
-          if (proposed) {
+          if (offered) {
+            const canRejectThis = !seat.offerLocked && hour === earliestHour && seat.rivalHours.length > 1;
             return (
               <div key={hour} className="rounded-lg bg-bg-300 px-2 py-2 text-center ring-2 ring-[#f5c518]">
                 <p className="text-sm font-bold text-text-100">{hourLabel(hour)}</p>
@@ -279,27 +325,31 @@ const SeatHours = ({
                     type="button"
                     aria-label={`Aceptar las ${hourLabel(hour)}`}
                     disabled={savingKey !== null}
-                    onClick={confirmThisHour}
+                    onClick={acceptThisHour}
                     className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#f5c518] text-[#1a1403] disabled:opacity-50"
                   >
                     <Check className="h-5 w-5" aria-hidden="true" />
                   </button>
-                  <button
-                    type="button"
-                    aria-label={`Cancelar las ${hourLabel(hour)}`}
-                    disabled={savingKey !== null}
-                    onClick={rejectThisHour}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100 text-white disabled:opacity-50"
-                  >
-                    <X className="h-5 w-5" aria-hidden="true" />
-                  </button>
+                  {canRejectThis && (
+                    <button
+                      type="button"
+                      aria-label={`Rechazar las ${hourLabel(hour)}`}
+                      disabled={savingKey !== null}
+                      onClick={handleRejectOffer}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100 text-white disabled:opacity-50"
+                    >
+                      <X className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  )}
                 </div>
               </div>
             );
           }
           const label = blocked
             ? `Las ${hourLabel(hour)} ya no se pueden elegir`
-            : `Elegir las ${hourLabel(hour)} contra ${seat.rivalName}`;
+            : selected
+              ? `Quitar las ${hourLabel(hour)}`
+              : `Elegir las ${hourLabel(hour)} contra ${seat.rivalName}`;
           return (
             <button
               key={hour}
@@ -307,7 +357,7 @@ const SeatHours = ({
               aria-label={label}
               aria-pressed={selected}
               disabled={blocked || !canPick || savingKey !== null}
-              onClick={chooseThisHour}
+              onClick={() => handleToggle(hour)}
               className={`rounded-lg px-3 py-3 text-sm font-bold disabled:opacity-50 ${hourClass(blocked, selected, false)}`}
             >
               {hourLabel(hour)}
@@ -315,6 +365,17 @@ const SeatHours = ({
           );
         })}
       </div>}
+      {canPick && offerSize > 1 && (
+        <button
+          type="button"
+          aria-label={offerSize === 3 ? 'Proponer estas tres horas' : 'Proponer estas horas'}
+          disabled={picked.length !== offerSize || savingKey !== null}
+          onClick={handlePropose}
+          className="rounded-lg bg-[#f5c518] px-3 py-3 text-sm font-bold text-[#1a1403] disabled:opacity-50"
+        >
+          {offerSize === 3 ? 'Proponer estas tres horas' : 'Proponer estas horas'}
+        </button>
+      )}
     </div>
   );
 };
@@ -351,7 +412,7 @@ const leftLabel = (ms: number): string => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
-const chosenHour = (seat: RaffleSeat): number | null => seat.agreedHour ?? seat.yourHour;
+const chosenHour = (seat: RaffleSeat): number | null => seat.agreedHour;
 
 const PairCode = ({
   seat,
