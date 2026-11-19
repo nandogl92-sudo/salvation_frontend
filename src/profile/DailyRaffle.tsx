@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, Copy, X } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 import { acceptRaffleHour, chooseRaffleHours, getTodayRaffle, rejectRaffleHours, type DailyRaffle as DailyRaffleView, type RaffleSeat } from '../api/raffleApi';
 import { rankedGameName } from './rankedGames';
 import { phoneCalendarLink, saveAgreedHour } from './calendarEvent';
@@ -196,7 +196,7 @@ const SeatHours = ({
   const canPick = canChoose && seat.yourTurn && !waitingOnYou && !waitingOnRival;
   const openHours = hours.filter((hour) => !seat.blocked.includes(hour));
   const offerSize = Math.min(3, openHours.length);
-  const earliestHour = seat.rivalHours.length > 0 ? Math.min(...seat.rivalHours) : null;
+  const canRefuse = waitingOnYou && !seat.offerLocked && seat.rivalHours.length < openHours.length;
   const handleToggle = (hour: number) => {
     if (!canPick || seat.blocked.includes(hour)) return;
     setPicked((current) => {
@@ -281,22 +281,22 @@ const SeatHours = ({
       )}
       {waitingOnYou && !seat.offerLocked && (
         <p className="text-sm font-bold text-text-100" role="status">
-          {seat.rivalName} ha elegido {hoursPhrase(seat.rivalHours)}. Acepta una. Si rechazas la primera, o si llega a media hora sin respuesta, solo podrás aceptar una de las otras.
+          {seat.rivalName} ha elegido {hoursPhrase(seat.rivalHours)}. Acepta una, o recházalas todas. Si la primera llega a media hora sin respuesta, se anula y ya no podrás rechazar las otras.
         </p>
       )}
       {waitingOnYou && seat.offerLocked && (
         <p className="text-sm font-bold text-text-100" role="status">
-          La primera hora ya no vale. Acepta una de {hoursPhrase(seat.rivalHours)}. Ya no puedes rechazar.
+          La primera hora se ha pasado de tiempo. Acepta una de {hoursPhrase(seat.rivalHours)}. Ya no puedes rechazar.
         </p>
       )}
       {waitingOnRival && !seat.offerLocked && (
         <p className="text-sm text-text-200">
-          Has elegido {hoursPhrase(seat.yourHours)}. {seat.rivalName} puede aceptar una, o rechazar solo la primera.
+          Has elegido {hoursPhrase(seat.yourHours)}. {seat.rivalName} puede aceptar una o rechazar las tres.
         </p>
       )}
       {waitingOnRival && seat.offerLocked && (
         <p className="text-sm text-text-200">
-          La primera hora ya no vale. {seat.rivalName} solo puede aceptar una de {hoursPhrase(seat.yourHours)}.
+          La primera hora se ha pasado de tiempo. {seat.rivalName} solo puede aceptar una de {hoursPhrase(seat.yourHours)}.
         </p>
       )}
       {canPick && offerSize > 1 && (
@@ -316,11 +316,10 @@ const SeatHours = ({
             onAccept(seat.id, hour);
           };
           if (offered) {
-            const canRejectThis = !seat.offerLocked && hour === earliestHour && seat.rivalHours.length > 1;
             return (
               <div key={hour} className="rounded-lg bg-bg-300 px-2 py-2 text-center ring-2 ring-[#f5c518]">
                 <p className="text-sm font-bold text-text-100">{hourLabel(hour)}</p>
-                <div className="mt-2 flex justify-center gap-2">
+                <div className="mt-2 flex justify-center">
                   <button
                     type="button"
                     aria-label={`Aceptar las ${hourLabel(hour)}`}
@@ -330,17 +329,6 @@ const SeatHours = ({
                   >
                     <Check className="h-5 w-5" aria-hidden="true" />
                   </button>
-                  {canRejectThis && (
-                    <button
-                      type="button"
-                      aria-label={`Rechazar las ${hourLabel(hour)}`}
-                      disabled={savingKey !== null}
-                      onClick={handleRejectOffer}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-100 text-white disabled:opacity-50"
-                    >
-                      <X className="h-5 w-5" aria-hidden="true" />
-                    </button>
-                  )}
                 </div>
               </div>
             );
@@ -374,6 +362,17 @@ const SeatHours = ({
           className="rounded-lg bg-[#f5c518] px-3 py-3 text-sm font-bold text-[#1a1403] disabled:opacity-50"
         >
           {offerSize === 3 ? 'Proponer estas tres horas' : 'Proponer estas horas'}
+        </button>
+      )}
+      {canRefuse && (
+        <button
+          type="button"
+          aria-label="Rechazar estas horas"
+          disabled={savingKey !== null}
+          onClick={handleRejectOffer}
+          className="text-sm font-bold text-primary-100 underline disabled:opacity-50"
+        >
+          Ninguna de estas
         </button>
       )}
     </div>
