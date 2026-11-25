@@ -35,13 +35,6 @@ const isMonthPlayDay = (day: number): boolean => {
   return index === 0 || index === 2 || index === 4;
 };
 
-const madridDayKey = (time: number): string => new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Europe/Madrid',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-}).format(time);
-
 const chipsLeftForMonth = (balance: number): { enough: boolean; note: string } => {
   const { year, month, day } = madridCalendar();
   const lastDay = new Date(year, month, 0).getDate();
@@ -179,10 +172,6 @@ export default function ProfilePanel({
   const visibleHistory = stats.history
     .filter((record) => (historyTab === 'ranked' ? record.ranked : !record.ranked))
     .slice(0, 10);
-  const todayKey = madridDayKey(Date.now());
-  const playedGameIds = stats.history
-    .filter((record) => record.ranked && record.result !== 'refund' && madridDayKey(record.playedAt) === todayKey)
-    .map((record) => record.gameId);
   const emptyHistory = historyTab === 'ranked'
     ? 'Aún no has jugado ninguna ranqueada.'
     : 'Aún no has jugado ningún amistoso.';
@@ -287,7 +276,7 @@ export default function ProfilePanel({
 
       {settingsOpen && <AccountSettingsDialog user={user} onClose={handleCloseSettings} />}
 
-      <DailyRaffle playedGameIds={playedGameIds} onPlayGame={onPlayGame} />
+      <DailyRaffle onPlayGame={onPlayGame} />
 
       {status === 'loading' && (
         <p className="text-sm text-text-200" role="status">Cargando historial...</p>

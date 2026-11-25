@@ -27,6 +27,7 @@ export type RaffleSeat = {
   waitingUntil: number | null
   waitingYours: boolean
   offerLocked: boolean
+  playedGameIds: string[]
 }
 
 export type DailyRaffle = {
@@ -98,6 +99,7 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     waitingUntil?: unknown
     waitingYours?: unknown
     offerLocked?: unknown
+    playedGameIds?: unknown
   }
   if (typeof seat.id !== 'string' || !Array.isArray(seat.names)) return null
   const names = seat.names.filter((name) => typeof name === 'string')
@@ -124,6 +126,7 @@ const readSeat = (value: unknown): RaffleSeat | null => {
     waitingUntil: typeof seat.waitingUntil === 'number' && Number.isFinite(seat.waitingUntil) ? seat.waitingUntil : null,
     waitingYours: seat.waitingYours === true,
     offerLocked: seat.offerLocked === true,
+    playedGameIds: Array.isArray(seat.playedGameIds) ? seat.playedGameIds.filter((game) => typeof game === 'string') : [],
   }
 }
 

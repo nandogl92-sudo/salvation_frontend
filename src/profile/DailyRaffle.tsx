@@ -25,10 +25,8 @@ const hourClass = (blocked: boolean, selected: boolean, rivalPick: boolean): str
 };
 
 const DailyRaffle = ({
-  playedGameIds,
   onPlayGame,
 }: {
-  playedGameIds: string[];
   onPlayGame: (gameId: string, code: string) => void;
 }) => {
   const [raffle, setRaffle] = useState<DailyRaffleView | null>(null);
@@ -146,13 +144,11 @@ const DailyRaffle = ({
           ))}
           {raffle.youPlay && mine.length > 0 && (
             <div className="space-y-3">
-              <p className="text-xs text-text-200">Código para acceder a los juegos de hoy.</p>
               {mine.map((seat) => (
                 <PairCode
                   key={seat.id}
                   seat={seat}
                   showRival={mine.length > 1}
-                  playedGameIds={playedGameIds}
                   onPlayGame={onPlayGame}
                 />
               ))}
@@ -416,12 +412,10 @@ const chosenHour = (seat: RaffleSeat): number | null => seat.agreedHour;
 const PairCode = ({
   seat,
   showRival,
-  playedGameIds,
   onPlayGame,
 }: {
   seat: RaffleSeat;
   showRival: boolean;
-  playedGameIds: string[];
   onPlayGame: (gameId: string, code: string) => void;
 }) => {
   const [now, setNow] = useState(Date.now());
@@ -464,7 +458,7 @@ const PairCode = ({
   const gameLabel = seat.waitingGameId ? rankedGameName(seat.waitingGameId) : '';
   const copyNoteClass = copyNote === 'Copiado' ? 'text-xs font-bold text-accent-100' : 'text-xs font-bold text-red-500';
   const handlePlayGame = (gameId: string) => {
-    if (!seat.code || !inWindow || playedGameIds.includes(gameId)) return;
+    if (!seat.code || !inWindow || seat.playedGameIds.includes(gameId)) return;
     onPlayGame(gameId, seat.code);
   };
 
@@ -475,6 +469,7 @@ const PairCode = ({
       )}
       {showCode && (
         <div className="space-y-1">
+          <p className="text-xs text-text-200">Código para acceder a los juegos de hoy.</p>
           <div className="flex items-center gap-2">
             <p className="font-pixel text-lg tracking-[0.35em] text-[#f5c518]" aria-label={`Código para acceder a los juegos de hoy ${seat.code}`}>
               {seat.code}
@@ -503,7 +498,7 @@ const PairCode = ({
         <div className="flex flex-col gap-2 pt-2">
           {seat.games.map((gameId) => {
             const name = rankedGameName(gameId);
-            const played = playedGameIds.includes(gameId);
+            const played = seat.playedGameIds.includes(gameId);
             const open = inWindow && !played && seat.code !== null;
             const playLabel = played
               ? `${name} ya jugado`
